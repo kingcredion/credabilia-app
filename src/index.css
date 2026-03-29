@@ -196,6 +196,45 @@ button:focus-visible {
   }
 }
 
+/* ── Premium Glass Icon System ── */
+.glass-icon-base {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(255, 255, 255, 0.06);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  border: 1px solid rgba(255, 255, 255, 0.13);
+  transition: transform 0.22s ease, box-shadow 0.22s ease, background 0.22s ease, border-color 0.22s ease;
+}
+
+.glass-icon-base:hover {
+  transform: scale(1.08);
+  background: rgba(255, 255, 255, 0.1);
+  border-color: rgba(255, 255, 255, 0.22);
+}
+
+.glass-icon-active {
+  background: rgba(255, 255, 255, 0.1);
+  border-color: rgba(255, 255, 255, 0.2);
+}
+
+/* Light mode — slightly more opaque for visibility */
+:root:not(.dark) .glass-icon-base {
+  background: rgba(0, 0, 0, 0.04);
+  border-color: rgba(0, 0, 0, 0.08);
+}
+
+:root:not(.dark) .glass-icon-base:hover {
+  background: rgba(0, 0, 0, 0.07);
+  border-color: rgba(0, 0, 0, 0.14);
+}
+
+:root:not(.dark) .glass-icon-active {
+  background: rgba(0, 0, 0, 0.07);
+  border-color: rgba(0, 0, 0, 0.14);
+}
+
 /* ── Dark mode — applied via .dark class on <html> (user toggle or system default) ── */
 
 /* ── Layout and Scrolling ── */
@@ -303,6 +342,13 @@ a:focus-visible,
   scroll-behavior: auto;
 }
 
+/* iOS: prevent auto-zoom on input focus by enforcing 16px font size */
+@media (max-width: 768px) {
+  input, textarea, select {
+    font-size: 16px !important;
+  }
+}
+
 /* Minimum 44×44px tap targets on mobile */
 @media (max-width: 768px) {
   button,
@@ -319,7 +365,7 @@ a:focus-visible,
 
   /* Ensure bottom nav doesn't clip content — pages need padding */
   .mobile-page-bottom-padding {
-    padding-bottom: calc(56px + env(safe-area-inset-bottom));
+    padding-bottom: calc(72px + env(safe-area-inset-bottom));
   }
 
   /* Safe area for top notch/status bar on mobile */

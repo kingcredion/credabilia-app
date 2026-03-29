@@ -343,7 +343,7 @@ export default function AuditorRewards() {
             <Button
               onClick={() => runDistributionMutation.mutate()}
               disabled={runDistributionMutation.isPending || monthlyPool <= 0}
-              className="bg-gradient-to-r from-green-600 to-blue-600 hover:from-green-700 hover:to-blue-700 text-white"
+              className="bg-gradient-to-r from-green-600 to-blue-600 hover:from-green-700 hover:to-blue-700 text-white whitespace-nowrap"
             >
               {runDistributionMutation.isPending ? (
                 <>
@@ -353,7 +353,7 @@ export default function AuditorRewards() {
               ) : (
                 <>
                   <Play className="w-4 h-4 mr-2" />
-                  Run Distribution Now
+                  Run Distribution
                 </>
               )}
             </Button>
@@ -470,15 +470,15 @@ export default function AuditorRewards() {
         </div>
 
         <Tabs defaultValue="eligible" className="w-full">
-          <TabsList className="grid w-full grid-cols-3 mb-6">
-            <TabsTrigger value="eligible">
-              Eligible Auditors ({eligibleMembers})
+          <TabsList className="grid w-full grid-cols-3 mb-6 overflow-x-auto">
+            <TabsTrigger value="eligible" className="whitespace-nowrap">
+              Eligible ({eligibleMembers})
             </TabsTrigger>
-            <TabsTrigger value="top-earners">
+            <TabsTrigger value="top-earners" className="whitespace-nowrap">
               Top Earners ({topEarners.length})
             </TabsTrigger>
-            <TabsTrigger value="transactions">
-              Recent Transactions
+            <TabsTrigger value="transactions" className="whitespace-nowrap">
+              Transactions
             </TabsTrigger>
           </TabsList>
 

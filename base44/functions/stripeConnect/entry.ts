@@ -102,7 +102,6 @@ Deno.serve(async (req) => {
         'components[payouts][features][standard_payouts]': 'true',
         'components[payouts][features][edit_payout_schedule]': 'true',
         'components[payouts][features][external_account_collection]': 'true',
-        'components[balances][enabled]': 'true',
       });
       if (session.error) throw new Error(session.error.message);
       return Response.json({ client_secret: session.client_secret });

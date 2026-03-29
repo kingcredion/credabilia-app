@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef, useCallback } from "react";
 import { base44 } from "@/api/base44Client";
+import { getStripeInstance } from "@/lib/stripeLoader";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { CreditCard, Plus, Trash2, Star, Loader2, AlertCircle, CheckCircle2 } from "lucide-react";
@@ -107,7 +108,6 @@ export default function BuyerWallet() {
 
 function AddCardDialog({ open, onOpenChange, onSuccess }) {
   const [clientSecret, setClientSecret] = useState(null);
-  const [stripePk, setStripePk] = useState(null);
   const [isLoadingIntent, setIsLoadingIntent] = useState(false);
   const [isConfirming, setIsConfirming] = useState(false);
   const [elementReady, setElementReady] = useState(false);
@@ -123,7 +123,6 @@ function AddCardDialog({ open, onOpenChange, onSuccess }) {
   useEffect(() => {
     if (!open) {
       setClientSecret(null);
-      setStripePk(null);
       setError(null);
       setSuccess(false);
       setElementReady(false);
@@ -138,36 +137,22 @@ function AddCardDialog({ open, onOpenChange, onSuccess }) {
     }
   }, [open]);
 
-  // Step 1: Load Stripe.js + fetch setup intent when dialog opens
+  // Step 1: Load Stripe + fetch setup intent when dialog opens
   useEffect(() => {
     if (!open) return;
     const fetchSecret = async () => {
       setIsLoadingIntent(true);
       setError(null);
       try {
-        if (!window.Stripe) {
-          await new Promise((resolve, reject) => {
-            const existing = document.querySelector('script[src="https://js.stripe.com/v3/"]');
-            if (existing) { resolve(); return; }
-            const script = document.createElement("script");
-            script.src = "https://js.stripe.com/v3/";
-            script.onload = resolve;
-            script.onerror = () => reject(new Error("Failed to load Stripe.js"));
-            document.body.appendChild(script);
-          });
-        }
-        const [pkRes, siRes] = await Promise.all([
-          base44.functions.invoke("stripeCustomer", { action: "get_publishable_key" }),
+        const [stripe, siRes] = await Promise.all([
+          getStripeInstance(),
           base44.functions.invoke("stripeCustomer", { action: "create_setup_intent" }),
         ]);
-        const pk = pkRes.data?.publishableKey;
         const secret = siRes.data?.clientSecret;
-        if (!pk) throw new Error("Could not load Stripe publishable key");
         if (!secret) throw new Error("No client secret returned from server");
-        setStripePk(pk);
+        stripeRef.current = stripe;
         setClientSecret(secret);
       } catch (e) {
-        setError(e.message);
         setError(e.message);
       } finally {
         setIsLoadingIntent(false);
@@ -176,16 +161,15 @@ function AddCardDialog({ open, onOpenChange, onSuccess }) {
     fetchSecret();
   }, [open]);
 
-  // Step 2: Mount Card Element after clientSecret + pk are ready — poll for DOM node
+  // Step 2: Mount Card Element after clientSecret + stripe are ready — poll for DOM node
   useEffect(() => {
-    if (!clientSecret || !stripePk || mountedRef.current) return;
+    if (!clientSecret || !stripeRef.current || mountedRef.current) return;
 
     let attempts = 0;
     const tryMount = () => {
       const node = mountNodeRef.current;
       if (node && node.isConnected) {
         mountedRef.current = true;
-        stripeRef.current = window.Stripe(stripePk);
         // Use legacy Elements (no clientSecret) + CardElement for maximum compatibility
         elementsRef.current = stripeRef.current.elements({
           appearance: { theme: 'stripe' },

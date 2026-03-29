@@ -179,19 +179,33 @@ export default function ShippingDialog({ open, onClose, item, transaction, user,
         }
       });
 
+      // 409 = label already exists (idempotency guard)
+      if (response.status === 409 || response.data?.existing_shipment_id) {
+        // Show existing label rather than an error
+        setLabelData({
+          tracking_number: response.data.tracking_number,
+          label_url: response.data.label_url,
+          status: "SUCCESS",
+        });
+        setStep(3);
+        if (onLabelCreated) onLabelCreated(response.data);
+        return;
+      }
+
       if (response.data.error) throw new Error(response.data.error);
 
       const result = response.data;
       if (result.status === "SUCCESS") {
         setLabelData(result);
         setStep(3);
-        // Invalidate relevant queries so lists refresh
         queryClient.invalidateQueries({ queryKey: ['vendor-sold-listings'] });
         queryClient.invalidateQueries({ queryKey: ['vendor-transactions'] });
+        queryClient.invalidateQueries({ queryKey: ['vendor-shipping-transactions'] });
+        queryClient.invalidateQueries({ queryKey: ['vendor-shipments'] });
         queryClient.invalidateQueries({ queryKey: ['my-shipments'] });
         if (onLabelCreated) onLabelCreated(result);
       } else {
-        throw new Error(result.messages?.[0]?.text || "Failed to purchase label");
+        throw new Error(result.messages?.[0]?.text || `Label creation failed (status: ${result.status})`);
       }
     } catch (err) {
       console.error("Failed to create shipping label:", err);

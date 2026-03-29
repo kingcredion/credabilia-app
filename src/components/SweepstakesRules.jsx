@@ -162,7 +162,7 @@ export default function SweepstakesRules() {
 
                       <div className="bg-red-500/10 dark:bg-red-900/20 border border-red-500/30 rounded p-3">
                         <p className="text-xs text-red-700 dark:text-red-400">
-                          <strong>⚠️ Important:</strong> NO PURCHASE NECESSARY TO ENTER OR WIN. 
+                          <strong>Important:</strong> NO PURCHASE NECESSARY TO ENTER OR WIN. 
                           A purchase will not increase your chances of winning.
                         </p>
                       </div>

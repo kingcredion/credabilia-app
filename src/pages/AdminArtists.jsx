@@ -16,6 +16,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { toast } from "sonner";
 
 export default function AdminArtists() {
   const queryClient = useQueryClient();
@@ -29,23 +30,41 @@ export default function AdminArtists() {
 
   const approveMutation = useMutation({
     mutationFn: async (artist) => {
+      // Idempotency guard — prevent double-approving
+      const fresh = await base44.entities.Artist.filter({ id: artist.id });
+      if (fresh[0]?.status === 'active') {
+        throw new Error("Artist is already approved.");
+      }
+
+      // 1. Update artist record
       await base44.entities.Artist.update(artist.id, { status: 'active' });
-      
-      // Update user record too
-      const users = await base44.entities.User.filter({ email: artist.user_email });
-      if (users.length > 0) {
-        await base44.entities.User.update(users[0].id, {
+
+      // 2. Update linked user record — use user_id if available, fall back to email lookup
+      let linkedUser = null;
+      if (artist.user_id) {
+        try {
+          const users = await base44.entities.User.filter({ id: artist.user_id });
+          linkedUser = users[0] || null;
+        } catch (_) {}
+      }
+      if (!linkedUser) {
+        const users = await base44.entities.User.filter({ email: artist.user_email });
+        linkedUser = users[0] || null;
+      }
+      if (linkedUser) {
+        await base44.entities.User.update(linkedUser.id, {
           user_type: 'artist',
           artist_id: artist.id,
-          // Grant artist role
-          role: users[0].role === 'admin' ? 'admin' : 'user' // Keep admin if they are admin
         });
+      } else {
+        console.warn("[AdminArtists] Could not find linked user for artist:", artist.user_email);
+        toast.warning("Artist approved, but linked user record not found. User may need to refresh.");
       }
-      
-      // Send notification
+
+      // 3. Send notification
       await base44.entities.Notification.create({
         user_email: artist.user_email,
-        type: "audit_completed", // Reusing type for generic approval
+        type: "audit_completed",
         title: "Artist Profile Approved! 🎨",
         message: "Your artist application has been approved. You can now publish original artworks and accept commissions.",
         link_url: "ArtistDashboard"
@@ -53,16 +72,24 @@ export default function AdminArtists() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['pending-artists'] });
-      alert("Artist approved successfully!");
+      toast.success("Artist approved successfully!");
+    },
+    onError: (error) => {
+      console.error("[AdminArtists] Approve failed:", error);
+      toast.error("Approval failed: " + (error?.message || "Unknown error"));
     }
   });
 
   const rejectMutation = useMutation({
     mutationFn: async (artistId) => {
-      await base44.entities.Artist.update(artistId, { status: 'rejected' }); // Or suspended/deleted
+      await base44.entities.Artist.update(artistId, { status: 'rejected' });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['pending-artists'] });
+      toast.success("Artist rejected.");
+    },
+    onError: (error) => {
+      toast.error("Rejection failed: " + (error?.message || "Unknown error"));
     }
   });
 

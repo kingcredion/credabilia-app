@@ -3,7 +3,7 @@ import { Link } from "react-router-dom";
 import { createPageUrl } from "@/utils";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Star, Package, DollarSign, ShieldCheck, Heart, ThumbsUp } from "lucide-react";
+import { Star, Package, DollarSign, ShieldCheck, Bookmark } from "lucide-react";
 
 export default function ProfileItemCard({ item, gradientClass, user, onToggleFavorite, isFavorited }) {
   const isFeatured = !!gradientClass;
@@ -27,8 +27,8 @@ export default function ProfileItemCard({ item, gradientClass, user, onToggleFav
             </div>
           )}
           
-          {/* Status Badges */}
-          <div className="absolute top-2 right-2 flex flex-col gap-1 items-end">
+          {/* Status / Featured Badges — top-left */}
+          <div className="absolute top-2 left-2 flex flex-col gap-1 items-start">
             {item.status === 'active' && (
               <Badge className="bg-green-500/90 backdrop-blur-sm text-white text-xs shadow-sm hover:bg-green-600">
                 Active
@@ -45,27 +45,28 @@ export default function ProfileItemCard({ item, gradientClass, user, onToggleFav
               </Badge>
             )}
             {isFeatured && (
-                  <Badge className="bg-yellow-400/90 text-yellow-900 backdrop-blur-sm text-xs shadow-sm font-bold flex items-center gap-1">
-                    <Star className="w-3 h-3 fill-yellow-900" />
-                    Featured
-                  </Badge>
-               )}
-             </div>
+              <Badge className="bg-yellow-400/90 text-yellow-900 backdrop-blur-sm text-xs shadow-sm font-bold flex items-center gap-1">
+                <Star className="w-3 h-3 fill-yellow-900" />
+                Featured
+              </Badge>
+            )}
+          </div>
 
-             {onToggleFavorite && user && (
-               <button
-                 onClick={(e) => {
-                   e.preventDefault();
-                   e.stopPropagation();
-                   onToggleFavorite(item);
-                 }}
-                 className="absolute top-2 left-2 bg-white/90 dark:bg-white/[0.1] dark:backdrop-blur-md backdrop-blur-sm rounded-full p-2 shadow-sm hover:scale-110 transition-transform z-10"
-               >
-                 <Heart className={`w-4 h-4 ${
-                   isFavorited ? 'fill-red-500 text-red-500' : 'text-gray-400'
-                 }`} />
-               </button>
-             )}
+          {/* Save/Favorite — top-right */}
+          {onToggleFavorite && user && (
+            <button
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                onToggleFavorite(item);
+              }}
+              className="absolute top-2 right-2 bg-white/90 dark:bg-white/[0.1] dark:backdrop-blur-md backdrop-blur-sm rounded-full p-2 shadow-sm hover:scale-110 transition-transform z-10"
+            >
+              <Bookmark className={`w-4 h-4 ${
+                isFavorited ? 'fill-red-500 text-red-500' : 'text-gray-400'
+              }`} />
+            </button>
+          )}
 
           {/* Authenticity Score */}
           <div className="absolute bottom-2 left-2 flex flex-col gap-1 items-start">

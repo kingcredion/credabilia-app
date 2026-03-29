@@ -159,12 +159,18 @@ Deno.serve(async (req) => {
         });
         console.log(`✅ Transaction ${transactionId} → ${nextStatus}`);
 
-        // 2. Mark item sold (direct item sales only)
+        // 2. Mark item sold and set shipping_status = ready_to_ship for physical orders
         if (itemId && !isEscrowFlow) {
           await base44.asServiceRole.entities.Item.update(itemId, {
             status: 'sold',
             buyer_email: txn.buyer_email,
           });
+
+          // Set shipping_status to ready_to_ship so VendorShipping page picks it up immediately
+          await base44.asServiceRole.entities.Transaction.update(transactionId, {
+            shipping_status: 'ready_to_ship',
+          });
+          console.log(`📦 Transaction ${transactionId} → shipping_status=ready_to_ship`);
 
           const vendorUsers = await base44.asServiceRole.entities.User.filter({ email: txn.vendor_email });
           if (vendorUsers.length > 0) {
@@ -209,34 +215,14 @@ Deno.serve(async (req) => {
           });
         }
 
-        // 5. Vendor payout — direct item sales only
-        // vendor_net_amount is pre-computed at transaction creation:
-        //   gross − platformFee(12%) − auditorPool(1%) − influencerCommission
-        // Stripe fee is absorbed by the platform share, NOT deducted from vendor net.
+        // 5. Vendor payout — handled automatically by Stripe destination charges.
+        // The PaymentIntent was created with transfer_data[destination] + application_fee_amount,
+        // so Stripe splits funds at capture time. No manual transfer needed here.
+        // We log the destination account from PI metadata for auditability.
         if (!isEscrowFlow) {
-          const vendors = await base44.asServiceRole.entities.User.filter({ email: txn.vendor_email });
-          const vendor = vendors[0];
-          if (vendor?.stripe_account_id && vendor?.stripe_charges_enabled && !txn.stripe_transfer_id) {
-            // Use the pre-computed vendor_net_amount; fall back to recalculation if missing
-            const vendorNet = txn.vendor_net_amount
-              ? txn.vendor_net_amount
-              : (txn.sale_amount || 0) - (txn.platform_fee_amount || 0) - (txn.auditor_pool_contribution || txn.council_pool_contribution || 0) - (txn.influencer_commission || 0);
-            const vendorNetCents = Math.round(vendorNet * 100);
-            if (vendorNetCents > 0) {
-              const transfer = await stripeRequest('/transfers', 'POST', {
-                amount:                    String(vendorNetCents),
-                currency:                  'usd',
-                destination:               vendor.stripe_account_id,
-                transfer_group:            txn.transfer_group || '',
-                'metadata[transactionId]': transactionId,
-              });
-              if (transfer.error) throw new Error(`Transfer failed: ${transfer.error.message}`);
-              await base44.asServiceRole.entities.Transaction.update(transactionId, {
-                stripe_transfer_id: transfer.id,
-                vendor_net_amount:  vendorNetCents / 100,
-              });
-              console.log(`💸 Transfer ${transfer.id} ($${(vendorNetCents / 100).toFixed(2)}) → vendor ${txn.vendor_email}`);
-            }
+          const vendorStripeAccount = pi.metadata?.vendor_stripe_account || pi.transfer_data?.destination;
+          if (vendorStripeAccount) {
+            console.log(`💸 Destination charge: vendor payout auto-routed to ${vendorStripeAccount} (txn=${transactionId})`);
           }
         }
 

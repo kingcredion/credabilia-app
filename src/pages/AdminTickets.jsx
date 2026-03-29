@@ -555,21 +555,21 @@ export default function AdminTickets() {
 
         {/* Tabs */}
         <Tabs defaultValue="pending" className="w-full">
-          <TabsList className="grid w-full grid-cols-2 md:grid-cols-5 mb-6 gap-1 md:gap-0">
-            <TabsTrigger value="pending" className="text-xs md:text-sm">
+          <TabsList className="grid w-full grid-cols-2 md:grid-cols-5 mb-6 gap-1 md:gap-0 overflow-x-auto">
+            <TabsTrigger value="pending" className="text-xs md:text-sm whitespace-nowrap">
               <span className="hidden sm:inline">Support</span>
               <span className="sm:hidden">Tickets</span> ({pendingTickets.length})
             </TabsTrigger>
-            <TabsTrigger value="ai_handled" className="text-xs md:text-sm">
+            <TabsTrigger value="ai_handled" className="text-xs md:text-sm whitespace-nowrap">
               <span className="hidden sm:inline">AI</span> ({aiProcessedTickets.length})
             </TabsTrigger>
-            <TabsTrigger value="bugs" className="text-xs md:text-sm">
+            <TabsTrigger value="bugs" className="text-xs md:text-sm whitespace-nowrap">
               Bugs ({bugReports.length})
             </TabsTrigger>
-            <TabsTrigger value="ideas" className="text-xs md:text-sm">
+            <TabsTrigger value="ideas" className="text-xs md:text-sm whitespace-nowrap">
               Ideas ({improvements.length})
             </TabsTrigger>
-            <TabsTrigger value="resolved" className="text-xs md:text-sm col-span-2 md:col-span-1">
+            <TabsTrigger value="resolved" className="text-xs md:text-sm col-span-2 md:col-span-1 whitespace-nowrap">
               <span className="hidden sm:inline">Resolved</span>
               <span className="sm:hidden">Done</span> ({resolvedTickets.length})
             </TabsTrigger>
@@ -640,7 +640,7 @@ export default function AdminTickets() {
               <Input
                 value={feedbackSearchQuery}
                 onChange={(e) => setFeedbackSearchQuery(e.target.value)}
-                placeholder="Search bug reports by user, subject, or description..."
+                placeholder="Search by user, subject, or description..."
                 className="max-w-md"
               />
             </div>
@@ -668,7 +668,7 @@ export default function AdminTickets() {
               <Input
                 value={feedbackSearchQuery}
                 onChange={(e) => setFeedbackSearchQuery(e.target.value)}
-                placeholder="Search improvement ideas by user, subject, or description..."
+                placeholder="Search by user, subject, or description..."
                 className="max-w-md"
               />
             </div>
@@ -696,7 +696,7 @@ export default function AdminTickets() {
               <Input
                 value={ticketSearchQuery}
                 onChange={(e) => setTicketSearchQuery(e.target.value)}
-                placeholder="Search resolved tickets by user, subject, or summary..."
+                placeholder="Search by user, subject, or summary..."
                 className="max-w-md"
               />
             </div>

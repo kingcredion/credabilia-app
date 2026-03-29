@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { CheckCircle2, Loader2, AlertCircle, ExternalLink } from "lucide-react";
 import { loadConnectAndInitialize } from "@stripe/connect-js";
+import { getStripePromise } from "@/lib/stripeLoader";
 
 /**
  * EmbeddedStripeConnect
@@ -45,8 +46,14 @@ export default function EmbeddedStripeConnect({
     setLoading(true);
     setError(null);
     try {
-      const publishableKey = import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY;
+      // Fetch publishable key from backend — single authoritative source
+      const keyRes = await base44.functions.invoke('stripeCustomer', { action: 'get_publishable_key' });
+      const publishableKey = keyRes?.data?.publishableKey;
       if (!publishableKey) throw new Error("Stripe publishable key not configured.");
+
+      // Log key prefix only — never full key
+      const prefix = publishableKey.startsWith('pk_test_') ? 'pk_test_' : publishableKey.startsWith('pk_live_') ? 'pk_live_' : 'pk_???_';
+      console.log(`[EmbeddedStripeConnect] Key prefix: ${prefix}`);
 
       const instance = await loadConnectAndInitialize({
         publishableKey,

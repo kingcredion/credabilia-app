@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { base44 } from "@/api/base44Client";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Link } from "react-router-dom";
@@ -14,7 +14,8 @@ import {
   UserPlus,
   DollarSign,
   Eye,
-  X
+  X,
+  ClipboardList
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -36,7 +37,8 @@ const notificationIcons = {
   credit_payout: Coins,
   review_received: Star,
   follow: UserPlus,
-  offer_received: DollarSign
+  offer_received: DollarSign,
+  admin_approval_pending: ClipboardList,
 };
 
 const notificationColors = {
@@ -49,7 +51,8 @@ const notificationColors = {
   credit_payout: "text-yellow-600 bg-yellow-50",
   review_received: "text-yellow-600 bg-yellow-50",
   follow: "text-pink-600 bg-pink-50",
-  offer_received: "text-emerald-600 bg-emerald-50"
+  offer_received: "text-emerald-600 bg-emerald-50",
+  admin_approval_pending: "text-red-600 bg-red-50",
 };
 
 const getNotificationTarget = (notification) => {
@@ -74,6 +77,7 @@ const getNotificationTarget = (notification) => {
 export default function NotificationBell({ user }) {
   const [open, setOpen] = useState(false);
   const queryClient = useQueryClient();
+  const hasAutoMarkedRef = useRef(false);
 
   const { data: notifications } = useQuery({
     queryKey: ['notifications', user?.email],
@@ -87,6 +91,26 @@ export default function NotificationBell({ user }) {
   });
 
   const unreadCount = notifications.filter(n => !n.read).length;
+
+  // Auto-mark all visible unread notifications as read when bell opens
+  useEffect(() => {
+    if (!open) {
+      hasAutoMarkedRef.current = false;
+      return;
+    }
+    const unread = notifications.filter(n => !n.read);
+    if (unread.length === 0 || hasAutoMarkedRef.current) return;
+    hasAutoMarkedRef.current = true;
+    // Optimistic update first — clear badge immediately
+    queryClient.setQueryData(['notifications', user?.email], (old) =>
+      (old || []).map(n => ({ ...n, read: true }))
+    );
+    // Then persist in background
+    Promise.all(unread.map(n => base44.entities.Notification.update(n.id, { read: true }))).catch(() => {
+      // On failure, refetch to restore real state
+      queryClient.invalidateQueries({ queryKey: ['notifications'] });
+    });
+  }, [open]);
 
   const markAsReadMutation = useMutation({
     mutationFn: async (notificationId) => {

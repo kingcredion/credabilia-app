@@ -2,7 +2,7 @@ import React from "react";
 import { Link } from "react-router-dom";
 import { createPageUrl } from "@/utils";
 import { motion } from "framer-motion";
-import { Heart, ShieldCheck, MapPin, Gavel, Gift, TrendingUp, Package, Star } from "lucide-react";
+import { Bookmark, ShieldCheck, MapPin, Gavel, Gift, TrendingUp, Package, Star, Heart } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import VendorBadge from "./VendorBadge";
@@ -47,9 +47,9 @@ export default function ProfileItemGrid({
         
         return (
           <div key={item.id} className="group relative">
-            {/* Favorite Button */}
+            {/* Save/Favorite Button — top-right */}
             {user && !isSold && toggleFavoriteMutation && (
-              <div className="absolute top-3 left-3 z-30">
+              <div className="absolute top-3 right-3 z-30">
                 <motion.button
                   onClick={(e) => {
                     e.preventDefault();
@@ -60,7 +60,7 @@ export default function ProfileItemGrid({
                   whileTap={{ scale: 0.9 }}
                   className="bg-white/90 backdrop-blur-sm rounded-full p-2 shadow-lg hover:bg-white transition-colors"
                 >
-                  <Heart className={`w-5 h-5 ${
+                  <Bookmark className={`w-5 h-5 ${
                     userFavorites?.some(fav => fav.item_id === item.id) 
                       ? 'fill-red-500 text-red-500' 
                       : 'text-gray-400'
@@ -177,15 +177,7 @@ export default function ProfileItemGrid({
                     </div>
                   )}
                   
-                  <div className="absolute top-3 right-3">
-                    <Badge 
-                      className={`${getAuthenticityColor(item.authenticity_meter || 50)} border-2 border-white shadow-lg flex items-center gap-1`}
-                    >
-                      <ShieldCheck className="w-3 h-3" />
-                      {item.authenticity_meter || 50}%
-                    </Badge>
-                  </div>
-
+                  {/* Grade badge — top-left */}
                   {item.grade_status && !isEducational && (
                     <div className="absolute top-3 left-3">
                       <Badge className="bg-white text-gray-900 border-2 border-gray-200 shadow-lg capitalize">
@@ -193,6 +185,16 @@ export default function ProfileItemGrid({
                       </Badge>
                     </div>
                   )}
+
+                  {/* Authenticity badge — bottom-left */}
+                  <div className="absolute bottom-2 left-2">
+                    <Badge 
+                      className={`${getAuthenticityColor(item.authenticity_meter || 50)} border-2 border-white shadow-lg flex items-center gap-1`}
+                    >
+                      <ShieldCheck className="w-3 h-3" />
+                      {item.authenticity_meter || 50}%
+                    </Badge>
+                  </div>
                 </div>
 
                 <CardContent className="p-4">

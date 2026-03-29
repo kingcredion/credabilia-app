@@ -4,251 +4,272 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link } from "react-router-dom";
 import { createPageUrl } from "@/utils";
 import {
-  Truck,
-  Package,
-  Eye,
-  ShieldCheck,
-  Search,
-  Filter,
-  AlertCircle,
-  CheckCircle2,
-  RefreshCw,
-  ChevronDown,
-  ChevronUp,
-  Loader2
+  Truck, Package, Search, AlertCircle, CheckCircle2,
+  RefreshCw, ChevronDown, ChevronUp, Loader2, MapPin,
+  ExternalLink, Settings, Clock
 } from "lucide-react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 import ShippingDialog from "../components/ShippingDialog";
 import { format } from "date-fns";
+
+// Shipping-eligible statuses (driven by Transaction, not Item)
+// Includes 'pending' for backward-compat with pre-fix transactions stuck at pending.
+// NOTE: needsLabel filter below uses inline logic — update both if changing criteria.
+const IN_PROGRESS_STATUSES = ['label_created'];
+const IN_TRANSIT_STATUSES  = ['shipped'];
+const DONE_STATUSES        = ['delivered', 'returned', 'failed'];
 
 export default function VendorShipping() {
   const [user, setUser] = useState(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [showShippingDialog, setShowShippingDialog] = useState(false);
-  const [selectedItemForShipping, setSelectedItemForShipping] = useState(null);
-  const [selectedTransactionForShipping, setSelectedTransactionForShipping] = useState(null);
-  const [expandedTransactionId, setExpandedTransactionId] = useState(null);
-  const [refreshingTransactionId, setRefreshingTransactionId] = useState(null);
+  const [selectedOrder, setSelectedOrder] = useState(null); // { item, transaction }
+  const [expandedId, setExpandedId] = useState(null);
+  const [refreshingId, setRefreshingId] = useState(null);
   const queryClient = useQueryClient();
 
-  useEffect(() => {
-    loadUser();
-  }, []);
+  useEffect(() => { loadUser(); }, []);
 
   const loadUser = async () => {
     try {
       const userData = await base44.auth.me();
       setUser(userData);
-    } catch (error) {
-      console.error("Error loading user:", error);
+    } catch (e) {
+      console.error("Error loading user:", e);
     }
   };
 
-  const { data: soldListings, isLoading: listingsLoading } = useQuery({
-    queryKey: ['vendor-sold-listings', user?.email],
+  // PRIMARY: query transactions by vendor + shipping status (canonical source of truth)
+  const { data: transactions = [], isLoading: txLoading } = useQuery({
+    queryKey: ['vendor-shipping-transactions', user?.email],
     queryFn: async () => {
       if (!user?.email) return [];
-      return await base44.entities.Item.filter({ vendor_email: user.email, status: "sold" }, "-created_date");
+      // Fetch all transactions for this vendor that have shipping relevance
+      const all = await base44.entities.Transaction.filter({ vendor_email: user.email }, "-created_date");
+      return all.filter(t => {
+        const paid = ['paid', 'escrow', 'shipped', 'delivered', 'completed'].includes(t.status);
+        const hasShipping = !!t.item_id; // only physical-item transactions
+        return paid && hasShipping;
+      });
+    },
+    enabled: !!user?.email,
+    initialData: [],
+    refetchInterval: 30000, // poll every 30s for new orders
+  });
+
+  // Load items for the transactions we found (batch by unique item IDs)
+  const itemIds = [...new Set(transactions.map(t => t.item_id).filter(Boolean))];
+  const { data: itemMap = {} } = useQuery({
+    queryKey: ['vendor-shipping-items', itemIds.join(',')],
+    queryFn: async () => {
+      if (!itemIds.length) return {};
+      const map = {};
+      // Fetch in one pass — filter returns all that match vendor_email + sold status
+      const items = await base44.entities.Item.filter({ vendor_email: user.email }, "-created_date", 200);
+      items.forEach(it => { map[it.id] = it; });
+      return map;
+    },
+    enabled: !!user?.email && itemIds.length > 0,
+    initialData: {},
+  });
+
+  // Also load Shipment records for label/tracking details
+  const { data: shipments = [] } = useQuery({
+    queryKey: ['vendor-shipments', user?.email],
+    queryFn: async () => {
+      if (!user?.email) return [];
+      return await base44.entities.Shipment.filter({ vendor_email: user.email }, "-created_date");
     },
     enabled: !!user?.email,
     initialData: [],
   });
 
-  const { data: myTransactions } = useQuery({
-    queryKey: ['vendor-transactions', user?.email],
-    queryFn: async () => {
-      if (!user?.email) return [];
-      return await base44.entities.Transaction.filter({ vendor_email: user.email }, "-created_date");
-    },
-    enabled: !!user?.email,
-    initialData: [],
-  });
+  const shipmentByTxn = {};
+  shipments.forEach(s => { if (s.transaction_id) shipmentByTxn[s.transaction_id] = s; });
 
-  // Filter items based on search
-  const filteredItems = soldListings.filter(item => 
-    item.title.toLowerCase().includes(searchQuery.toLowerCase())
+  // Build enriched orders (transaction + item + shipment)
+  const orders = transactions
+    .map(txn => ({ txn, item: itemMap[txn.item_id] || null, shipment: shipmentByTxn[txn.id] || null }))
+    .filter(o => {
+      if (!searchQuery) return true;
+      const q = searchQuery.toLowerCase();
+      return (
+        (o.item?.title || o.txn.item_title || '').toLowerCase().includes(q) ||
+        (o.txn.buyer_email || '').toLowerCase().includes(q) ||
+        (o.shipment?.tracking_number || '').toLowerCase().includes(q)
+      );
+    });
+
+  const needsLabel   = orders.filter(o =>
+    o.txn.status === 'paid' &&
+    !!o.txn.item_id &&
+    (
+      o.txn.shipping_status === 'ready_to_ship' ||
+      o.txn.shipping_status === 'pending' ||
+      !o.txn.shipping_status
+    )
   );
+  const labelCreated = orders.filter(o => IN_PROGRESS_STATUSES.includes(o.txn.shipping_status));
+  const inTransit    = orders.filter(o => IN_TRANSIT_STATUSES.includes(o.txn.shipping_status));
+  const done         = orders.filter(o => DONE_STATUSES.includes(o.txn.shipping_status));
 
-  // Needs shipping = paid (or escrow) with shipping_status still pending or label_created.
-  // "paid" is the canonical post-payment status for direct item sales (set by stripeWebhook).
-  // Do NOT rely on status === 'completed' — that is only set after delivery.
-  const pendingShippingItems = filteredItems.filter(item => {
-    const transaction = myTransactions.find(t => t.item_id === item.id);
-    if (!transaction) return false;
-    const txStatus = transaction.status;
-    const shipStatus = transaction.shipping_status;
-    // Prompt to ship when payment is confirmed but label not yet created
-    const paymentConfirmed = ['paid', 'escrow', 'shipped', 'delivered'].includes(txStatus);
-    const labelNotCreated = !shipStatus || shipStatus === 'pending';
-    return paymentConfirmed && labelNotCreated;
-  });
-
-  const shippedItems = filteredItems.filter(item => {
-    const transaction = myTransactions.find(t => t.item_id === item.id);
-    if (!transaction) return false;
-    // Has a label or is further along
-    return ['label_created', 'shipped', 'delivered', 'returned', 'failed'].includes(transaction.shipping_status);
-  });
-
-  const handleShip = (item) => {
-    const transaction = myTransactions.find(t => t.item_id === item.id);
-    setSelectedItemForShipping(item);
-    setSelectedTransactionForShipping(transaction);
+  const handleShip = (order) => {
+    setSelectedOrder(order);
     setShowShippingDialog(true);
   };
 
-  const handleRequestAddress = async (transactionId) => {
-    if (!transactionId) {
-      console.error('Transaction ID is missing — cannot request address');
-      return;
-    }
+  const handleRequestAddress = async (txn) => {
+    if (!txn?.id) return;
     try {
-      const txns = await base44.entities.Transaction.filter({ id: transactionId });
-      if (!txns.length) {
-        console.warn("Transaction not found for address request:", transactionId);
-        return;
-      }
-      const txn = txns[0];
-
-      await base44.entities.Transaction.update(transactionId, {
+      await base44.entities.Transaction.update(txn.id, {
         shipping_address_status: 'update_requested',
         shipping_address_requested_at: new Date().toISOString(),
-        shipping_address_requested_by: user.email
+        shipping_address_requested_by: user.email,
       });
-
-      // Notify buyer — link_url routes to Settings > Addresses for easy action
       await base44.entities.Notification.create({
-      user_email: txn.buyer_email,
-      type: 'address_requested',
-      title: '🚚 Shipping Address Needed',
-      message: 'Your seller needs your shipping address before they can ship your item. Please update it now.',
+        user_email: txn.buyer_email,
+        type: 'address_requested',
+        title: '🚚 Shipping Address Needed',
+        message: 'Your seller needs your shipping address before they can ship your item.',
         read: false,
         related_item_id: txn.item_id,
         link_url: createPageUrl("Settings?section=addresses"),
       });
-
-      // Refresh query
-      queryClient.invalidateQueries({ queryKey: ['vendor-transactions'] });
+      queryClient.invalidateQueries({ queryKey: ['vendor-shipping-transactions'] });
     } catch (err) {
-      console.error('Failed to request shipping address from buyer:', err);
+      console.error('Failed to request address:', err);
     }
   };
 
-  const handleRefreshAddress = async (transactionId) => {
-    if (!transactionId) {
-      console.error('Transaction ID is missing — cannot refresh address');
-      return;
-    }
-    setRefreshingTransactionId(transactionId);
+  const handleRefreshAddress = async (txnId) => {
+    if (!txnId) return;
+    setRefreshingId(txnId);
     try {
-      const txns = await base44.entities.Transaction.filter({ id: transactionId });
-      if (txns.length) {
-        queryClient.setQueryData(['vendor-transactions', user?.email], (old) => {
-          if (!Array.isArray(old)) return txns;
-          return old.map(t => t.id === transactionId ? txns[0] : t);
-        });
-        await queryClient.invalidateQueries({ queryKey: ['vendor-transactions', user?.email] });
-        await queryClient.refetchQueries({ queryKey: ['vendor-transactions', user?.email] });
-      } else {
-        console.warn("Transaction not found for address refresh:", transactionId);
-      }
-    } catch (err) {
-      console.error('Failed to refresh address data from backend:', err);
+      await queryClient.refetchQueries({ queryKey: ['vendor-shipping-transactions', user?.email] });
     } finally {
-      setRefreshingTransactionId(null);
+      setRefreshingId(null);
     }
   };
+
+  const handleLabelCreated = () => {
+    queryClient.invalidateQueries({ queryKey: ['vendor-shipping-transactions'] });
+    queryClient.invalidateQueries({ queryKey: ['vendor-shipments'] });
+    queryClient.invalidateQueries({ queryKey: ['vendor-shipping-items'] });
+  };
+
+  if (!user) {
+    return <div className="flex items-center justify-center h-64"><Loader2 className="w-8 h-8 animate-spin text-orange-500" /></div>;
+  }
 
   return (
-    <div className="min-h-screen bg-background dark:bg-background px-4 py-6 md:p-6">
-      <div className="max-w-7xl mx-auto">
-        <div className="mb-8">
-          <h1 className="text-2xl md:text-3xl font-bold text-gray-900 mb-2 flex items-center gap-3">
-            <Truck className="w-6 md:w-8 h-6 md:h-8 text-orange-600" />
-            Shipping Management
-          </h1>
-          <p className="text-sm md:text-base text-gray-600">
-            Manage your orders, print labels, and track shipments
-          </p>
+    <div className="min-h-screen bg-background px-4 py-6 md:p-6">
+      <div className="max-w-5xl mx-auto">
+        <div className="mb-6 flex items-start justify-between gap-4">
+          <div>
+            <h1 className="text-2xl md:text-3xl font-bold flex items-center gap-3">
+              <Truck className="w-7 h-7 text-orange-600" />
+              Shipping
+            </h1>
+            <p className="text-sm text-muted-foreground mt-1">
+              All paid orders eligible for shipment. Driven by payment confirmation — not item status.
+            </p>
+          </div>
+          <Button variant="outline" size="sm" onClick={() => queryClient.invalidateQueries({ queryKey: ['vendor-shipping-transactions', user?.email] })}>
+            <RefreshCw className="w-4 h-4 mr-1" /> Refresh
+          </Button>
         </div>
 
         {/* Search */}
-        <div className="mb-6 flex gap-2 md:gap-4">
-          <div className="relative flex-1 max-w-md">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-            <Input
-              placeholder="Search by item title..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="pl-10 text-sm"
-            />
+        <div className="mb-6 relative max-w-md">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+          <Input
+            placeholder="Search by title, buyer, or tracking..."
+            value={searchQuery}
+            onChange={e => setSearchQuery(e.target.value)}
+            className="pl-10"
+          />
+        </div>
+
+        {txLoading && (
+          <div className="space-y-3">
+            {[1,2,3].map(i => (
+              <Card key={i}><CardContent className="p-4 animate-pulse"><div className="h-16 bg-muted rounded" /></CardContent></Card>
+            ))}
           </div>
-        </div>
+        )}
 
-        {/* Pending Shipping Section */}
-        <div className="mb-8">
-          <h2 className="text-lg md:text-xl font-semibold text-gray-900 mb-4 flex items-center gap-2">
-            <div className="w-2 h-2 rounded-full bg-red-500"></div>
-            Ready to Ship ({pendingShippingItems.length})
-          </h2>
-          
-          <ShippingTable 
-            items={pendingShippingItems} 
-            transactions={myTransactions} 
-            isLoading={listingsLoading}
-            onShip={handleShip}
-            onRequestAddress={handleRequestAddress}
-            onRefreshAddress={handleRefreshAddress}
-            expandedTransactionId={expandedTransactionId}
-            setExpandedTransactionId={setExpandedTransactionId}
-            refreshingTransactionId={refreshingTransactionId}
-            user={user}
-            emptyMessage="No orders waiting to be shipped"
-          />
-        </div>
+        {!txLoading && (
+          <>
+            <OrderSection
+              title="Needs Label"
+              dotColor="bg-red-500"
+              orders={needsLabel}
+              emptyMsg="No orders waiting for a label"
+              onShip={handleShip}
+              onRequestAddress={handleRequestAddress}
+              onRefreshAddress={handleRefreshAddress}
+              expandedId={expandedId}
+              setExpandedId={setExpandedId}
+              refreshingId={refreshingId}
+              user={user}
+            />
+            <OrderSection
+              title="Label Created"
+              dotColor="bg-orange-400"
+              orders={labelCreated}
+              emptyMsg="No labels created yet"
+              onShip={handleShip}
+              onRequestAddress={handleRequestAddress}
+              onRefreshAddress={handleRefreshAddress}
+              expandedId={expandedId}
+              setExpandedId={setExpandedId}
+              refreshingId={refreshingId}
+              user={user}
+              isHistory
+            />
+            <OrderSection
+              title="In Transit"
+              dotColor="bg-blue-500"
+              orders={inTransit}
+              emptyMsg="No packages currently in transit"
+              onShip={handleShip}
+              onRequestAddress={handleRequestAddress}
+              onRefreshAddress={handleRefreshAddress}
+              expandedId={expandedId}
+              setExpandedId={setExpandedId}
+              refreshingId={refreshingId}
+              user={user}
+              isHistory
+            />
+            <OrderSection
+              title="Completed / Returned"
+              dotColor="bg-green-500"
+              orders={done}
+              emptyMsg="No completed orders yet"
+              onShip={handleShip}
+              onRequestAddress={handleRequestAddress}
+              onRefreshAddress={handleRefreshAddress}
+              expandedId={expandedId}
+              setExpandedId={setExpandedId}
+              refreshingId={refreshingId}
+              user={user}
+              isHistory
+            />
+          </>
+        )}
 
-        {/* Shipped History Section */}
-        <div>
-          <h2 className="text-lg md:text-xl font-semibold text-gray-900 mb-4 flex items-center gap-2">
-            <div className="w-2 h-2 rounded-full bg-green-500"></div>
-            Shipped History ({shippedItems.length})
-          </h2>
-          
-          <ShippingTable 
-            items={shippedItems} 
-            transactions={myTransactions} 
-            isLoading={listingsLoading}
-            onShip={handleShip}
-            onRequestAddress={handleRequestAddress}
-            onRefreshAddress={handleRefreshAddress}
-            expandedTransactionId={expandedTransactionId}
-            setExpandedTransactionId={setExpandedTransactionId}
-            refreshingTransactionId={refreshingTransactionId}
-            user={user}
-            isHistory={true}
-            emptyMessage="No shipped orders yet"
-          />
-        </div>
-
-        {selectedItemForShipping && (
+        {selectedOrder && (
           <ShippingDialog
             open={showShippingDialog}
-            onClose={() => {
-              setShowShippingDialog(false);
-              setSelectedItemForShipping(null);
-              setSelectedTransactionForShipping(null);
-            }}
-            item={selectedItemForShipping}
-            transaction={selectedTransactionForShipping}
+            onClose={() => { setShowShippingDialog(false); setSelectedOrder(null); }}
+            item={selectedOrder.item || { id: selectedOrder.txn.item_id, title: selectedOrder.txn.item_title, buyer_email: selectedOrder.txn.buyer_email }}
+            transaction={selectedOrder.txn}
             user={user}
-            onLabelCreated={(labelData) => {
-              console.log("Label created:", labelData);
-              queryClient.invalidateQueries({ queryKey: ['vendor-transactions'] });
-              queryClient.invalidateQueries({ queryKey: ['vendor-sold-listings'] });
-            }}
+            onLabelCreated={handleLabelCreated}
           />
         )}
       </div>
@@ -256,218 +277,224 @@ export default function VendorShipping() {
   );
 }
 
-function ShippingTable({ items, transactions, isLoading, onShip, onRequestAddress, onRefreshAddress, expandedTransactionId, setExpandedTransactionId, refreshingTransactionId, user, isHistory, emptyMessage }) {
-  if (isLoading) {
-    return (
-      <Card>
-        <CardContent className="p-6">
-          <div className="space-y-4">
-            {Array(3).fill(0).map((_, i) => (
-              <div key={i} className="animate-pulse flex gap-4">
-                <div className="w-16 h-16 bg-gray-200 rounded"></div>
-                <div className="flex-1 space-y-2">
-                  <div className="h-4 bg-gray-200 rounded w-1/2"></div>
-                  <div className="h-3 bg-gray-200 rounded w-1/4"></div>
-                </div>
-              </div>
-            ))}
-          </div>
-        </CardContent>
-      </Card>
-    );
-  }
+function OrderSection({ title, dotColor, orders, emptyMsg, onShip, onRequestAddress, onRefreshAddress, expandedId, setExpandedId, refreshingId, user, isHistory }) {
+  return (
+    <div className="mb-8">
+      <h2 className="text-lg font-semibold mb-3 flex items-center gap-2">
+        <span className={`w-2.5 h-2.5 rounded-full ${dotColor}`} />
+        {title} ({orders.length})
+      </h2>
+      {orders.length === 0 ? (
+        <Card className="bg-muted/20 border-dashed">
+          <CardContent className="p-6 text-center text-muted-foreground text-sm">
+            <Package className="w-10 h-10 mx-auto mb-2 opacity-20" />
+            {emptyMsg}
+          </CardContent>
+        </Card>
+      ) : (
+        <div className="space-y-3">
+          {orders.map(order => (
+            <OrderCard
+              key={order.txn.id}
+              order={order}
+              onShip={onShip}
+              onRequestAddress={onRequestAddress}
+              onRefreshAddress={onRefreshAddress}
+              expandedId={expandedId}
+              setExpandedId={setExpandedId}
+              refreshingId={refreshingId}
+              user={user}
+              isHistory={isHistory}
+            />
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
 
-  if (items.length === 0) {
-    return (
-      <Card className="bg-muted/30 border-dashed">
-        <CardContent className="p-8 text-center text-gray-500">
-          <Package className="w-12 h-12 mx-auto mb-2 opacity-20" />
-          <p>{emptyMessage}</p>
-        </CardContent>
-      </Card>
-    );
-  }
+function OrderCard({ order, onShip, onRequestAddress, onRefreshAddress, expandedId, setExpandedId, refreshingId, user, isHistory }) {
+  const { txn, item, shipment } = order;
+  const shippingStatus = txn.shipping_status || 'ready_to_ship';
+  const addressStatus  = txn.shipping_address_status || 'missing';
+  const isExpanded = expandedId === txn.id;
 
-  const getAddressStatusBadge = (status) => {
-    const configs = {
-      missing: { bg: 'bg-red-100', text: 'text-red-700', icon: AlertCircle, label: 'Address Missing' },
-      captured: { bg: 'bg-green-100', text: 'text-green-700', icon: CheckCircle2, label: 'Address Captured' },
-      update_requested: { bg: 'bg-yellow-100', text: 'text-yellow-700', icon: AlertCircle, label: 'Address Requested' },
-      buyer_updated: { bg: 'bg-blue-100', text: 'text-blue-700', icon: CheckCircle2, label: 'Buyer Updated' },
-      seller_acknowledged: { bg: 'bg-green-100', text: 'text-green-700', icon: CheckCircle2, label: 'Acknowledged' }
-    };
-    const config = configs[status] || configs.missing;
-    const Icon = config.icon;
-    return (
-      <Badge className={`${config.bg} ${config.text} flex items-center gap-1`}>
-        <Icon className="w-3 h-3" />
-        {config.label}
-      </Badge>
-    );
+  const hasAddress = txn.shipping_details?.address?.line1;
+  const hasFromAddress = true; // validated inside ShippingDialog — show blocked state there
+
+  const statusColors = {
+    ready_to_ship:  'bg-red-100 text-red-700',
+    label_created:  'bg-orange-100 text-orange-700',
+    shipped:        'bg-blue-100 text-blue-700',
+    delivered:      'bg-green-100 text-green-700',
+    returned:       'bg-yellow-100 text-yellow-700',
+    failed:         'bg-red-100 text-red-700',
+  };
+  const statusLabel = {
+    ready_to_ship: 'Ready to Ship',
+    label_created: 'Label Created',
+    shipped:       'In Transit',
+    delivered:     'Delivered',
+    returned:      'Returned',
+    failed:        'Failed',
   };
 
+  const addrBadge = {
+    missing:          { cls: 'bg-red-100 text-red-700', label: 'Address Missing', Icon: AlertCircle },
+    captured:         { cls: 'bg-green-100 text-green-700', label: 'Address Ready', Icon: CheckCircle2 },
+    update_requested: { cls: 'bg-yellow-100 text-yellow-700', label: 'Address Requested', Icon: Clock },
+    buyer_updated:    { cls: 'bg-blue-100 text-blue-700', label: 'Buyer Updated', Icon: CheckCircle2 },
+    seller_acknowledged: { cls: 'bg-green-100 text-green-700', label: 'Acknowledged', Icon: CheckCircle2 },
+  }[addressStatus] || { cls: 'bg-red-100 text-red-700', label: 'Address Missing', Icon: AlertCircle };
+
+  const canCreateLabel = (shippingStatus === 'ready_to_ship' || shippingStatus === 'pending' || !txn.shipping_status) && !shipment?.shippo_transaction_id;
+  const hasLabelAlready = !!shipment?.label_url;
+
   return (
-    <div className="space-y-3">
-      {items.map((item) => {
-        const transaction = transactions.find(t => t.item_id === item.id);
-        const shippingStatus = transaction?.shipping_status || 'pending';
-        const addressStatus = transaction?.shipping_address_status || 'missing';
-        const isExpanded = expandedTransactionId === transaction?.id;
-
-        return (
-          <Card key={item.id} className="overflow-hidden">
-            <CardContent className="p-4">
-              <div className="flex gap-3">
-                <div className="w-16 h-16 bg-gray-100 rounded-lg overflow-hidden flex-shrink-0 border border-gray-200">
-                  {item.images?.[0] ? (
-                    <img src={item.images[0]} alt={item.title} className="w-full h-full object-cover" />
-                  ) : (
-                    <div className="w-full h-full flex items-center justify-center">
-                      <Package className="w-6 h-6 text-gray-400" />
-                    </div>
-                  )}
-                </div>
-
-                <div className="flex-1 min-w-0">
-                   <Link
-                     to={createPageUrl(`ItemDetails?id=${item.id}`)}
-                     className="font-bold text-gray-900 hover:text-orange-600 text-sm line-clamp-2 block mb-1"
-                   >
-                     {item.title}
-                   </Link>
-
-                   <div className="flex flex-wrap items-center gap-1.5 text-xs text-gray-500 mb-2">
-                     <Badge
-                       className={
-                         shippingStatus === 'delivered' ? 'bg-green-100 text-green-700' :
-                         shippingStatus === 'shipped' ? 'bg-blue-100 text-blue-700' :
-                         shippingStatus === 'label_created' ? 'bg-orange-100 text-orange-700' :
-                         shippingStatus === 'returned' ? 'bg-yellow-100 text-yellow-700' :
-                         shippingStatus === 'failed' ? 'bg-red-100 text-red-700' :
-                         'bg-yellow-100 text-yellow-700'
-                       }
-                     >
-                       {shippingStatus === 'pending' ? 'Awaiting Shipment' :
-                        shippingStatus === 'label_created' ? 'Label Created' :
-                        shippingStatus === 'shipped' ? 'Shipped' :
-                        shippingStatus === 'delivered' ? 'Delivered' :
-                        shippingStatus === 'returned' ? 'Returned' :
-                        shippingStatus === 'failed' ? 'Failed' : shippingStatus}
-                     </Badge>
-                     {getAddressStatusBadge(addressStatus)}
-                     {transaction?.created_date && (
-                       <span className="text-gray-400">{format(new Date(transaction.created_date), 'MMM dd, yyyy')}</span>
-                     )}
-                   </div>
-
-                   {transaction?.buyer_email && (
-                     <p className="text-xs text-gray-500 mb-2 truncate">
-                       Buyer: {transaction.buyer_email}
-                       {transaction?.shipping_details?.address?.city && ` · ${transaction.shipping_details.address.city}, ${transaction.shipping_details.address.state}`}
-                     </p>
-                   )}
-
-                   <div className="flex flex-wrap gap-2 mb-2">
-                     <Button variant="outline" size="sm" asChild className="h-8 text-xs">
-                       <Link to={createPageUrl(`ItemDetails?id=${item.id}`)}>View Item</Link>
-                     </Button>
-
-                     {/* Show ship button when payment confirmed but label not yet bought */}
-                     {(shippingStatus === 'pending' || !shippingStatus) && (
-                       <Button
-                         size="sm"
-                         className="h-8 text-xs bg-orange-600 hover:bg-orange-700 text-white"
-                         onClick={() => onShip(item)}
-                       >
-                         Buy Shipping Label
-                       </Button>
-                     )}
-
-                     {isHistory && (
-                       <Button
-                         size="sm"
-                         className="h-8 text-xs bg-gray-100 text-gray-700 hover:bg-gray-200"
-                         onClick={() => onShip(item)}
-                       >
-                         View Label
-                       </Button>
-                     )}
-
-                     {!isHistory && addressStatus === 'missing' && (
-                       <Button
-                         size="sm"
-                         className="h-8 text-xs bg-red-100 hover:bg-red-200 text-red-700"
-                         onClick={() => {
-                           if (!transaction?.id) return;
-                           onRequestAddress(transaction.id);
-                         }}
-                       >
-                         Request Address
-                       </Button>
-                     )}
-
-                     {!isHistory && addressStatus === 'buyer_updated' && (
-                       <Button
-                         size="sm"
-                         className="h-8 text-xs bg-blue-100 hover:bg-blue-200 text-blue-700"
-                         onClick={() => {
-                           if (!transaction?.id) return;
-                           onRefreshAddress(transaction.id);
-                         }}
-                         disabled={refreshingTransactionId === transaction?.id}
-                       >
-                         {refreshingTransactionId === transaction?.id ? (
-                           <>
-                             <Loader2 className="w-3 h-3 mr-1 animate-spin" />
-                             Refreshing...
-                           </>
-                         ) : (
-                           <>
-                             <RefreshCw className="w-3 h-3 mr-1" />
-                             Refresh Address
-                           </>
-                         )}
-                       </Button>
-                     )}
-
-                     {!isHistory && (
-                       <Button
-                         size="sm"
-                         variant="ghost"
-                         className="h-8 text-xs"
-                         onClick={() => {
-                           if (!transaction?.id) return;
-                           setExpandedTransactionId(isExpanded ? null : transaction.id);
-                         }}
-                       >
-                         {isExpanded ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
-                       </Button>
-                     )}
-                   </div>
-
-                   {isExpanded && transaction?.shipping_details?.address && (
-                     <Card className="mt-3 bg-gray-50">
-                       <CardContent className="pt-3 text-xs space-y-1">
-                         <p className="font-semibold text-gray-900">{transaction.shipping_details.name || 'N/A'}</p>
-                         <p className="text-gray-600">{transaction.shipping_details.address.line1}</p>
-                         {transaction.shipping_details.address.line2 && (
-                           <p className="text-gray-600">{transaction.shipping_details.address.line2}</p>
-                         )}
-                         <p className="text-gray-600">
-                           {transaction.shipping_details.address.city}, {transaction.shipping_details.address.state} {transaction.shipping_details.address.postal_code}
-                         </p>
-                         {transaction.shipping_details.phone && (
-                           <p className="text-gray-600">Phone: {transaction.shipping_details.phone}</p>
-                         )}
-                       </CardContent>
-                     </Card>
-                   )}
-                 </div>
+    <Card className="overflow-hidden">
+      <CardContent className="p-4">
+        <div className="flex gap-3">
+          {/* Thumbnail */}
+          <div className="w-14 h-14 rounded-lg overflow-hidden bg-muted flex-shrink-0 border">
+            {item?.images?.[0] ? (
+              <img src={item.images[0]} alt={item.title} className="w-full h-full object-cover" />
+            ) : (
+              <div className="w-full h-full flex items-center justify-center">
+                <Package className="w-6 h-6 text-muted-foreground" />
               </div>
-            </CardContent>
-          </Card>
-        );
-      })}
-    </div>
+            )}
+          </div>
+
+          <div className="flex-1 min-w-0">
+            {/* Title */}
+            <p className="font-semibold text-sm line-clamp-1 mb-1">
+              {item?.title || txn.item_title || txn.item_id}
+            </p>
+
+            {/* Badges */}
+            <div className="flex flex-wrap gap-1.5 mb-2">
+              <Badge className={`text-xs ${statusColors[shippingStatus] || 'bg-gray-100 text-gray-700'}`}>
+                {statusLabel[shippingStatus] || shippingStatus}
+              </Badge>
+              <Badge className={`text-xs flex items-center gap-1 ${addrBadge.cls}`}>
+                <addrBadge.Icon className="w-3 h-3" />
+                {addrBadge.label}
+              </Badge>
+              {txn.sale_amount && (
+                <Badge variant="outline" className="text-xs">${txn.sale_amount.toFixed(2)}</Badge>
+              )}
+              {txn.created_date && (
+                <span className="text-xs text-muted-foreground self-center">
+                  {format(new Date(txn.created_date), 'MMM d, yyyy')}
+                </span>
+              )}
+            </div>
+
+            {/* Buyer info */}
+            <p className="text-xs text-muted-foreground mb-2 truncate">
+              Buyer: {txn.buyer_email}
+              {txn.shipping_details?.address?.city && ` · ${txn.shipping_details.address.city}, ${txn.shipping_details.address.state}`}
+            </p>
+
+            {/* Tracking info if label exists */}
+            {shipment?.tracking_number && (
+              <p className="text-xs text-blue-700 mb-2 font-mono">
+                📦 {shipment.tracking_number}
+                {shipment.tracking_url && (
+                  <a href={shipment.tracking_url} target="_blank" rel="noopener noreferrer" className="ml-2 underline">Track</a>
+                )}
+              </p>
+            )}
+
+            {/* Action buttons */}
+            <div className="flex flex-wrap gap-2">
+              {item?.id && (
+                <Button variant="outline" size="sm" asChild className="h-8 text-xs">
+                  <Link to={createPageUrl(`ItemDetails?id=${item.id}`)}>View Item</Link>
+                </Button>
+              )}
+
+              {/* Create label — blocked if label already purchased */}
+              {canCreateLabel && !hasLabelAlready && (
+                <Button
+                  size="sm"
+                  className="h-8 text-xs bg-orange-600 hover:bg-orange-700 text-white"
+                  onClick={() => onShip(order)}
+                >
+                  <Truck className="w-3 h-3 mr-1" />
+                  Create Label
+                </Button>
+              )}
+
+              {/* View existing label */}
+              {hasLabelAlready && (
+                <Button size="sm" variant="outline" className="h-8 text-xs" asChild>
+                  <a href={shipment.label_url} target="_blank" rel="noopener noreferrer">
+                    <ExternalLink className="w-3 h-3 mr-1" />
+                    Label PDF
+                  </a>
+                </Button>
+              )}
+
+              {/* Request address if missing */}
+              {!isHistory && addressStatus === 'missing' && (
+                <Button
+                  size="sm"
+                  className="h-8 text-xs bg-red-50 text-red-700 hover:bg-red-100 border border-red-200"
+                  onClick={() => onRequestAddress(txn)}
+                >
+                  <MapPin className="w-3 h-3 mr-1" />
+                  Request Address
+                </Button>
+              )}
+
+              {/* Refresh after buyer updated */}
+              {!isHistory && addressStatus === 'buyer_updated' && (
+                <Button
+                  size="sm"
+                  className="h-8 text-xs bg-blue-50 text-blue-700 hover:bg-blue-100 border border-blue-200"
+                  onClick={() => onRefreshAddress(txn.id)}
+                  disabled={refreshingId === txn.id}
+                >
+                  {refreshingId === txn.id ? (
+                    <><Loader2 className="w-3 h-3 mr-1 animate-spin" />Refreshing...</>
+                  ) : (
+                    <><RefreshCw className="w-3 h-3 mr-1" />Refresh</>
+                  )}
+                </Button>
+              )}
+
+              {/* Expand / collapse address */}
+              {hasAddress && (
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  className="h-8 text-xs"
+                  onClick={() => setExpandedId(isExpanded ? null : txn.id)}
+                >
+                  {isExpanded ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+                </Button>
+              )}
+            </div>
+
+            {/* Expanded address */}
+            {isExpanded && txn.shipping_details?.address && (
+              <Card className="mt-3 bg-muted/30">
+                <CardContent className="pt-3 pb-3 text-xs space-y-0.5">
+                  <p className="font-semibold">{txn.shipping_details.name || ''}</p>
+                  <p>{txn.shipping_details.address.line1}</p>
+                  {txn.shipping_details.address.line2 && <p>{txn.shipping_details.address.line2}</p>}
+                  <p>
+                    {txn.shipping_details.address.city}, {txn.shipping_details.address.state}{' '}
+                    {txn.shipping_details.address.postal_code}
+                  </p>
+                  {txn.shipping_details.phone && <p>📞 {txn.shipping_details.phone}</p>}
+                </CardContent>
+              </Card>
+            )}
+          </div>
+        </div>
+      </CardContent>
+    </Card>
   );
 }

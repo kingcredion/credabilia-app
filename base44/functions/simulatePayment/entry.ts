@@ -23,11 +23,13 @@ Deno.serve(async (req) => {
 
     const transaction = transactions[0];
 
-    // Determine new status (mimicking webhook logic)
-    let newStatus = 'completed';
-    if (transaction.commission_request_id || (transaction.item_title && transaction.item_title.includes("Framing"))) {
-        newStatus = 'escrow_held';
-    }
+    // Determine new status — mirror the canonical Stripe webhook logic
+    const isEscrowFlow = !!(transaction.commission_request_id || transaction.framing_request_id);
+    const newStatus = isEscrowFlow ? 'escrow' : 'paid';
+
+    // shipping_status for physical item direct sales → ready_to_ship (canonical)
+    const newShippingStatus = (!isEscrowFlow && transaction.item_id) ? 'ready_to_ship' : transaction.shipping_status || 'pending';
+    const newShippingAddressStatus = shippingDetails?.address?.line1 ? 'captured' : (transaction.shipping_address_status || 'missing');
 
     // Update Transaction with status and shipping details
     await base44.asServiceRole.entities.Transaction.update(transactionId, {
@@ -35,8 +37,9 @@ Deno.serve(async (req) => {
         payment_method: 'simulated_stripe',
         stripe_payment_intent_id: `sim_${Math.random().toString(36).substr(2, 9)}`,
         is_simulated: true,
-        shipping_status: 'pending',
-        shipping_details: shippingDetails
+        shipping_status: newShippingStatus,
+        shipping_details: shippingDetails || transaction.shipping_details || null,
+        shipping_address_status: newShippingAddressStatus,
     });
 
     // Update Item status

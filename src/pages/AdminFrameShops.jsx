@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -31,6 +30,7 @@ import {
   DialogTitle,
   DialogFooter,
 } from "@/components/ui/dialog";
+import { toast } from "sonner";
 
 export default function AdminFrameShops() {
   const [user, setUser] = useState(null);
@@ -71,25 +71,54 @@ export default function AdminFrameShops() {
   });
 
   const updateShopStatusMutation = useMutation({
-    mutationFn: async ({ shopId, status }) => {
-      await base44.entities.FrameShop.update(shopId, { status });
+    mutationFn: async ({ shop, status }) => {
+      await base44.entities.FrameShop.update(shop.id, { status });
+
+      // On approval, sync the linked user record
+      if (status === 'active') {
+        let linkedUser = null;
+        try {
+          const usersById = await base44.entities.User.filter({ email: shop.user_email });
+          linkedUser = usersById[0] || null;
+        } catch (_) {}
+        if (linkedUser) {
+          await base44.entities.User.update(linkedUser.id, {
+            user_type: 'picture_frame_shop',
+            frame_shop_id: shop.id,
+          });
+        } else {
+          console.warn("[AdminFrameShops] Could not find linked user:", shop.user_email);
+        }
+        // Notify user
+        await base44.entities.Notification.create({
+          user_email: shop.user_email,
+          type: "audit_completed",
+          title: "Frame Shop Approved! 🖼️",
+          message: "Your frame shop has been approved. You can now receive framing requests from collectors.",
+          link_url: "FrameShopDashboard"
+        });
+      }
     },
-    onSuccess: () => {
+    onSuccess: (_, { status }) => {
       queryClient.invalidateQueries({ queryKey: ['admin-frame-shops'] });
       setSelectedShop(null);
+      toast.success(status === 'active' ? "Frame shop approved!" : status === 'suspended' ? "Frame shop suspended." : "Frame shop updated.");
     },
+    onError: (error) => {
+      toast.error("Action failed: " + (error?.message || "Unknown error"));
+    }
   });
 
   const handleApprove = (shop) => {
-    updateShopStatusMutation.mutate({ shopId: shop.id, status: 'active' });
+    updateShopStatusMutation.mutate({ shop, status: 'active' });
   };
 
   const handleSuspend = (shop) => {
-    updateShopStatusMutation.mutate({ shopId: shop.id, status: 'suspended' });
+    updateShopStatusMutation.mutate({ shop, status: 'suspended' });
   };
 
   const handleReject = (shop) => {
-    updateShopStatusMutation.mutate({ shopId: shop.id, status: 'inactive' });
+    updateShopStatusMutation.mutate({ shop, status: 'inactive' });
   };
 
   const getStatusBadge = (status) => {

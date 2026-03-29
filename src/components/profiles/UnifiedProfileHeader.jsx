@@ -133,31 +133,22 @@ export default function UnifiedProfileHeader({
           {/* Action buttons */}
           <div className="flex flex-col gap-2">
             {isOwner ? (
-              <Link to={dashboardRoute}>
-                <Button
-                  className={`bg-white text-white hover:bg-gray-100 border-none font-semibold`}
-                  style={{
-                    backgroundColor: "white",
-                    color: gradientFrom.split("-")[1] === "pink" ? "#be123c" :
-                           gradientFrom.split("-")[1] === "purple" ? "#6b21a8" :
-                           gradientFrom.split("-")[1] === "green" ? "#15803d" :
-                           "#b45309",
-                  }}
-                >
-                  {DashboardIcon && <DashboardIcon className="w-4 h-4 mr-2" />}
-                  {dashboardLabel}
-                </Button>
-              </Link>
-            ) : (
               <>
-                <Button
-                  variant="outline"
-                  className="bg-white/10 border-white/40 text-white hover:bg-white/20 backdrop-blur-sm shadow-lg"
-                  onClick={onMessage}
-                >
-                  <MessageSquare className="w-4 h-4 mr-2" />
-                  Message
-                </Button>
+                <Link to={dashboardRoute}>
+                  <Button
+                    className={`bg-white text-white hover:bg-gray-100 border-none font-semibold`}
+                    style={{
+                      backgroundColor: "white",
+                      color: gradientFrom.split("-")[1] === "pink" ? "#be123c" :
+                             gradientFrom.split("-")[1] === "purple" ? "#6b21a8" :
+                             gradientFrom.split("-")[1] === "green" ? "#15803d" :
+                             "#b45309",
+                    }}
+                  >
+                    {DashboardIcon && <DashboardIcon className="w-4 h-4 mr-2" />}
+                    {dashboardLabel}
+                  </Button>
+                </Link>
                 {onPreviewPublic && (
                   <Button
                     variant="outline"
@@ -170,6 +161,15 @@ export default function UnifiedProfileHeader({
                   </Button>
                 )}
               </>
+            ) : (
+              <Button
+                variant="outline"
+                className="bg-white/10 border-white/40 text-white hover:bg-white/20 backdrop-blur-sm shadow-lg"
+                onClick={onMessage}
+              >
+                <MessageSquare className="w-4 h-4 mr-2" />
+                Message
+              </Button>
             )}
           </div>
           </div>

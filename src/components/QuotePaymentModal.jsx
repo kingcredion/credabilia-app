@@ -17,14 +17,14 @@
  * All finalization happens exclusively in stripeWebhook.ts on payment_intent.succeeded
  */
 import React, { useState, useEffect, useRef } from 'react';
-import { loadStripe } from '@stripe/stripe-js';
 import { Elements, PaymentElement, useStripe, useElements } from '@stripe/react-stripe-js';
 import { base44 } from '@/api/base44Client';
+import { getStripePromise } from '@/lib/stripeLoader';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Loader2, AlertCircle, CheckCircle2, X } from 'lucide-react';
 
-const stripePromise = loadStripe(import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY);
+const stripePromise = getStripePromise();
 
 function CheckoutForm({ quote, onSuccess, onError }) {
   const stripe = useStripe();

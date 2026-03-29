@@ -54,6 +54,8 @@ export default function AuditQueue() {
   const [newBadges, setNewBadges] = useState([]);
   const [showImageZoom, setShowImageZoom] = useState(false);
   const [zoomImage, setZoomImage] = useState(null);
+  const [submitError, setSubmitError] = useState(null);
+  const [submitSuccess, setSubmitSuccess] = useState(false);
   const queryClient = useQueryClient();
 
   useEffect(() => {
@@ -227,21 +229,33 @@ export default function AuditQueue() {
     onSuccess: ({ previousUserData, bonusXP, dailyChallengeJustCompleted }) => {
       queryClient.invalidateQueries({ queryKey: ['vetting-queue'] });
       queryClient.invalidateQueries({ queryKey: ['my-votes'] });
-      setSelectedItem(null);
-      setVoteType("");
-      setComment("");
-      setConfidence(0.8);
-      
-      loadUser().then((updatedUser) => {
-        const earnedNewBadges = checkNewBadges(updatedUser || user, previousUserData);
+      setSubmitError(null);
+      setSubmitSuccess(true);
+      setTimeout(() => {
+        setSubmitSuccess(false);
+        setSelectedItem(null);
+        setVoteType("");
+        setComment("");
+        setConfidence(0.8);
+      }, 1200);
+
+      // loadUser updates state but doesn't return a value; fetch fresh data for badge check
+      base44.auth.me().then((updatedUser) => {
+        if (!updatedUser) return;
+        setUser(updatedUser);
+        const earnedNewBadges = checkNewBadges(updatedUser, previousUserData);
         if (earnedNewBadges.length > 0) {
           setNewBadges(earnedNewBadges);
         }
-      });
+      }).catch(() => {});
       
       if (dailyChallengeJustCompleted) {
         console.log("Daily challenge completed! Bonus earned.");
       }
+    },
+    onError: (error) => {
+      console.error("[VettingQueue] Submit failed:", error);
+      setSubmitError(error?.message || "Submission failed. Please try again.");
     },
   });
 
@@ -710,20 +724,29 @@ export default function AuditQueue() {
             </div>
           )}
 
-          <DialogFooter>
-            <Button
-              variant="outline"
-              onClick={() => setSelectedItem(null)}
-            >
-              Cancel
-            </Button>
-            <Button
-              onClick={handleVote}
-              disabled={!voteType || submitVoteMutation.isPending}
-              className="bg-green-600 hover:bg-green-700"
-            >
-              {submitVoteMutation.isPending ? "Submitting..." : "Submit Audit (+5 XP)"}
-            </Button>
+          <DialogFooter className="flex-col gap-2">
+            {submitError && (
+              <p className="text-sm text-red-600 dark:text-red-400 text-center w-full">{submitError}</p>
+            )}
+            {submitSuccess && (
+              <p className="text-sm text-green-600 dark:text-green-400 text-center w-full font-medium">✓ Audit submitted! +5 XP earned</p>
+            )}
+            <div className="flex gap-2 w-full justify-end">
+              <Button
+                variant="outline"
+                onClick={() => { setSelectedItem(null); setSubmitError(null); setSubmitSuccess(false); }}
+                disabled={submitVoteMutation.isPending}
+              >
+                Cancel
+              </Button>
+              <Button
+                onClick={handleVote}
+                disabled={!voteType || submitVoteMutation.isPending || submitSuccess}
+                className="bg-green-600 hover:bg-green-700"
+              >
+                {submitVoteMutation.isPending ? "Submitting..." : submitSuccess ? "✓ Submitted!" : "Submit Audit (+5 XP)"}
+              </Button>
+            </div>
           </DialogFooter>
         </DialogContent>
       </Dialog>

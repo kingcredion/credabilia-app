@@ -18,7 +18,6 @@ import {
   Sparkles,
   Users,
   TrendingUp,
-  MapPin,
   Heart,
   Crown,
   Building2,
@@ -31,7 +30,6 @@ import {
   Brush,
   Palette
 } from "lucide-react";
-import LocationAutocomplete from "./LocationAutocomplete";
 import { useLanguage } from "./contexts/LanguageContext";
 
 const MAIN_INTEREST_TAGS = {
@@ -66,10 +64,6 @@ export default function OnboardingFlow({
   const [currentStep, setCurrentStep] = useState(forcedAccountType ? 2 : 0);
   const [accountType, setAccountType] = useState(forcedAccountType);
   const [selectedLanguage, setSelectedLanguage] = useState(null);
-  const [location, setLocation] = useState("");
-  const [geolocating, setGeolocating] = useState(false);
-  const [latitude, setLatitude] = useState(null);
-  const [longitude, setLongitude] = useState(null);
   const [selectedInterests, setSelectedInterests] = useState([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showSuccess, setShowSuccess] = useState(false);
@@ -123,21 +117,21 @@ export default function OnboardingFlow({
       // Complete onboarding
       setIsSubmitting(true);
       try {
+        if (!accountType) {
+          setIsSubmitting(false);
+          return;
+        }
         if (accountType === "picture_frame_shop") {
           setSuccessType("picture_frame_shop");
           setShowSuccess(true);
           onComplete("picture_frame_shop", {
             user_type: "picture_frame_shop",
-            latitude,
-            longitude,
             interests_tags: [],
             language: selectedLanguage,
             frame_shop_data: {
               business_name: businessName,
               description: businessDescription,
               address: businessAddress,
-              latitude,
-              longitude,
               contact_phone: businessPhone,
               website_url: businessWebsite,
               services_offered: selectedServices,
@@ -196,27 +190,27 @@ export default function OnboardingFlow({
           setShowSuccess(true);
           onComplete("collector", {
             user_type: "individual",
-            location,
-            latitude,
-            longitude,
             interests_tags: selectedInterests,
             language: selectedLanguage
           });
         }
       } catch (error) {
         console.error("Submission error:", error);
-        toast.error("Failed to complete onboarding. Please try again.");
+        setShowSuccess(false);
+        setIsSubmitting(false);
+        alert("Failed to complete onboarding: " + (error?.message || "Please try again."));
+      } finally {
+        // Always reset submitting state — success path also needs this so button re-enables
         setIsSubmitting(false);
       }
     }
   };
 
   const handleBack = () => {
-    if (forcedAccountType && currentStep === 2) {
-      // If we started at step 2 (details) and try to go back, we can't.
-      // Maybe we should allow it but it's weird to go back to selection if forced.
-      // For now let's just do nothing or maybe call onComplete with null?
-      return; 
+    // If forced into a specific account type, back should close/escape rather than trap
+    if (forcedAccountType && currentStep <= 2) {
+      if (onClose) onClose();
+      return;
     }
     if (currentStep > 0) {
       setCurrentStep(currentStep - 1);
@@ -235,13 +229,12 @@ export default function OnboardingFlow({
     }
     
     if (currentStepName === 'individual_details') {
-      return selectedInterests.length > 0 && latitude !== null && longitude !== null;
+      return selectedInterests.length > 0;
     }
     
     if (currentStepName === 'frame_shop_details') {
       return businessName.trim() && businessDescription.trim() && 
-             businessAddress.trim() && selectedServices.length > 0 &&
-             latitude !== null && longitude !== null;
+             businessAddress.trim() && selectedServices.length > 0;
     }
     
     if (currentStepName === 'influencer_details') {
@@ -278,12 +271,6 @@ export default function OnboardingFlow({
     if (currentStepName === 'individual_details') {
       return (
         <IndividualDetailsStep
-          location={location}
-          setLocation={setLocation}
-          geolocating={geolocating}
-          setGeolocating={setGeolocating}
-          setLatitude={setLatitude}
-          setLongitude={setLongitude}
           selectedInterests={selectedInterests}
           setSelectedInterests={setSelectedInterests}
         />
@@ -305,10 +292,6 @@ export default function OnboardingFlow({
           setBusinessWebsite={setBusinessWebsite}
           selectedServices={selectedServices}
           setSelectedServices={setSelectedServices}
-          geolocating={geolocating}
-          setGeolocating={setGeolocating}
-          setLatitude={setLatitude}
-          setLongitude={setLongitude}
         />
       );
     }
@@ -356,11 +339,11 @@ export default function OnboardingFlow({
   };
 
   return (
-    <Dialog open={open} onOpenChange={(openState) => !openState && onClose && onClose()}>
-      <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto rounded-2xl md:rounded-xl border-0 md:border dark:border-border/50 shadow-2xl dark:shadow-2xl p-6 md:p-6">
+    <Dialog open={open} onOpenChange={(openState) => { if (!openState && onClose) onClose(); }}>
+      <DialogContent className="max-w-2xl max-h-[90dvh] overflow-y-auto rounded-2xl md:rounded-xl border-0 md:border dark:border-border/50 shadow-2xl dark:shadow-2xl p-3 md:p-5">
         <DialogHeader className="px-0 md:px-0">
-          <div className="flex items-center justify-between mb-3">
-            <DialogTitle className="text-2xl">
+          <div className="flex items-center justify-between mb-2">
+            <DialogTitle className="text-xl md:text-2xl">
               {currentStep === 0 ? t("onboarding.welcome") : 
                currentStep === 1 ? "Select your account type" :
                accountType === "individual" ? "Your Preferences" :
@@ -385,7 +368,7 @@ export default function OnboardingFlow({
 
 
 
-        <div className="my-5 md:my-6">
+        <div className="my-3 md:my-5">
           <AnimatePresence mode="wait">
             <motion.div
               key={currentStep}
@@ -399,10 +382,10 @@ export default function OnboardingFlow({
           </AnimatePresence>
         </div>
 
-        <div className="flex items-center justify-between gap-3 pt-5 md:pt-6 border-t dark:border-border/50 mt-6 md:mt-8">
-          {!showSuccess && currentStep > 0 ? (
-            <Button variant="outline" onClick={handleBack} className="rounded-lg md:rounded-lg active:bg-gray-100 dark:active:bg-white/10 transition-colors">
-              {t("onboarding.back")}
+        <div className="flex items-center justify-between gap-3 pt-2 md:pt-3 border-t dark:border-border/50 mt-2 md:mt-4">
+          {!showSuccess && (currentStep > 0 || forcedAccountType) ? (
+            <Button variant="outline" onClick={handleBack} className="rounded-lg active:bg-gray-100 dark:active:bg-white/10 transition-colors">
+              {forcedAccountType ? "Cancel" : t("onboarding.back")}
             </Button>
           ) : (
             <div />
@@ -449,9 +432,9 @@ function LanguageStep({ setLanguage, setSelectedLanguage, t }) {
   };
 
   return (
-    <div className="py-8 text-center">
-      <div className="mb-8">
-        <Languages className="w-16 h-16 text-blue-600 mx-auto mb-4" />
+    <div className="py-4 text-center">
+      <div className="mb-4">
+        <Languages className="w-10 h-10 text-blue-600 mx-auto mb-3" />
         <h2 className="text-2xl font-bold text-gray-900 dark:text-foreground mb-2">
           {t("onboarding.select_language")}
         </h2>
@@ -499,7 +482,7 @@ function AccountTypeStep({ accountType, setAccountType }) {
           src="https://media.base44.com/images/public/690badbd56a85b130b88aa42/508692efe_Photoroom_20260323_134641.png"
           alt="Credabilia Characters"
           className="max-w-full h-auto object-contain"
-          style={{ maxHeight: '200px' }}
+          style={{ maxHeight: '120px' }}
         />
       </div>
 
@@ -711,45 +694,11 @@ function AccountTypeStep({ accountType, setAccountType }) {
   );
 }
 
-// STEP 2: Individual User Details (Location + Interests)
+// STEP 2: Individual User Details (Interests only)
 function IndividualDetailsStep({
-  location,
-  setLocation,
-  geolocating,
-  setGeolocating,
-  setLatitude,
-  setLongitude,
   selectedInterests,
   setSelectedInterests
 }) {
-  const handleGetLocation = () => {
-    if (!navigator.geolocation) {
-      alert("Geolocation is not supported by your browser");
-      return;
-    }
-
-    setGeolocating(true);
-    navigator.geolocation.getCurrentPosition(
-      (position) => {
-        setLatitude(position.coords.latitude);
-        setLongitude(position.coords.longitude);
-        setLocation(`${position.coords.latitude.toFixed(2)}, ${position.coords.longitude.toFixed(2)}`);
-        setGeolocating(false);
-      },
-      (error) => {
-        console.error("Error getting location:", error);
-        alert("Unable to get your location. Please enter it manually.");
-        setGeolocating(false);
-      }
-    );
-  };
-
-  const handleLocationSelect = (locationData) => {
-    setLocation(locationData.address);
-    setLatitude(locationData.latitude);
-    setLongitude(locationData.longitude);
-  };
-
   const toggleInterest = (interest) => {
     if (selectedInterests.includes(interest)) {
       setSelectedInterests(selectedInterests.filter(i => i !== interest));
@@ -760,48 +709,6 @@ function IndividualDetailsStep({
 
   return (
     <div className="py-4 space-y-6">
-      {/* Location Section */}
-      <div>
-        <div className="flex items-center gap-2 mb-3">
-           <MapPin className="w-5 h-5 text-green-600" />
-           <h3 className="font-bold text-gray-900 dark:text-foreground">Your Location</h3>
-         </div>
-         <p className="text-sm text-gray-600 dark:text-muted-foreground mb-3">
-          Find items for sale near you and connect with local collectors
-         </p>
-         <div className="flex gap-2 mb-3">
-           <LocationAutocomplete
-             value={location}
-             onChange={setLocation}
-             onLocationSelect={handleLocationSelect}
-             placeholder="e.g., New York, NY"
-           />
-           <Button
-             type="button"
-             onClick={handleGetLocation}
-             disabled={geolocating}
-             variant="outline"
-             size="sm"
-           >
-             <MapPin className="w-4 h-4 mr-1" />
-             {geolocating ? "..." : "Auto"}
-           </Button>
-         </div>
-         {latitude === null || longitude === null ? (
-           <div className="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-500/30 rounded-lg p-3">
-             <p className="text-xs text-amber-900 dark:text-amber-300">
-               <strong>⚠️ Select address required:</strong> Choose from suggestions or tap "Auto" to enable location
-             </p>
-           </div>
-         ) : (
-           <div className="bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-500/30 rounded-lg p-3">
-             <p className="text-xs text-green-900 dark:text-green-300">
-               ✓ Location confirmed: {location}
-             </p>
-           </div>
-         )}
-       </div>
-
       {/* Interests Section */}
       <div>
         <div className="flex items-center gap-2 mb-3">
@@ -869,38 +776,7 @@ function FrameShopDetailsStep({
   setBusinessWebsite,
   selectedServices,
   setSelectedServices,
-  geolocating,
-  setGeolocating,
-  setLatitude,
-  setLongitude
 }) {
-  const handleGetLocation = () => {
-    if (!navigator.geolocation) {
-      alert("Geolocation is not supported by your browser");
-      return;
-    }
-
-    setGeolocating(true);
-    navigator.geolocation.getCurrentPosition(
-      (position) => {
-        setLatitude(position.coords.latitude);
-        setLongitude(position.coords.longitude);
-        setGeolocating(false);
-      },
-      (error) => {
-        console.error("Error getting location:", error);
-        alert("Unable to get your location. Please enter your address manually.");
-        setGeolocating(false);
-      }
-    );
-  };
-
-  const handleLocationSelect = (locationData) => {
-    setBusinessAddress(locationData.address);
-    setLatitude(locationData.latitude);
-    setLongitude(locationData.longitude);
-  };
-
   const toggleService = (service) => {
     if (selectedServices.includes(service)) {
       setSelectedServices(selectedServices.filter(s => s !== service));
@@ -953,38 +829,11 @@ function FrameShopDetailsStep({
         <label className="text-sm font-medium text-gray-700 dark:text-foreground mb-1.5 block">
           Address *
         </label>
-        <div className="space-y-2">
-          <LocationAutocomplete
-            value={businessAddress}
-            onChange={setBusinessAddress}
-            onLocationSelect={handleLocationSelect}
-            placeholder="123 Main St, City, State, ZIP"
-          />
-          <Button
-            type="button"
-            onClick={handleGetLocation}
-            disabled={geolocating}
-            variant="outline"
-            size="sm"
-            className="w-full"
-          >
-            <MapPin className="w-4 h-4 mr-2" />
-            {geolocating ? "Getting..." : "Use My Location"}
-          </Button>
-          {latitude === null || longitude === null ? (
-            <div className="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-500/30 rounded-lg p-2">
-              <p className="text-xs text-amber-900 dark:text-amber-300">
-                <strong>⚠️ Select address required:</strong> Choose from suggestions or tap "Use My Location"
-              </p>
-            </div>
-          ) : (
-            <div className="bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-500/30 rounded-lg p-2">
-              <p className="text-xs text-green-900 dark:text-green-300">
-                ✓ Location confirmed: {businessAddress}
-              </p>
-            </div>
-          )}
-        </div>
+        <Input
+          value={businessAddress}
+          onChange={(e) => setBusinessAddress(e.target.value)}
+          placeholder="123 Main St, City, State, ZIP"
+        />
       </div>
 
       <div className="grid grid-cols-2 gap-3">
@@ -1350,21 +1199,21 @@ function IndiegogoDetailsStep({
   setIndiegogoProfileUrl
 }) {
   return (
-    <div className="py-4 space-y-5">
-      <div className="bg-gradient-to-br from-pink-50 to-white dark:from-pink-900/20 dark:to-background rounded-lg p-6 border-2 border-pink-300 dark:border-pink-500/30 text-center">
+    <div className="py-2 space-y-4">
+      <div className="bg-gradient-to-br from-pink-50 to-white dark:from-pink-900/20 dark:to-background rounded-lg p-4 border-2 border-pink-300 dark:border-pink-500/30 text-center">
          <img
            src="https://qtrypzzcjebvfcihiynt.supabase.co/storage/v1/object/public/base44-prod/public/690badbd56a85b130b88aa42/e1bb7b419_IMG_0622.png"
            alt="Founder Circle"
-           className="h-24 w-auto object-contain mx-auto mb-4"
+           className="h-14 w-auto object-contain mx-auto mb-2"
          />
-         <h3 className="text-xl font-bold bg-gradient-to-r from-pink-600 to-green-600 bg-clip-text text-transparent mb-2">
+         <h3 className="text-lg font-bold bg-gradient-to-r from-pink-600 to-green-600 bg-clip-text text-transparent mb-1">
            Welcome to the Founder Circle!
          </h3>
-         <p className="text-sm text-gray-700 dark:text-muted-foreground mb-4">
+         <p className="text-xs text-gray-700 dark:text-muted-foreground mb-3">
           As an Indiegogo backer, you're part of an exclusive elite-tier membership with lifetime benefits.
         </p>
         
-        <div className="grid grid-cols-2 gap-3 text-left bg-white dark:bg-white/[0.05] dark:border-white/10 rounded-lg p-4 border border-pink-200 dark:border-pink-500/20">
+        <div className="grid grid-cols-2 gap-2 text-left bg-white dark:bg-white/[0.05] dark:border-white/10 rounded-lg p-3 border border-pink-200 dark:border-pink-500/20">
           <div className="flex items-start gap-2">
             <Crown className="w-4 h-4 text-pink-600 flex-shrink-0 mt-0.5" />
             <div>
@@ -1427,25 +1276,9 @@ function IndiegogoDetailsStep({
         </p>
       </div>
 
-      <div className="bg-pink-50 dark:bg-pink-900/20 border border-pink-200 dark:border-pink-500/30 rounded-lg p-4">
-        <div className="flex items-start gap-3">
-          <AlertCircle className="w-5 h-5 text-pink-600 flex-shrink-0 mt-0.5" />
-          <div>
-            <p className="text-sm font-semibold text-pink-900 dark:text-pink-300 mb-1">Verification Process</p>
-            <p className="text-xs text-pink-800 dark:text-pink-200 leading-relaxed">
-              Our admin team will verify your backer status and investment amount. Once verified, your Founder Circle perks will be activated, including your store credit balance and founder badge.
-            </p>
-          </div>
-        </div>
-      </div>
-
-      <div className="bg-gradient-to-r from-green-50 to-pink-50 dark:from-green-900/20 dark:to-pink-900/20 border border-green-300 dark:border-green-500/30 rounded-lg p-4">
-        <p className="text-sm font-bold text-gray-900 dark:text-foreground mb-1 flex items-center gap-2">
-          <Trophy className="w-4 h-4 text-green-600" />
-          Thank You for Believing in Us!
-        </p>
-        <p className="text-xs text-gray-700 dark:text-muted-foreground">
-          Your early support makes all the difference. Welcome to the kingdom! 👑
+      <div className="bg-pink-50 dark:bg-pink-900/20 border border-pink-200 dark:border-pink-500/30 rounded-lg p-3">
+        <p className="text-xs text-pink-800 dark:text-pink-200 leading-relaxed">
+          <strong>Verification:</strong> Our team verifies your backer status within 24-48 hours, then activates your Founder Circle perks and badge. 👑
         </p>
       </div>
     </div>

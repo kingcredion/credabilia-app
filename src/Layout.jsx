@@ -1,4 +1,4 @@
-import React, { useState, useEffect, lazy, Suspense, useRef } from "react";
+import React, { useState, useEffect, lazy, Suspense, useRef, useCallback } from "react";
 
 // Safe idle callback helpers with mobile browser fallback
 const runWhenIdle = (callback, timeoutMs = 2000) => {
@@ -65,6 +65,7 @@ import {
 import NotificationBell from "./components/NotificationBell";
 import PageTransition from "./components/PageTransition";
 import { LanguageProvider, useLanguage } from "./components/contexts/LanguageContext";
+import GlassIcon from "./components/GlassIcon";
 
 // Deferred global UI — loaded after initial paint
 const GlobalNavHeader = lazy(() => import("./components/GlobalNavHeader"));
@@ -83,10 +84,17 @@ import {
 
 // Link that auto-closes the mobile sidebar on click
 function NavLink({ to, className, children, style }) {
-  const { setOpenMobile } = useSidebar();
+  let setOpenMobile = null;
+  try {
+    const sidebar = useSidebar();
+    setOpenMobile = sidebar?.setOpenMobile ?? null;
+  } catch (e) {
+    // useSidebar throws if used outside SidebarProvider — safe to ignore
+  }
   const ref = React.useRef(null);
   
   const handleClick = () => {
+    if (!setOpenMobile) return;
     // Save scroll position before closing
     const sidebarContent = document.querySelector('[data-sidebar-content]');
     if (sidebarContent) {
@@ -199,6 +207,15 @@ function InnerLayout({ children, currentPageName }) {
   const { t } = useLanguage();
   const location = useLocation();
   const navigate = useNavigate();
+  const mainScrollRef = useRef(null);
+
+  // Scroll to top on every route change
+  useEffect(() => {
+    if (mainScrollRef.current) {
+      mainScrollRef.current.scrollTo({ top: 0, behavior: 'auto' });
+    }
+  }, [location.pathname]);
+
   const [user, setUser] = useState(null);
   const [isAuthenticated, setIsAuthenticated] = useState(null);
   // activeContext is a LOCAL UI state — it no longer writes to the backend on every switch.
@@ -393,12 +410,18 @@ function InnerLayout({ children, currentPageName }) {
         roleChecks.vendor = true;
         fetches.push(
           Promise.all([
-            // "paid" is the correct post-payment status for direct item sales that need shipping.
-            // Do NOT use status='completed' — that only happens after delivery.
-            base44.entities.Transaction.filter({ vendor_email: user.email, status: 'paid', shipping_status: 'pending' }),
+            // Fetch all paid transactions for vendor, then client-side filter to match
+            // VendorShipping's needsLabel logic exactly:
+            // ready_to_ship | pending | missing shipping_status
+            base44.entities.Transaction.filter({ vendor_email: user.email, status: 'paid' }),
             base44.entities.PendingSale.filter({ vendor_email: user.email, status: 'pending' })
-          ]).then(([awaitingShipment, sales]) => {
-            if (awaitingShipment.length > 0 || sales.length > 0) {
+          ]).then(([paidTxns, sales]) => {
+            const needsShipping = paidTxns.filter(t =>
+              !t.shipping_status ||
+              t.shipping_status === 'ready_to_ship' ||
+              t.shipping_status === 'pending'
+            );
+            if (needsShipping.length > 0 || sales.length > 0) {
               notifications.vendor = true;
             }
           })
@@ -534,7 +557,7 @@ function InnerLayout({ children, currentPageName }) {
           setShowKingCredionWelcomeModal(true);
         }
 
-        if (!userData.onboarding_completed) {
+        if (isAuth && !userData.onboarding_completed) {
           setShowOnboarding(true);
         }
 
@@ -577,7 +600,7 @@ function InnerLayout({ children, currentPageName }) {
 
       if (onboardingData.user_type === "indiegogo_investor") {
         const indiegogoData = onboardingData.indiegogo_data;
-        await base44.entities.IndiegogoInvestor.create({
+        const investor = await base44.entities.IndiegogoInvestor.create({
           user_id: user.id,
           user_email: user.email,
           indiegogo_backer_id: indiegogoData.indiegogo_backer_id,
@@ -587,6 +610,14 @@ function InnerLayout({ children, currentPageName }) {
 
         updateData.user_type = "indiegogo_investor";
         updateData.current_role = "collector";
+
+        // Notify admins
+        base44.functions.invoke("notifyAdminsOnApplication", {
+          applicant_name: user.full_name,
+          applicant_email: user.email,
+          account_type: "indiegogo_investor",
+          entity_id: investor.id,
+        }).catch(err => console.warn("[Layout] Admin notify failed (indiegogo):", err));
       }
       else if (onboardingData.user_type === "picture_frame_shop") {
         const frameShopData = onboardingData.frame_shop_data;
@@ -608,6 +639,14 @@ function InnerLayout({ children, currentPageName }) {
         updateData.frame_shop_id = frameShop.id;
         updateData.current_role = "collector";
         updateData.interests_tags = onboardingData.interests_tags || [];
+
+        // Notify admins
+        base44.functions.invoke("notifyAdminsOnApplication", {
+          applicant_name: user.full_name,
+          applicant_email: user.email,
+          account_type: "picture_frame_shop",
+          entity_id: frameShop.id,
+        }).catch(err => console.warn("[Layout] Admin notify failed (frame shop):", err));
       }
       else if (onboardingData.user_type === "influencer") {
         const influencerData = onboardingData.influencer_data;
@@ -625,30 +664,46 @@ function InnerLayout({ children, currentPageName }) {
 
         updateData.user_type = "influencer";
         updateData.influencer_id = influencer.id;
-          updateData.current_role = "collector";
-          updateData.interests_tags = onboardingData.interests_tags || [];
-        }
-        else if (onboardingData.user_type === "artist") {
-          const artistData = onboardingData.artist_data;
+        updateData.current_role = "collector";
+        updateData.interests_tags = onboardingData.interests_tags || [];
 
-          const artist = await base44.entities.Artist.create({
-            user_id: user.id,
-            user_email: user.email,
-            artist_name: artistData.artist_name,
-            bio: artistData.bio || "",
-            portfolio_url: artistData.portfolio_url || "",
-            instagram_handle: artistData.instagram_handle || "",
-            specialties: artistData.specialties || [],
-            status: "pending_approval",
-            commission_open: false
-          });
+        // Notify admins
+        base44.functions.invoke("notifyAdminsOnApplication", {
+          applicant_name: user.full_name,
+          applicant_email: user.email,
+          account_type: "influencer",
+          entity_id: influencer.id,
+        }).catch(err => console.warn("[Layout] Admin notify failed (influencer):", err));
+      }
+      else if (onboardingData.user_type === "artist") {
+        const artistData = onboardingData.artist_data;
 
-          updateData.user_type = "artist";
-          updateData.artist_id = artist.id;
-          updateData.current_role = "collector";
-          updateData.interests_tags = onboardingData.interests_tags || [];
-        }
-        else {
+        const artist = await base44.entities.Artist.create({
+          user_id: user.id,
+          user_email: user.email,
+          artist_name: artistData.artist_name,
+          bio: artistData.bio || "",
+          portfolio_url: artistData.portfolio_url || "",
+          instagram_handle: artistData.instagram_handle || "",
+          specialties: artistData.specialties || [],
+          status: "pending_approval",
+          commission_open: false
+        });
+
+        updateData.user_type = "artist";
+        updateData.artist_id = artist.id;
+        updateData.current_role = "collector";
+        updateData.interests_tags = onboardingData.interests_tags || [];
+
+        // Notify admins
+        base44.functions.invoke("notifyAdminsOnApplication", {
+          applicant_name: user.full_name,
+          applicant_email: user.email,
+          account_type: "artist",
+          entity_id: artist.id,
+        }).catch(err => console.warn("[Layout] Admin notify failed (artist):", err));
+      }
+      else {
           updateData.user_type = "individual";
         updateData.interests_tags = onboardingData.interests_tags || [];
 
@@ -962,22 +1017,28 @@ function InnerLayout({ children, currentPageName }) {
 
                   {navItems
                     .filter(item => item.url !== "Marketplace" && item.url !== "ExploreFrameShops")
-                    .map((item) => (
+                    .map((item) => {
+                      const isActiveNav = location.pathname === createPageUrl(item.url);
+                      const navGlowColor = currentRole === 'vendor' ? 'orange' : currentRole === 'auditor' ? 'green' : currentRole === 'picture_frame_shop' ? 'purple' : currentRole === 'artist' ? 'pink' : 'blue';
+                      return (
                       <NavLink
                         key={item.title}
                         to={createPageUrl(item.url)}
-                        className={`flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all duration-200 ${
-                          location.pathname === createPageUrl(item.url)
-                            ? 'font-semibold shadow-sm'
-                            : isDark ? 'hover:bg-muted/50 hover:border hover:border-border' : 'hover:bg-gray-50'
+                        className={`flex items-center gap-3 px-2 py-2 rounded-lg transition-all duration-200 ${
+                          isActiveNav
+                            ? 'font-semibold'
+                            : isDark ? 'hover:bg-muted/50' : 'hover:bg-gray-50'
                         }`}
-                        style={{
-                          backgroundColor: location.pathname === createPageUrl(item.url) ? `${currentColor}20` : undefined,
-                          color: currentColor,
-                          borderLeft: location.pathname === createPageUrl(item.url) ? `3px solid ${currentColor}` : undefined,
-                        }}
+                        style={{ color: currentColor }}
                       >
-                        <item.icon className="w-5 h-5" />
+                        <GlassIcon
+                          color={navGlowColor}
+                          active={isActiveNav}
+                          size="sm"
+                          className={!isActiveNav ? "!bg-transparent !border-transparent !shadow-none hover:!bg-white/5" : ""}
+                        >
+                          <item.icon className="w-4 h-4" />
+                        </GlassIcon>
                         <span className="flex-1">{item.title}</span>
                         {currentRole === 'collector' && item.url === 'TrackPackages' && roleNotifications.collector && (
                           <span className="inline-flex items-center text-[10px] font-medium rounded-full px-1.5 py-0.5 flex-shrink-0" style={{ color: roleColors.collector, backgroundColor: roleColors.collector + '15', border: `1px solid ${roleColors.collector}40` }}>
@@ -995,7 +1056,8 @@ function InnerLayout({ children, currentPageName }) {
                           </span>
                         )}
                       </NavLink>
-                    ))}
+                    );
+                    })}
                 </div>
 
                 <div id="sidebar-quick-access" className="mb-4 space-y-2">
@@ -1003,80 +1065,26 @@ function InnerLayout({ children, currentPageName }) {
                     Universal Menu
                   </p>
 
-                  <Card className={`overflow-hidden shadow-md border-2 hover:shadow-lg transition-all duration-200 ${
-                     isDark 
-                       ? 'bg-muted/30 border-border hover:bg-muted/50 hover:border-blue-500/50' 
-                       : 'bg-card border-border hover:border-blue-400'
-                   }`}>
-                   <NavLink to={createPageUrl("Marketplace")} className="block">
-                     <CardContent className="p-3">
-                       <div className={`flex items-center gap-3 ${
-                         location.pathname === createPageUrl("Marketplace")
-                           ? isDark ? 'text-blue-400 font-semibold' : 'text-blue-600 font-semibold'
-                           : isDark ? 'text-foreground/70' : 'text-gray-700'
-                       }`}>
-                         <div className={`p-2 rounded-lg ${
-                           location.pathname === createPageUrl("Marketplace")
-                             ? isDark ? 'bg-blue-500/20' : 'bg-blue-100'
-                             : isDark ? 'bg-muted' : 'bg-gray-100'
-                         }`}>
-                            <LayoutDashboard className="w-4 h-4" />
-                          </div>
-                          <span className="text-sm">{t("nav.marketplace")}</span>
-                        </div>
-                      </CardContent>
-                    </NavLink>
-                  </Card>
+                  <NavLink to={createPageUrl("Marketplace")} className={`flex items-center gap-3 px-2 py-2 rounded-lg transition-all duration-200 ${location.pathname === createPageUrl("Marketplace") ? 'font-semibold' : isDark ? 'hover:bg-muted/50' : 'hover:bg-gray-50'}`} style={{ color: '#2563eb' }}>
+                    <GlassIcon color="blue" active={location.pathname === createPageUrl("Marketplace")} size="sm" className={location.pathname !== createPageUrl("Marketplace") ? "!bg-transparent !border-transparent !shadow-none hover:!bg-white/5" : ""}>
+                      <LayoutDashboard className="w-4 h-4" />
+                    </GlassIcon>
+                    <span className="text-sm">{t("nav.marketplace")}</span>
+                  </NavLink>
 
-                  <Card className={`overflow-hidden shadow-md border-2 hover:shadow-lg transition-all duration-200 ${
-                     isDark 
-                       ? 'bg-muted/30 border-border hover:bg-muted/50 hover:border-green-500/50' 
-                       : 'bg-card border-border hover:border-green-400'
-                   }`}>
-                   <NavLink to={createPageUrl("RewardCenter")} className="block">
-                     <CardContent className="p-3">
-                       <div className={`flex items-center gap-3 ${
-                         location.pathname === createPageUrl("RewardCenter")
-                           ? isDark ? 'text-green-400 font-semibold' : 'text-green-600 font-semibold'
-                           : isDark ? 'text-foreground/70' : 'text-gray-700'
-                       }`}>
-                         <div className={`p-2 rounded-lg ${
-                           location.pathname === createPageUrl("RewardCenter")
-                             ? isDark ? 'bg-green-500/20' : 'bg-green-100'
-                             : isDark ? 'bg-muted' : 'bg-gray-100'
-                         }`}>
-                            <Trophy className="w-4 h-4" />
-                          </div>
-                          <span className="text-sm">{t("nav.reward_center")}</span>
-                        </div>
-                      </CardContent>
-                    </NavLink>
-                  </Card>
+                  <NavLink to={createPageUrl("RewardCenter")} className={`flex items-center gap-3 px-2 py-2 rounded-lg transition-all duration-200 ${location.pathname === createPageUrl("RewardCenter") ? 'font-semibold' : isDark ? 'hover:bg-muted/50' : 'hover:bg-gray-50'}`} style={{ color: '#059669' }}>
+                    <GlassIcon color="green" active={location.pathname === createPageUrl("RewardCenter")} size="sm" className={location.pathname !== createPageUrl("RewardCenter") ? "!bg-transparent !border-transparent !shadow-none hover:!bg-white/5" : ""}>
+                      <Trophy className="w-4 h-4" />
+                    </GlassIcon>
+                    <span className="text-sm">{t("nav.reward_center")}</span>
+                  </NavLink>
 
-                  <Card className={`overflow-hidden shadow-md border-2 hover:shadow-lg transition-all duration-200 ${
-                     isDark 
-                       ? 'bg-muted/30 border-border hover:bg-muted/50 hover:border-purple-500/50' 
-                       : 'bg-card border-border hover:border-purple-400'
-                   }`}>
-                   <NavLink to={createPageUrl("ExploreFrameShops")} className="block">
-                     <CardContent className="p-3">
-                       <div className={`flex items-center gap-3 ${
-                         location.pathname === createPageUrl("ExploreFrameShops")
-                           ? isDark ? 'text-purple-400 font-semibold' : 'text-purple-600 font-semibold'
-                           : isDark ? 'text-foreground/70' : 'text-gray-700'
-                       }`}>
-                         <div className={`p-2 rounded-lg ${
-                           location.pathname === createPageUrl("ExploreFrameShops")
-                             ? isDark ? 'bg-purple-500/20' : 'bg-purple-100'
-                             : isDark ? 'bg-muted' : 'bg-gray-100'
-                         }`}>
-                            <Users className="w-4 h-4" />
-                          </div>
-                          <span className="text-sm">Creative Hub</span>
-                        </div>
-                      </CardContent>
-                    </NavLink>
-                  </Card>
+                  <NavLink to={createPageUrl("ExploreFrameShops")} className={`flex items-center gap-3 px-2 py-2 rounded-lg transition-all duration-200 ${location.pathname === createPageUrl("ExploreFrameShops") ? 'font-semibold' : isDark ? 'hover:bg-muted/50' : 'hover:bg-gray-50'}`} style={{ color: '#7c3aed' }}>
+                    <GlassIcon color="purple" active={location.pathname === createPageUrl("ExploreFrameShops")} size="sm" className={location.pathname !== createPageUrl("ExploreFrameShops") ? "!bg-transparent !border-transparent !shadow-none hover:!bg-white/5" : ""}>
+                      <Users className="w-4 h-4" />
+                    </GlassIcon>
+                    <span className="text-sm">Creative Hub</span>
+                  </NavLink>
 
                   {(subRoleAccess.canAccessFrameShopTools || subRoleAccess.canAccessInfluencerTools || subRoleAccess.canAccessArtistTools || subRoleAccess.hasFounderCircleAccess) && (
                      <div id="sidebar-special-features">
@@ -1305,25 +1313,21 @@ function InnerLayout({ children, currentPageName }) {
               )}
 
               <div className="ml-auto flex items-center gap-3">
-                <button
-                   onClick={toggleDark}
-                   className={`p-2 rounded-lg transition-colors flex-shrink-0 ${isDark ? 'hover:bg-muted' : 'hover:bg-muted'}`}
-                   aria-label="Toggle dark mode"
-                 >
+                <GlassIcon color="white" size="sm" onClick={toggleDark} className="cursor-pointer" aria-label="Toggle dark mode">
                    {isDark ? <Sun className="w-5 h-5 text-foreground/70" /> : <Moon className="w-5 h-5 text-foreground/70" />}
-                 </button>
+                 </GlassIcon>
                 {user ? (
                   <>
                     <NotificationBell user={user} />
-                    <Link to={createPageUrl("Messages")} className="hidden sm:block">
-                       <Button variant="ghost" size="icon" aria-label="Messages" className={`relative ${isDark ? 'hover:bg-muted' : 'hover:bg-muted'}`}>
-                         <MessageSquare className={`w-5 h-5 ${isDark ? 'text-foreground/70' : 'text-foreground/70'}`} />
-                        {unreadMessageCount > 0 && (
-                          <span className="absolute top-0 right-0 w-3.5 h-3.5 bg-red-500 rounded-full text-[9px] text-white flex items-center justify-center border border-white shadow-sm">
-                            {unreadMessageCount > 9 ? '9+' : unreadMessageCount}
-                          </span>
-                        )}
-                      </Button>
+                    <Link to={createPageUrl("Messages")} className="hidden sm:block relative">
+                      <GlassIcon color="blue" size="sm" aria-label="Messages">
+                        <MessageSquare className="w-5 h-5 text-foreground/70" />
+                      </GlassIcon>
+                      {unreadMessageCount > 0 && (
+                        <span className="absolute -top-1 -right-1 w-3.5 h-3.5 bg-red-500 rounded-full text-[9px] text-white flex items-center justify-center border border-white shadow-sm z-10">
+                          {unreadMessageCount > 9 ? '9+' : unreadMessageCount}
+                        </span>
+                      )}
                     </Link>
                     
 
@@ -1331,12 +1335,7 @@ function InnerLayout({ children, currentPageName }) {
                 ) : (
                   <div className="flex flex-col items-end sm:flex-row sm:items-center gap-2 sm:gap-3">
                     <div className="bg-black/80 backdrop-blur-sm text-white text-base px-6 py-3 rounded-full hidden sm:flex items-center gap-3 border border-white/10 shadow-lg cursor-default">
-                      <img 
-                        src="https://qtrypzzcjebvfcihiynt.supabase.co/storage/v1/object/public/base44-prod/public/690badbd56a85b130b88aa42/0fd00a06d_Photoroom_20251111_173240.png" 
-                        alt="MJ Jersey" 
-                        className="w-8 h-8 object-contain"
-                        loading="lazy"
-                      />
+                      <Trophy className="w-5 h-5 text-yellow-400 flex-shrink-0" />
                       <span className="font-medium text-yellow-400">Win a Signed MJ Jersey!</span>
                       <span className="text-gray-400">|</span>
                       <span>Auto-entry on signup</span>
@@ -1369,7 +1368,7 @@ function InnerLayout({ children, currentPageName }) {
           </header>
 
           <Suspense fallback={null}><GlobalNavHeader /></Suspense>
-          <div className="flex-1 overflow-auto ios-scroll">
+          <div className="flex-1 overflow-auto ios-scroll" ref={mainScrollRef}>
             <PageTransition>
               {user ? (
                 <div className="mobile-page-bottom-padding md:pb-0">
@@ -1388,12 +1387,13 @@ function InnerLayout({ children, currentPageName }) {
 
 
 
-      {user && showOnboarding && (
+      {user && isAuthenticated && showOnboarding && (
         <Suspense fallback={<div />}>
           <OnboardingFlow
             open={showOnboarding}
             onComplete={handleOnboardingComplete}
             initialRole={currentRole}
+            onClose={() => setShowOnboarding(false)}
           />
         </Suspense>
       )}

@@ -44,55 +44,37 @@ export default function StripeConnect({ user, returnUrl, className }) {
     }
   }, [user?.id]);
 
+  const [connecting, setConnecting] = useState(false);
+  const [connectError, setConnectError] = useState(null);
+
   const openStripeOnboarding = async () => {
-    // Open a blank tab SYNCHRONOUSLY before any async work.
-    // This is required for non-webview mobile browsers to avoid popup blocking.
-    // NOTE: If running inside a webview/in-app browser, Stripe hosted onboarding
-    // is unsupported by Stripe. The tab will still open in the system browser on most
-    // platforms (iOS Safari, Android Chrome) because window.open targets '_blank'.
-    const newTab = window.open('', '_blank');
-    if (newTab) {
-      newTab.document.write('<html><body style="font-family:sans-serif;display:flex;align-items:center;justify-content:center;height:100vh;margin:0;background:#f9f9f9"><p style="color:#666;font-size:18px">Connecting to Stripe...</p></body></html>');
-    }
+    setConnecting(true);
+    setConnectError(null);
     try {
       const res = await base44.functions.invoke('stripeConnect', {
         action: 'create_account',
-        returnUrl: safeReturnUrl
+        returnUrl: safeReturnUrl,
       });
       if (res.data?.error) throw new Error(res.data.error);
       if (res.data?.url) {
-        if (newTab) {
-          newTab.location.href = res.data.url;
-        } else {
-          // Fallback if tab was blocked
-          window.location.href = res.data.url;
-        }
+        // Redirect in the same tab — most reliable across mobile/desktop/webview
+        window.location.href = res.data.url;
       }
     } catch (err) {
-      if (newTab) newTab.close();
       console.error('Stripe connect error:', err);
-      alert('Failed to connect: ' + err.message);
+      setConnectError(err.message || 'Failed to connect to Stripe. Please try again.');
+      setConnecting(false);
     }
   };
 
   const openDashboard = async () => {
-    // Express Dashboard is also browser-only per Stripe docs — must not run in webview.
-    const newTab = window.open('', '_blank');
-    if (newTab) {
-      newTab.document.write('<html><body style="font-family:sans-serif;display:flex;align-items:center;justify-content:center;height:100vh;margin:0;background:#f9f9f9"><p style="color:#666;font-size:18px">Opening Stripe Dashboard...</p></body></html>');
-    }
     try {
       const res = await base44.functions.invoke('stripeConnect', { action: 'create_login_link' });
       if (res.data?.error) throw new Error(res.data.error);
-      if (newTab) {
-        newTab.location.href = res.data.url;
-      } else {
-        window.open(res.data.url, '_blank');
-      }
+      window.open(res.data.url, '_blank');
     } catch (err) {
-      if (newTab) newTab.close();
       console.error('Stripe dashboard error:', err);
-      alert('Failed to open dashboard: ' + err.message);
+      setConnectError(err.message || 'Failed to open Stripe Dashboard.');
     }
   };
 
@@ -137,18 +119,22 @@ export default function StripeConnect({ user, returnUrl, className }) {
             {!status?.connected ? (
               <Button 
                 onClick={openStripeOnboarding}
+                disabled={connecting}
                 className="bg-[#635BFF] hover:bg-[#544ee0] text-white font-medium"
               >
-                <DollarSign className="w-4 h-4 mr-2" />
-                Connect with Stripe
+                {connecting ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <DollarSign className="w-4 h-4 mr-2" />}
+                {connecting ? 'Redirecting...' : 'Connect with Stripe'}
               </Button>
             ) : isPending ? (
                <Button 
                 onClick={openStripeOnboarding}
+                disabled={connecting}
                 variant="outline"
                 className="border-yellow-300 bg-yellow-50 text-yellow-700 hover:bg-yellow-100"
               >
-                Complete Setup <ArrowRight className="w-4 h-4 ml-2" />
+                {connecting ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : null}
+                {connecting ? 'Redirecting...' : 'Complete Setup'}
+                {!connecting && <ArrowRight className="w-4 h-4 ml-2" />}
               </Button>
             ) : (
               <Button 
@@ -162,8 +148,15 @@ export default function StripeConnect({ user, returnUrl, className }) {
             )}
           </div>
         </div>
+
+        {connectError && (
+          <div className="mt-3 flex items-start gap-2 p-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-700">
+            <AlertCircle className="w-4 h-4 flex-shrink-0 mt-0.5" />
+            <span>{connectError}</span>
+          </div>
+        )}
         
-        {!isConnected && !isPending && (
+        {!isConnected && !isPending && !connectError && (
             <div className="mt-4 flex items-center gap-2 text-xs text-gray-500">
                 <div className="flex -space-x-2">
                     <div className="w-6 h-6 rounded-full bg-gray-200 border-2 border-white"></div>

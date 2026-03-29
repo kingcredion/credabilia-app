@@ -32,6 +32,7 @@ import {
 } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
 import { motion, AnimatePresence } from "framer-motion";
+import { toast } from "sonner";
 
 export default function AdminInfluencers() {
   const [user, setUser] = useState(null);
@@ -95,24 +96,50 @@ export default function AdminInfluencers() {
         admin_notes: notes
       });
 
-      // Send notification to user
       const influencer = influencers.find(inf => inf.id === influencerId);
-      if (influencer) {
-        await base44.entities.Notification.create({
-          user_email: influencer.user_email,
-          type: 'review_received',
-          title: '🎉 Influencer Application Approved!',
-          message: `Congratulations! Your influencer application has been approved. Your referral code is: ${influencer.referral_code}`,
-          link_url: `Profile?email=${influencer.user_email}`
-        });
+      if (!influencer) throw new Error("Influencer record not found in local list");
+
+      // Sync linked user record
+      let linkedUser = null;
+      if (influencer.user_id) {
+        try {
+          const byId = await base44.entities.User.filter({ id: influencer.user_id });
+          linkedUser = byId[0] || null;
+        } catch (_) {}
       }
+      if (!linkedUser) {
+        const byEmail = await base44.entities.User.filter({ email: influencer.user_email });
+        linkedUser = byEmail[0] || null;
+      }
+      if (linkedUser) {
+        await base44.entities.User.update(linkedUser.id, {
+          user_type: 'influencer',
+          influencer_id: influencer.id,
+        });
+      } else {
+        console.warn("[AdminInfluencers] Could not find linked user for influencer:", influencer.user_email);
+      }
+
+      // Send notification
+      await base44.entities.Notification.create({
+        user_email: influencer.user_email,
+        type: 'review_received',
+        title: '🎉 Influencer Application Approved!',
+        message: `Congratulations! Your influencer application has been approved. Your referral code is: ${influencer.referral_code}`,
+        link_url: `Profile?email=${influencer.user_email}`
+      });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['admin-influencers'] });
       setShowDetailsDialog(false);
       setSelectedInfluencer(null);
       setAdminNotes("");
+      toast.success("Influencer approved!");
     },
+    onError: (error) => {
+      console.error("[AdminInfluencers] Approve failed:", error);
+      toast.error("Approval failed: " + (error?.message || "Unknown error"));
+    }
   });
 
   // Reject influencer mutation

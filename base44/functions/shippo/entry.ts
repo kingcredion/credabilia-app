@@ -48,10 +48,10 @@ async function propagateShipmentStatusToTransaction(base44, transactionId, shipm
   const updates = { shipping_status: shippingStatusMap[shipmentStatus] || tx.shipping_status };
 
   // Advance the main transaction lifecycle status
-  // paid or escrow → shipped (escrow flows: service may ship physical items too)
-  if (shipmentStatus === "shipped" && (tx.status === "paid" || tx.status === "escrow")) {
+  // paid/escrow/shipped → shipped when carrier first scans
+  if (shipmentStatus === "shipped" && ["paid", "escrow", "shipped"].includes(tx.status)) {
     updates.status = "shipped";
-  } else if (shipmentStatus === "delivered" && (tx.status === "shipped" || tx.status === "paid" || tx.status === "escrow")) {
+  } else if (shipmentStatus === "delivered" && ["shipped", "paid", "escrow"].includes(tx.status)) {
     updates.status = "delivered";
     updates.delivered_at = deliveredAt || new Date().toISOString();
     // Auto-complete direct item sales on delivery (escrow flows are released manually by admin/vendor)
@@ -132,22 +132,52 @@ async function getRates(apiKey, { address_from, address_to, parcels }) {
 }
 
 async function createLabel(apiKey, { rate_object_id, recipient_email, recipient_name, transaction_id, item_id, vendor_email, buyer_email }, base44) {
+  // ── Idempotency guard: reject if label already exists for this transaction ──
+  if (transaction_id) {
+    try {
+      const existing = await base44.asServiceRole.entities.Shipment.filter({ transaction_id });
+      const active = existing.find(s => s.status !== 'voided' && s.is_label_refunded !== true);
+      if (active) {
+        console.warn(`[createLabel] Label already exists for transaction ${transaction_id} — shipment ${active.id}. Blocking duplicate.`);
+        return Response.json({
+          error: `A label already exists for this order (tracking: ${active.tracking_number}). Void the existing label before creating a new one.`,
+          existing_shipment_id: active.id,
+          tracking_number: active.tracking_number,
+          label_url: active.label_url,
+        }, { status: 409 });
+      }
+    } catch (guardErr) {
+      console.warn("[createLabel] Idempotency check failed (continuing):", guardErr.message);
+    }
+  }
+
+  console.log(`[createLabel] Calling Shippo: rate=${rate_object_id} txn=${transaction_id}`);
   const res = await shippoFetch(apiKey, "/transactions", "POST", {
     rate: rate_object_id,
     label_file_type: "PDF",
     async: false
   });
   const data = await res.json();
-  if (!res.ok) throw new Error(JSON.stringify(data));
 
-  if (data.status === "SUCCESS" && transaction_id && item_id) {
-    // Fetch the rate to get shipment_id, carrier, servicelevel, eta
+  if (!res.ok) {
+    console.error("[createLabel] Shippo error:", JSON.stringify(data));
+    throw new Error(data?.detail || data?.messages?.[0]?.text || JSON.stringify(data));
+  }
+
+  if (data.status !== "SUCCESS") {
+    const msg = data.messages?.[0]?.text || `Shippo returned status: ${data.status}`;
+    console.error("[createLabel] Non-success status:", data.status, msg);
+    throw new Error(msg);
+  }
+
+  console.log(`[createLabel] Label purchased: tracking=${data.tracking_number}`);
+
+  if (transaction_id && item_id) {
     let shipmentId = null;
     let carrier = data.rate?.provider || "";
     let servicelevel = data.rate?.servicelevel?.name || "";
     let eta = data.eta || null;
 
-    // Try fetching the transaction detail to get shipment_object_id
     try {
       const txRes = await shippoFetch(apiKey, `/transactions/${data.object_id}`);
       const txData = await txRes.json();
@@ -156,7 +186,7 @@ async function createLabel(apiKey, { rate_object_id, recipient_email, recipient_
       servicelevel = txData.rate?.servicelevel?.name || servicelevel;
       eta = txData.eta || eta;
     } catch (e) {
-      console.warn("Could not fetch transaction detail:", e.message);
+      console.warn("[createLabel] Could not fetch Shippo txn detail:", e.message);
     }
 
     const shipmentRecord = {
@@ -172,36 +202,57 @@ async function createLabel(apiKey, { rate_object_id, recipient_email, recipient_
       label_url: data.label_url,
       shippo_transaction_id: data.object_id,
       shippo_shipment_id: shipmentId,
-      shipment_status: "label_created",
       status: "label_created",
       eta: eta ? new Date(eta).toISOString() : null,
       last_tracking_sync_at: new Date().toISOString(),
       is_label_refunded: false,
     };
 
-    // Upsert Shipment record and link back to Transaction
     try {
-      const existing = await base44.asServiceRole.entities.Shipment.filter({ transaction_id });
-      let shipmentDbId;
-      if (existing.length > 0) {
-        await base44.asServiceRole.entities.Shipment.update(existing[0].id, shipmentRecord);
-        shipmentDbId = existing[0].id;
-      } else {
-        const created = await base44.asServiceRole.entities.Shipment.create(shipmentRecord);
-        shipmentDbId = created.id;
-      }
+      const created = await base44.asServiceRole.entities.Shipment.create(shipmentRecord);
+      const shipmentDbId = created.id;
 
-      // Link shipment_id on transaction and set shipping_status = label_created.
-      // status stays "paid" until carrier first scans — track_updated advances it to "shipped".
       await base44.asServiceRole.entities.Transaction.update(transaction_id, {
         shipment_id: shipmentDbId,
         shipping_status: "label_created",
       });
+
+      console.log(`[createLabel] Shipment ${shipmentDbId} created, Transaction ${transaction_id} → label_created`);
+
+      // In-app notifications for both buyer and vendor
+      const notifyPromises = [];
+      if (buyer_email) {
+        notifyPromises.push(
+          base44.asServiceRole.entities.Notification.create({
+            user_email: buyer_email,
+            type: 'item_shipped',
+            title: '📬 Shipping Label Created',
+            message: `Your seller created a shipping label for your order. Tracking: ${data.tracking_number}`,
+            read: false,
+            related_item_id: item_id,
+            link_url: '/TrackPackages',
+          }).catch(() => {})
+        );
+      }
+      if (vendor_email) {
+        notifyPromises.push(
+          base44.asServiceRole.entities.Notification.create({
+            user_email: vendor_email,
+            type: 'item_sold',
+            title: '✅ Label Created',
+            message: `Shipping label created. Tracking: ${data.tracking_number}`,
+            read: false,
+            related_item_id: item_id,
+            link_url: '/VendorShipping',
+          }).catch(() => {})
+        );
+      }
+      await Promise.all(notifyPromises);
     } catch (dbErr) {
-      console.error("DB write error after label creation:", dbErr);
+      console.error("[createLabel] DB write error after Shippo success:", dbErr.message);
+      // Label WAS purchased — return success with warning so UI can show it
     }
 
-    // Klaviyo notification
     if (recipient_email) {
       await notifyShippingUpdate(data, recipient_email, recipient_name, data.tracking_number, carrier);
     }

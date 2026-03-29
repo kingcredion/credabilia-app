@@ -24,7 +24,13 @@ import {
   Landmark,
   Zap,
   Music,
-  Edit2
+  Edit2,
+  Bookmark,
+  CreditCard,
+  Rocket,
+  CheckCircle2,
+  RefreshCw,
+  OctagonX
 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -63,31 +69,31 @@ const DISCOVERY_COUNT = 10;
 const CATEGORY_STRUCTURE = {
   sports: {
     label: "Sports Memorabilia",
-    icon: "⚾",
+    icon: Trophy,
     gradient: "from-blue-500 to-green-500",
     subCategories: ["baseball", "basketball", "football", "hockey", "boxing", "soccer", "golf", "tennis"]
   },
   entertainment: {
     label: "Entertainment",
-    icon: "🎬",
+    icon: Film,
     gradient: "from-purple-500 to-pink-500",
     subCategories: ["movies", "tv_shows", "music", "theater"]
   },
   historical: {
     label: "Historical",
-    icon: "🏛️",
+    icon: Landmark,
     gradient: "from-amber-500 to-orange-500",
     subCategories: ["political", "military", "space", "aviation"]
   },
   comics: {
     label: "Comics & Pop Culture",
-    icon: "🦸",
+    icon: Zap,
     gradient: "from-red-500 to-yellow-500",
     subCategories: ["comic_books", "toys", "video_games", "anime"]
   },
   fine_art: {
     label: "Fine Art",
-    icon: "🎨",
+    icon: Palette,
     gradient: "from-purple-500 to-indigo-500",
     subCategories: ["paintings", "sculptures", "drawings", "textile_art", "other_fine_art"]
   }
@@ -619,14 +625,15 @@ export default function Marketplace() {
        {user && (
          <div className="mb-4 rounded-xl border-2 border-dashed border-yellow-400 dark:border-yellow-500/60 bg-yellow-50 dark:bg-yellow-900/20 p-4 flex flex-col sm:flex-row sm:items-center gap-3">
            <div className="flex items-center gap-2 flex-shrink-0">
-             <span className="text-xl">💳</span>
+             <CreditCard className="w-5 h-5 text-yellow-700 dark:text-yellow-400 flex-shrink-0" />
              <span className="text-sm font-bold text-yellow-800 dark:text-yellow-300 uppercase tracking-wide">Test Mode Active</span>
            </div>
            <div className="flex-1 text-sm text-yellow-700 dark:text-yellow-400">
              You're an early user! Use card <span className="font-mono font-semibold">4242 4242 4242 4242</span>, any future expiry, and any 3-digit CVC to test checkout.
            </div>
-           <div className="text-xs text-yellow-600 dark:text-yellow-500 flex-shrink-0">
-             🚀 Live <strong>May 25, 2026</strong>
+           <div className="flex items-center gap-1 text-xs text-yellow-600 dark:text-yellow-500 flex-shrink-0">
+             <Rocket className="w-3.5 h-3.5" />
+             Live <strong>May 25, 2026</strong>
            </div>
          </div>
        )}
@@ -657,7 +664,7 @@ export default function Marketplace() {
               >
                 <div className={`absolute inset-0 bg-gradient-to-br ${category.gradient} opacity-90`}></div>
                 <div className="relative z-10">
-                  <div className="text-2xl mb-2">{category.icon}</div>
+                 <div className="mb-2"><category.icon className="w-6 h-6 text-white" /></div>
                   <h3 className="text-white font-bold text-sm md:text-base mb-1 leading-tight">{category.label}</h3>
                   <p className="text-white/90 text-[10px]">
                     {category.subCategories.length} categories
@@ -891,32 +898,9 @@ export default function Marketplace() {
                   <div key={item.id} className="group relative">
                     {/* You Listed This Item Badge - inside image, bottom-right, semi-transparent */}
 
-                    {/* Like Button (top right) */}
+                    {/* Save/Favorite Button (top right) */}
                     {user && !isSold && user.email !== item.vendor_email && (
-                      <div className="absolute top-3 right-12 z-30">
-                        <motion.button
-                          onClick={(e) => {
-                            e.preventDefault();
-                            e.stopPropagation();
-                            toggleLikeMutation.mutate(item);
-                          }}
-                          whileHover={{ scale: 1.1 }}
-                          whileTap={{ scale: 0.9 }}
-                          aria-label={userLikes.some(like => like.item_id === item.id) ? "Unlike" : "Like"}
-                          className="bg-card/90 dark:bg-muted/40 dark:border dark:border-border backdrop-blur-sm rounded-full p-2 shadow-lg hover:bg-card dark:hover:bg-muted/60 transition-colors"
-                        >
-                          <Heart className={`w-5 h-5 ${
-                            userLikes.some(like => like.item_id === item.id) 
-                              ? 'fill-blue-500 text-blue-500' 
-                              : 'text-muted-foreground'
-                          }`} />
-                        </motion.button>
-                      </div>
-                    )}
-
-                    {/* Favorite Button (top left) */}
-                    {user && !isSold && user.email !== item.vendor_email && (
-                      <div className="absolute top-3 left-3 z-30">
+                      <div className="absolute top-3 right-3 z-30">
                         <motion.button
                           onClick={(e) => {
                             e.preventDefault();
@@ -925,11 +909,11 @@ export default function Marketplace() {
                           }}
                           whileHover={{ scale: 1.1 }}
                           whileTap={{ scale: 0.9 }}
-                          aria-label={userFavorites.some(fav => fav.item_id === item.id) ? "Remove from favorites" : "Add to favorites"}
+                          aria-label={userFavorites.some(fav => fav.item_id === item.id) ? "Remove from saved" : "Save item"}
                           aria-pressed={userFavorites.some(fav => fav.item_id === item.id)}
                           className="bg-card/90 dark:bg-muted/40 dark:border dark:border-border backdrop-blur-sm rounded-full p-2 shadow-lg hover:bg-card dark:hover:bg-muted/60 transition-colors"
                         >
-                          <Heart className={`w-5 h-5 ${
+                          <Bookmark className={`w-5 h-5 ${
                             userFavorites.some(fav => fav.item_id === item.id) 
                               ? 'fill-red-500 text-red-500' 
                               : 'text-muted-foreground'
@@ -950,7 +934,7 @@ export default function Marketplace() {
                               border: '2px solid white'
                             }}
                           >
-                            🎓 EDUCATIONAL SAMPLE
+                            <GraduationCap className="w-3 h-3 mr-1 inline" />EDUCATIONAL SAMPLE
                           </Badge>
                         </div>
                       )}
@@ -999,7 +983,7 @@ export default function Marketplace() {
                               border: '2px solid white'
                             }}
                           >
-                            ⚡ BOOSTED
+                            <Zap className="w-3 h-3 mr-1 inline" />BOOSTED
                           </Badge>
                         </div>
                       )}
@@ -1046,15 +1030,7 @@ export default function Marketplace() {
                             </div>
                           )}
                           
-                          <div className="absolute top-3 right-3">
-                            <Badge 
-                              className={`${getAuthenticityColor(item.authenticity_meter)} border-2 border-white shadow-lg flex items-center gap-1`}
-                            >
-                              <ShieldCheck className="w-3 h-3" />
-                              {item.authenticity_meter}%
-                            </Badge>
-                          </div>
-
+                          {/* Grade badge — top-left */}
                           {item.grade_status && !isEducational && !isFineArt && (
                             <div className="absolute top-3 left-3">
                               <Badge className="bg-card text-foreground border-2 border-border shadow-lg capitalize dark:bg-card dark:text-foreground dark:border-border">
@@ -1063,10 +1039,20 @@ export default function Marketplace() {
                             </div>
                           )}
 
+                          {/* Authenticity badge — bottom-left (away from save button) */}
+                          <div className="absolute bottom-2 left-2">
+                            <Badge 
+                              className={`${getAuthenticityColor(item.authenticity_meter)} border-2 border-white shadow-lg flex items-center gap-1`}
+                            >
+                              <ShieldCheck className="w-3 h-3" />
+                              {item.authenticity_meter}%
+                            </Badge>
+                          </div>
+
                           {user && user.email === item.vendor_email && (
                             <div className="absolute bottom-2 right-2 z-20">
                               <Badge className="text-white text-[10px] px-2 py-0.5 flex items-center gap-1" style={{ backgroundColor: 'rgba(37,99,235,0.7)', backdropFilter: 'blur(4px)' }}>
-                                ✓ Your listing
+                                <CheckCircle2 className="w-3 h-3 mr-1 inline" />Your listing
                               </Badge>
                             </div>
                           )}
@@ -1128,10 +1114,10 @@ export default function Marketplace() {
                                   suppressed: 'text-red-600',
                                 };
                                 const stateLabels = {
-                                  live_trusted: '✓ Trusted',
-                                  live_reviewing: '⟳ Reviewing',
-                                  live_flagged: '⚠ Flagged',
-                                  suppressed: '⛔ Suppressed',
+                                  live_trusted: 'Trusted',
+                                  live_reviewing: 'Reviewing',
+                                  live_flagged: 'Flagged',
+                                  suppressed: 'Suppressed',
                                 };
                                 return (
                                   <span className={`text-[10px] font-medium ${stateColors[item.marketplace_state] || ''}`}>

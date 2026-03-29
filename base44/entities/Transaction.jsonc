@@ -1,0 +1,241 @@
+{
+  "name": "Transaction",
+  "type": "object",
+  "properties": {
+    "item_id": {
+      "type": "string",
+      "description": "Item that was sold"
+    },
+    "commission_request_id": {
+      "type": "string",
+      "description": "Commission request associated"
+    },
+    "framing_request_id": {
+      "type": "string",
+      "description": "Framing request associated"
+    },
+    "quote_id": {
+      "type": "string",
+      "description": "Quote that triggered this transaction"
+    },
+    "item_title": {
+      "type": "string",
+      "description": "Item title for reference"
+    },
+    "vendor_email": {
+      "type": "string",
+      "description": "Seller's email"
+    },
+    "buyer_email": {
+      "type": "string",
+      "description": "Buyer's email"
+    },
+    "buyer_referral_code": {
+      "type": "string",
+      "description": "Referral code buyer signed up with"
+    },
+    "influencer_id": {
+      "type": "string",
+      "description": "ID of influencer who referred buyer"
+    },
+    "influencer_commission": {
+      "type": "number",
+      "description": "Commission earned by influencer"
+    },
+    "referral_commission_reversed": {
+      "type": "boolean",
+      "default": false,
+      "description": "True if referral commission was reversed due to refund"
+    },
+    "sale_amount": {
+      "type": "number",
+      "description": "Total sale price in USD"
+    },
+    "shipping_amount": {
+      "type": "number",
+      "description": "Shipping portion of sale"
+    },
+    "handling_amount": {
+      "type": "number",
+      "description": "Handling portion of sale"
+    },
+    "credits_used": {
+      "type": "integer",
+      "default": 0,
+      "description": "Credits used (100 = $1)"
+    },
+    "credits_restored": {
+      "type": "boolean",
+      "default": false,
+      "description": "True if credits were restored after refund"
+    },
+    "final_stripe_charge_amount": {
+      "type": "number",
+      "description": "Actual amount charged to Stripe after credits"
+    },
+    "platform_fee_percentage": {
+      "type": "number",
+      "default": 12,
+      "description": "Platform fee %"
+    },
+    "platform_fee_amount": {
+      "type": "number",
+      "default": 0,
+      "description": "Platform fee in USD"
+    },
+    "auditor_pool_contribution": {
+      "type": "number",
+      "description": "1% auditor pool contribution in USD"
+    },
+    "council_pool_contribution": {
+      "type": "number",
+      "description": "Legacy field \u2014 superseded by auditor_pool_contribution"
+    },
+    "vendor_net_amount": {
+      "type": "number",
+      "description": "Net amount transferred to vendor"
+    },
+    "payment_method": {
+      "type": "string",
+      "enum": [
+        "credits",
+        "stripe"
+      ],
+      "default": "stripe"
+    },
+    "stripe_session_id": {
+      "type": "string",
+      "description": "Stripe Checkout Session ID (legacy)"
+    },
+    "stripe_payment_intent_id": {
+      "type": "string",
+      "description": "Stripe Payment Intent ID"
+    },
+    "stripe_charge_id": {
+      "type": "string",
+      "description": "Stripe Charge ID"
+    },
+    "stripe_transfer_id": {
+      "type": "string",
+      "description": "Stripe Transfer ID to vendor"
+    },
+    "transfer_group": {
+      "type": "string",
+      "description": "Stripe transfer_group (legacy)"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "pending",
+        "paid",
+        "escrow",
+        "shipped",
+        "delivered",
+        "completed",
+        "refunded",
+        "cancelled"
+      ],
+      "default": "pending",
+      "description": "Payment lifecycle: pending\u2192paid\u2192escrow\u2192shipped\u2192delivered\u2192completed\u2192refunded|cancelled"
+    },
+    "shipping_status": {
+      "type": "string",
+      "enum": [
+        "pending",
+        "ready_to_ship",
+        "label_created",
+        "shipped",
+        "delivered",
+        "returned",
+        "failed"
+      ],
+      "default": "pending",
+      "description": "Fulfillment lifecycle: pending\u2192ready_to_ship (set by webhook on payment)\u2192label_created\u2192shipped\u2192delivered. Source of truth for VendorShipping."
+    },
+    "shipping_details": {
+      "type": "object",
+      "description": "Shipping address collected from payment or buyer update",
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "address": {
+          "type": "object",
+          "properties": {
+            "line1": {
+              "type": "string"
+            },
+            "line2": {
+              "type": "string"
+            },
+            "city": {
+              "type": "string"
+            },
+            "state": {
+              "type": "string"
+            },
+            "postal_code": {
+              "type": "string"
+            },
+            "country": {
+              "type": "string"
+            }
+          }
+        },
+        "phone": {
+          "type": "string"
+        }
+      }
+    },
+    "shipping_address_status": {
+      "type": "string",
+      "enum": [
+        "missing",
+        "captured",
+        "update_requested",
+        "buyer_updated",
+        "seller_acknowledged"
+      ],
+      "default": "missing",
+      "description": "Address lifecycle status"
+    },
+    "shipping_address_updated_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "shipping_address_requested_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "shipping_address_requested_by": {
+      "type": "string"
+    },
+    "shipping_address_note": {
+      "type": "string"
+    },
+    "shipment_id": {
+      "type": "string",
+      "description": "ID of the linked Shipment record once label is created"
+    },
+    "delivered_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "completed_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "refunded_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "refund_reason": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "vendor_email",
+    "buyer_email",
+    "sale_amount"
+  ]
+}

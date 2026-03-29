@@ -1194,7 +1194,7 @@ export default function Messages() {
                   }}
                   placeholder="Type a message..."
                   rows={2}
-                  className="resize-none text-sm md:text-base"
+                  className="resize-none text-base"
                 />
                 <Button
                   onClick={handleSendMessage}

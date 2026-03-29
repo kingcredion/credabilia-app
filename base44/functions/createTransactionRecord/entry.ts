@@ -123,8 +123,8 @@ Deno.serve(async (req) => {
       final_stripe_charge_amount: 0,  // no Stripe charge
       // Vendor
       vendor_net_amount:         vendorNet,
-      // Shipping
-      shipping_status:           'pending',
+      // Shipping — identical canonical state to Stripe webhook path
+      shipping_status:           'ready_to_ship',
       shipping_details:          shippingDetails || null,
       shipping_address_status:   shippingDetails ? 'captured' : 'missing',
       shipping_address_updated_at: shippingDetails ? now : null,

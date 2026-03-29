@@ -1,5 +1,6 @@
 import React, { useState, useRef, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
+import { getStripeInstance } from "@/lib/stripeLoader";
 import {
   Dialog,
   DialogContent,
@@ -27,35 +28,17 @@ export default function AddCardDialog({ open, onOpenChange, onSuccess }) {
     const initStripe = async () => {
       try {
         setIsLoading(true);
-        
-        // Load Stripe.js if not already loaded
-        if (!window.Stripe) {
-          const script = document.createElement("script");
-          script.src = "https://js.stripe.com/v3/";
-          script.async = true;
-          
-          await new Promise((resolve, reject) => {
-            script.onload = resolve;
-            script.onerror = () => reject(new Error("Failed to load Stripe.js"));
-            document.body.appendChild(script);
-          });
-        }
 
-        if (!isMounted) return;
-
-        // Fetch publishable key, SetupIntent, and CustomerSession in parallel
-        const [pkResult, setupResult, csResult] = await Promise.all([
-          base44.functions.invoke("stripeCustomer", { action: "get_publishable_key" }),
+        // Load Stripe + setup intent + customer session via shared loader
+        const [stripe, setupResult, csResult] = await Promise.all([
+          getStripeInstance(),
           base44.functions.invoke("stripeManagePaymentMethod", { action: "create_setup_intent" }),
           base44.functions.invoke("stripeCustomer", { action: "create_customer_session", context: "wallet" }).catch(() => ({ data: {} })),
         ]);
 
-        const pk = pkResult.data?.publishableKey;
-        if (!pk) throw new Error("Could not load Stripe publishable key");
-
-        stripeRef.current = window.Stripe(pk);
-
         if (!isMounted) return;
+
+        stripeRef.current = stripe;
 
         const clientSecret = setupResult.data?.clientSecret || setupResult.clientSecret;
         if (!clientSecret) {

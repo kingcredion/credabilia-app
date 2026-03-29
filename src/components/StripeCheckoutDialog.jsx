@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from "react";
 import { base44 } from "@/api/base44Client";
+import { getStripeInstance } from "@/lib/stripeLoader";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import TermsAcceptanceCheckbox from "./TermsAcceptanceCheckbox";
@@ -9,19 +10,6 @@ import { Label } from "@/components/ui/label";
 import { CreditCard, Loader2, AlertCircle, CheckCircle2, Coins, Lock, MapPin, Plus, ChevronRight } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import SuccessScreen from "./StripeCheckoutSuccess";
-
-async function loadStripeJs() {
-  if (window.Stripe) return;
-  await new Promise((resolve, reject) => {
-    const existing = document.querySelector('script[src="https://js.stripe.com/v3/"]');
-    if (existing) { resolve(); return; }
-    const script = document.createElement("script");
-    script.src = "https://js.stripe.com/v3/";
-    script.onload = resolve;
-    script.onerror = () => reject(new Error("Failed to load Stripe.js"));
-    document.body.appendChild(script);
-  });
-}
 
 const EMPTY_ADDR = { full_name: "", line1: "", line2: "", city: "", state: "", postal_code: "", country: "US", phone: "" };
 
@@ -145,12 +133,10 @@ export default function StripeCheckoutDialog({ open, onOpenChange, item, onSucce
       setIsLoading(true);
       setError(null);
       try {
-        await loadStripeJs();
-
         const shippingDetails = getShippingPayload();
 
-        const [pkRes, piRes, csRes] = await Promise.all([
-          base44.functions.invoke("stripeCustomer", { action: "get_publishable_key" }),
+        const [stripe, piRes, csRes] = await Promise.all([
+          getStripeInstance(),
           base44.functions.invoke("createStripeCheckout", {
             action: "create_payment_intent",
             itemId: item.id,
@@ -160,13 +146,11 @@ export default function StripeCheckoutDialog({ open, onOpenChange, item, onSucce
           base44.functions.invoke("stripeCustomer", { action: "create_customer_session", context: "checkout" }).catch(() => ({ data: {} })),
         ]);
 
-        const pk = pkRes.data?.publishableKey;
         const clientSecret = piRes.data?.clientSecret;
         const txnId = piRes.data?.transactionId;
         const piId = piRes.data?.stripe_pi_id;
         const customerSessionClientSecret = csRes.data?.customerSessionClientSecret;
 
-        if (!pk) throw new Error("Could not load Stripe publishable key");
         if (!clientSecret) throw new Error("Failed to create payment intent");
 
         setTransactionId(txnId);
@@ -185,7 +169,7 @@ export default function StripeCheckoutDialog({ open, onOpenChange, item, onSucce
           });
         }
 
-        stripeRef.current = window.Stripe(pk);
+        stripeRef.current = stripe;
         const elementsOptions = { clientSecret, appearance: { theme: "stripe" } };
         if (customerSessionClientSecret) elementsOptions.customerSessionClientSecret = customerSessionClientSecret;
         elementsRef.current = stripeRef.current.elements(elementsOptions);

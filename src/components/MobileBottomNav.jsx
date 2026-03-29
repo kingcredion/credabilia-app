@@ -4,6 +4,7 @@ import { createPageUrl } from "@/utils";
 import { LayoutDashboard, MessageSquare, User, ShieldCheck, Store, Trophy, Building2, Palette } from "lucide-react";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import { CONTEXT_COLORS as roleColors } from "@/lib/permissions";
+import GlassIcon from "@/components/GlassIcon";
 
 // PRIMARY roles only — these drive the shell mobile nav
 const primaryRolePageMap = {
@@ -89,27 +90,33 @@ export default function MobileBottomNav({ user, currentRole, unreadMessageCount 
             }}
           >
             <div className="relative">
-              <div
-                className="rounded-xl transition-all duration-200"
-                style={{
-                  padding: isProfileTab ? "2px 10px" : "4px 12px",
-                  backgroundColor: isActive ? `${activeColor}15` : "transparent",
-                }}
-              >
-                {isProfileTab ? (
-                  <Avatar className="w-6 h-6" style={{ ring: isActive ? `2px solid ${activeColor}` : "none" }}>
+              {isProfileTab ? (
+                <GlassIcon
+                  color={isActive ? (isRoleTab ? (currentRole === 'vendor' ? 'orange' : currentRole === 'auditor' ? 'green' : 'blue') : 'blue') : 'white'}
+                  active={isActive}
+                  size="sm"
+                  className={!isActive ? "!bg-transparent !border-transparent !shadow-none" : ""}
+                >
+                  <Avatar className="w-6 h-6">
                     <AvatarImage src={user.avatar_url} className="object-cover" />
                     <AvatarFallback className="text-[10px] text-white" style={{ backgroundColor: activeColor }}>
                       {(user.full_name || user.email || "U")[0].toUpperCase()}
                     </AvatarFallback>
                   </Avatar>
-                ) : (
+                </GlassIcon>
+              ) : (
+                <GlassIcon
+                  color={isActive ? (isRoleTab ? (currentRole === 'vendor' ? 'orange' : currentRole === 'auditor' ? 'green' : 'blue') : 'blue') : 'white'}
+                  active={isActive}
+                  size="sm"
+                  className={!isActive ? "!bg-transparent !border-transparent !shadow-none" : ""}
+                >
                   <Icon
                     className="w-5 h-5 transition-colors"
                     style={{ color: isActive ? activeColor : "hsl(var(--muted-foreground))" }}
                   />
-                )}
-              </div>
+                </GlassIcon>
+              )}
               {url === "Messages" && unreadMessageCount > 0 && (
                 <span className="absolute -top-0.5 right-0.5 w-4 h-4 bg-red-500 rounded-full text-[9px] text-white flex items-center justify-center border border-white">
                   {unreadMessageCount > 9 ? "9+" : unreadMessageCount}

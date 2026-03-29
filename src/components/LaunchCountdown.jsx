@@ -43,8 +43,9 @@ export default function LaunchCountdown({ variant = "compact", showIcon = true }
         <div className="relative">
           <Zap className="w-20 h-20 text-green-600 mx-auto mb-6" />
 
-          <h2 className="text-3xl md:text-5xl font-bold text-gray-900 mb-4">
-            🎉 Officially Launched! You're an Early User
+          <h2 className="text-3xl md:text-5xl font-bold text-gray-900 mb-4 flex items-center justify-center gap-3">
+            <Sparkles className="w-8 h-8 text-green-500 flex-shrink-0" />
+            Officially Launched! You're an Early User
           </h2>
           
           <p className="text-lg md:text-xl text-gray-700 mb-6 max-w-2xl mx-auto">
@@ -96,7 +97,7 @@ export default function LaunchCountdown({ variant = "compact", showIcon = true }
               With <strong>multiple roles</strong> (Collector, Vendor, Auditor, Frame Shop, Influencer, Artist), a <strong>full marketplace</strong>, <strong>payment processing</strong>, <strong>auctions</strong>, <strong>commissions</strong>, and more — there's a lot happening. We're continuously improving your experience.
             </p>
             <p className="text-sm text-gray-600">
-              Thank you for being part of the journey! 🚀
+              Thank you for being part of the journey!
             </p>
           </div>
         </div>
