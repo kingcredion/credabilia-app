@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import { base44 } from "@/api/base44Client";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { createPageUrl } from "@/utils";
 import { MessageSquare, Send, Clock, Trash2 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -12,6 +12,7 @@ import { Badge } from "@/components/ui/badge";
 import { motion, AnimatePresence } from "framer-motion";
 
 export default function ItemComments({ itemId, user }) {
+  const navigate = useNavigate();
   const [commentText, setCommentText] = useState("");
   const queryClient = useQueryClient();
 
@@ -127,7 +128,7 @@ export default function ItemComments({ itemId, user }) {
               Sign in to join the discussion
             </p>
             <Button
-              onClick={() => base44.auth.redirectToLogin(window.location.pathname + window.location.search)}
+              onClick={() => navigate(`/SignIn?returnUrl=${encodeURIComponent(window.location.pathname + window.location.search)}`)}
               size="sm"
               className="bg-blue-600 hover:bg-blue-700"
             >

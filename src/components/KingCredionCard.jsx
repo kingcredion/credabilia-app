@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import { base44 } from "@/api/base44Client";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { createPageUrl } from "@/utils";
 import {
   Sparkles,
@@ -28,6 +28,7 @@ import {
 import { motion, AnimatePresence } from "framer-motion";
 
 export default function KingCredionCard({ user, displayUser, isFollowing, followMutation }) {
+  const navigate = useNavigate();
   const [showMessageDialog, setShowMessageDialog] = useState(false);
   const [supportMessage, setSupportMessage] = useState("");
   const [aiError, setAiError] = useState(null);
@@ -230,7 +231,7 @@ Greet warmly and respond in King Credion's voice. Brief but thorough (2-3 paragr
                     You need to be logged in to use the AI chat feature.
                   </p>
                   <Button
-                    onClick={() => base44.auth.redirectToLogin(window.location.pathname)}
+                    onClick={() => navigate(`/SignIn?returnUrl=${encodeURIComponent(window.location.pathname)}`)}
                     size="sm"
                     className="bg-yellow-600 hover:bg-yellow-700"
                   >

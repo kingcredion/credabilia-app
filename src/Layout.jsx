@@ -1,4 +1,4 @@
-import React, { useState, useEffect, lazy, Suspense, useRef, useCallback } from "react";
+import React, { useState, useEffect, lazy, Suspense, useRef, useCallback, useMemo } from "react";
 
 // Safe idle callback helpers with mobile browser fallback
 const runWhenIdle = (callback, timeoutMs = 2000) => {
@@ -19,6 +19,8 @@ const cancelIdleRun = (id) => {
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { createPageUrl } from "@/utils";
 import { base44 } from "@/api/base44Client";
+import { useAuth, AUTH_STATES } from "@/lib/AuthContext";
+// AUTH_STATES: auth_loading | signed_out | authenticated_profile_loading | authenticated_onboarding_incomplete | authenticated_ready
 import { normalizeReferralCode, awardReferralSignupEntry } from "@/lib/referralHelpers";
 import {
   LayoutDashboard,
@@ -216,8 +218,10 @@ function InnerLayout({ children, currentPageName }) {
     }
   }, [location.pathname]);
 
+  // Auth state comes exclusively from AuthContext — no parallel auth logic here
+  const { authState, user: authUser, refreshUser, markOnboardingComplete } = useAuth();
   const [user, setUser] = useState(null);
-  const [isAuthenticated, setIsAuthenticated] = useState(null);
+  const isAuthenticated = authState === AUTH_STATES.READY || authState === AUTH_STATES.ONBOARDING_INCOMPLETE;
   // activeContext is a LOCAL UI state — it no longer writes to the backend on every switch.
   // current_role on the user object is kept as a legacy fallback.
   const [activeContext, setActiveContext] = useState("collector");
@@ -226,6 +230,15 @@ function InnerLayout({ children, currentPageName }) {
   const setCurrentRole = setActiveContext;
   const [isTransitioning, setIsTransitioning] = useState(false);
   const [showOnboarding, setShowOnboarding] = useState(false);
+
+  // Sync local user state from AuthContext
+  useEffect(() => {
+    if (authUser) {
+      setUser(authUser);
+    } else {
+      setUser(null);
+    }
+  }, [authUser]);
   const [influencerData, setInfluencerData] = useState(null);
   const [frameShopData, setFrameShopData] = useState(null);
   const [artistData, setArtistData] = useState(null);
@@ -323,6 +336,16 @@ function InnerLayout({ children, currentPageName }) {
     icon: MessageSquare
   };
 
+  // Trigger onboarding when auth state machine says so
+  useEffect(() => {
+    if (authState === AUTH_STATES.ONBOARDING_INCOMPLETE && authUser) {
+      console.log('[Layout] Onboarding state detected — showing onboarding');
+      setShowOnboarding(true);
+    } else if (authState === AUTH_STATES.READY) {
+      setShowOnboarding(false);
+    }
+  }, [authState, authUser]);
+
   useEffect(() => {
     // Install Klaviyo
     const klaviyoKey = "TGHX8s";
@@ -332,32 +355,34 @@ function InnerLayout({ children, currentPageName }) {
     script.src = `//static.klaviyo.com/onsite/js/klaviyo.js?company_id=${klaviyoKey}`;
     document.head.appendChild(script);
 
-    loadUser();
-
-    // Listen for global user update events
+    // Listen for global user update events (e.g. after profile save)
     const handleUserUpdate = () => {
-      loadUser();
+      refreshUser();
     };
 
     window.addEventListener('user-data-updated', handleUserUpdate);
     return () => {
       window.removeEventListener('user-data-updated', handleUserUpdate);
     };
-  }, []);
+  }, [refreshUser]);
 
 
 
+  // When user first arrives from AuthContext, run sub-data load
   useEffect(() => {
-    if (user) {
-      // Load critical data immediately
+    if (user && isAuthenticated) {
+      // Set nav context from profile
+      const defaultCtx = getDefaultContext(user);
+      setActiveContext(defaultCtx);
+      setActiveRole(defaultCtx);
+
+      loadUserSubData(user);
       loadUnreadMessages();
-      
-      // Defer role notifications to after first paint to avoid blocking UI
+
       const notifyTimer = runWhenIdle(() => loadRoleNotifications(), 2000);
-      
       return () => cancelIdleRun(notifyTimer);
     }
-  }, [user]);
+  }, [user?.email, isAuthenticated]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Separate effect for admin counts (lower priority)
   useEffect(() => {
@@ -365,7 +390,7 @@ function InnerLayout({ children, currentPageName }) {
       const adminTimer = runWhenIdle(() => loadPendingCounts(), 3000);
       return () => cancelIdleRun(adminTimer);
     }
-  }, [user]);
+  }, [user?.role]);
 
   const loadRoleNotifications = async () => {
     try {
@@ -497,99 +522,64 @@ function InnerLayout({ children, currentPageName }) {
     }
   };
 
-  const loadUser = async () => {
-    try {
-      const isAuth = await base44.auth.isAuthenticated();
-      setIsAuthenticated(isAuth);
+  // loadUser replaced by AuthContext — profile sub-data still loaded here after user is known
+  const loadUserSubData = useCallback(async (userData) => {
+    if (!userData) return;
 
-      if (isAuth) {
-        let userData = await base44.auth.me();
-        setUser(userData);
-        // Use permissions-aware default; falls back to current_role for legacy compat
-        const defaultCtx = getDefaultContext(userData);
-        setActiveContext(defaultCtx);
-        setActiveRole(defaultCtx);
-
-        // REFERRAL CAPTURE: Normalize and store the referral code on first signup
-        // This code is used later at checkout to attribute purchases to the influencer
-        const urlParams = new URLSearchParams(window.location.search);
-        const refCode = urlParams.get('ref');
-        let showModalFlag = false;
-        let tempMatchingInfluencer = null;
-        
-        if (refCode && !userData.referred_by) {
-          // Normalize to uppercase for consistent canonical matching
-          const upperRefCode = normalizeReferralCode(refCode);
-          await base44.auth.updateMe({ referred_by: upperRefCode });
-
-          const allInfluencers = await base44.entities.Influencer.list();
-          const matchingInfluencer = allInfluencers.find(
-            inf => normalizeReferralCode(inf.referral_code) === upperRefCode
-          );
-
-          if (matchingInfluencer) {
-            // Increment signup count (not raw clicks) — this is a confirmed auth referral
-            await base44.entities.Influencer.update(matchingInfluencer.id, {
-              total_signups: (matchingInfluencer.total_signups || 0) + 1
-            });
-
-            // Create canonical signup attribution + award referrer one sweepstakes entry
-            awardReferralSignupEntry(
-              matchingInfluencer.id,
-              matchingInfluencer.user_email,
-              userData.email,
-              upperRefCode,
-              base44
-            ).catch(err => console.warn("[Layout] awardReferralSignupEntry failed:", err));
-
-            showModalFlag = true;
-            tempMatchingInfluencer = matchingInfluencer;
-          }
-
-          const updatedUser = await base44.auth.me();
-          setUser(updatedUser);
-          userData = updatedUser;
-        }
-
-        if (showModalFlag && tempMatchingInfluencer) {
-          setModalInfluencer(tempMatchingInfluencer);
-          setModalReferredUser(userData);
-          setShowKingCredionWelcomeModal(true);
-        }
-
-        if (isAuth && !userData.onboarding_completed) {
-          setShowOnboarding(true);
-        }
-
-        // Parallel load special account profiles only if needed
-        const profileFetches = [];
-        if (userData.user_type === "influencer" || userData.influencer_id) {
-          profileFetches.push(
-            base44.entities.Influencer.filter({ user_email: userData.email })
-              .then(inf => inf.length > 0 && setInfluencerData(inf[0]))
-          );
-        }
-        if (userData.user_type === "picture_frame_shop" || userData.frame_shop_id) {
-          profileFetches.push(
-            base44.entities.FrameShop.filter({ user_email: userData.email })
-              .then(shops => shops.length > 0 && setFrameShopData(shops[0]))
-          );
-        }
-        if (userData.user_type === "artist" || userData.artist_id) {
-          profileFetches.push(
-            base44.entities.Artist.filter({ user_email: userData.email })
-              .then(artists => artists.length > 0 && setArtistData(artists[0]))
-          );
-        }
-        if (profileFetches.length > 0) {
-          await Promise.all(profileFetches);
-        }
-        }
-        } catch (error) {
-      console.error("Error loading user:", error);
-      setIsAuthenticated(false);
+    // REFERRAL CAPTURE
+    const urlParams = new URLSearchParams(window.location.search);
+    const refCode = urlParams.get('ref');
+    if (refCode && !userData.referred_by) {
+      const upperRefCode = normalizeReferralCode(refCode);
+      await base44.auth.updateMe({ referred_by: upperRefCode });
+      const allInfluencers = await base44.entities.Influencer.list();
+      const matchingInfluencer = allInfluencers.find(
+        inf => normalizeReferralCode(inf.referral_code) === upperRefCode
+      );
+      if (matchingInfluencer) {
+        await base44.entities.Influencer.update(matchingInfluencer.id, {
+          total_signups: (matchingInfluencer.total_signups || 0) + 1
+        });
+        awardReferralSignupEntry(
+          matchingInfluencer.id,
+          matchingInfluencer.user_email,
+          userData.email,
+          upperRefCode,
+          base44
+        ).catch(err => console.warn("[Layout] awardReferralSignupEntry failed:", err));
+        setModalInfluencer(matchingInfluencer);
+        setModalReferredUser(userData);
+        setShowKingCredionWelcomeModal(true);
+      }
+      // Refresh user after referral write
+      await refreshUser();
+      return; // refreshUser will re-trigger this effect with updated user
     }
-  };
+
+    // Parallel load special account profiles
+    const profileFetches = [];
+    if (userData.user_type === "influencer" || userData.influencer_id) {
+      profileFetches.push(
+        base44.entities.Influencer.filter({ user_email: userData.email })
+          .then(inf => inf.length > 0 && setInfluencerData(inf[0]))
+      );
+    }
+    if (userData.user_type === "picture_frame_shop" || userData.frame_shop_id) {
+      profileFetches.push(
+        base44.entities.FrameShop.filter({ user_email: userData.email })
+          .then(shops => shops.length > 0 && setFrameShopData(shops[0]))
+      );
+    }
+    if (userData.user_type === "artist" || userData.artist_id) {
+      profileFetches.push(
+        base44.entities.Artist.filter({ user_email: userData.email })
+          .then(artists => artists.length > 0 && setArtistData(artists[0]))
+      );
+    }
+    if (profileFetches.length > 0) {
+      await Promise.all(profileFetches);
+    }
+  }, [refreshUser]);
 
   const handleOnboardingComplete = async (selectedRole, onboardingData) => {
     try {
@@ -720,6 +710,9 @@ function InnerLayout({ children, currentPageName }) {
       }
 
       await base44.auth.updateMe(updateData);
+      setShowOnboarding(false);
+      markOnboardingComplete();
+      await refreshUser();
       navigate(createPageUrl(roleHomePages[updateData.current_role]));
     } catch (error) {
       console.error("❌ Error completing onboarding:", error);
@@ -761,27 +754,21 @@ function InnerLayout({ children, currentPageName }) {
     }, 300);
   };
 
+  const { logout: contextLogout, navigateToLogin } = useAuth();
   const handleLogout = () => {
-    base44.auth.logout();
+    contextLogout();
   };
 
   const handleLogin = () => {
+    console.log('[Layout] Redirect to custom sign-in');
     const urlParams = new URLSearchParams(window.location.search);
     const refCode = urlParams.get('ref');
     const nextUrl = refCode ? `/Marketplace?ref=${refCode}` : '/Marketplace';
-    base44.auth.redirectToLogin(nextUrl);
+    navigate(`/SignIn?returnUrl=${encodeURIComponent(nextUrl)}`);
   };
 
-  if (isAuthenticated === null) {
-    return (
-      <div className={`min-h-screen flex items-center justify-center app-bg`}>
-        <div className="glass-card rounded-xl p-8 shadow-xl text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
-          <p className="text-muted-foreground">Loading...</p>
-        </div>
-      </div>
-    );
-  }
+  // Auth handled by App.jsx — Layout never renders during loading states
+  // (App.jsx blocks render until authState is signed_out, onboarding_incomplete, or ready)
 
   const isAdmin = user?.role === 'admin';
 
@@ -1387,7 +1374,7 @@ function InnerLayout({ children, currentPageName }) {
 
 
 
-      {user && isAuthenticated && showOnboarding && (
+      {showOnboarding && authState === AUTH_STATES.ONBOARDING_INCOMPLETE && user && (
         <Suspense fallback={<div />}>
           <OnboardingFlow
             open={showOnboarding}

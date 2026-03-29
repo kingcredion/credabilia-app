@@ -115,7 +115,7 @@ export default function Settings() {
       <div className="min-h-screen flex items-center justify-center app-bg">
         <div className="glass-card rounded-xl p-8 text-center max-w-sm">
           <h2 className="text-xl font-bold text-foreground mb-4">Please sign in to view settings</h2>
-          <Button onClick={() => base44.auth.redirectToLogin('/Settings')}>Sign In</Button>
+          <Button onClick={() => navigate('/SignIn?returnUrl=/Settings')}>Sign In</Button>
         </div>
       </div>
     );

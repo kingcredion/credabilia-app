@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from "react";
 import { base44 } from "@/api/base44Client";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Link, useLocation } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import { createPageUrl } from "@/utils";
 import {
   Award,
@@ -109,6 +109,7 @@ const CATEGORY_STRUCTURE = {
 
 export default function Profile() {
   const location = useLocation();
+  const navigate = useNavigate();
   const urlParams = new URLSearchParams(location.search);
   const viewingEmail = urlParams.get("email");
   
@@ -812,7 +813,7 @@ export default function Profile() {
             </p>
             <div className="flex flex-col gap-3">
               <Button 
-                onClick={() => base44.auth.redirectToLogin(window.location.pathname)}
+                onClick={() => navigate(`/SignIn?returnUrl=${encodeURIComponent(window.location.pathname)}`)}
                 className="w-full"
               >
                 Sign In

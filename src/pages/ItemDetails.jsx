@@ -1453,7 +1453,7 @@ export default function ItemDetails() {
           <DialogFooter className="flex-col sm:flex-col gap-2">
             <Button 
               className="w-full bg-blue-600 hover:bg-blue-700 text-lg py-6"
-              onClick={() => base44.auth.redirectToLogin(window.location.pathname + window.location.search)}
+              onClick={() => navigate(`/SignIn?returnUrl=${encodeURIComponent(window.location.pathname + window.location.search)}`)}
             >
               Sign Up / Log In
             </Button>
