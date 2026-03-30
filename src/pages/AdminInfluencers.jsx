@@ -270,98 +270,98 @@ export default function AdminInfluencers() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-green-50 via-orange-50 to-yellow-50 p-6">
-      <div className="max-w-7xl mx-auto">
+    <div className="min-h-screen bg-gradient-to-br from-green-50 via-orange-50 to-yellow-50 p-4 md:p-6">
+      <div className="max-w-4xl mx-auto">
         {/* Header */}
-        <div className="mb-8">
-          <div className="flex items-center gap-3 mb-2">
-            <div className="p-3 bg-gradient-to-br from-green-500 to-orange-500 rounded-xl">
-              <TrendingUp className="w-8 h-8 text-white" />
+        <div className="mb-4">
+          <div className="flex items-center gap-2 mb-1">
+            <div className="p-1.5 bg-gradient-to-br from-green-500 to-orange-500 rounded-lg">
+              <TrendingUp className="w-4 h-4 text-white" />
             </div>
-            <div>
-              <h1 className="text-3xl font-bold text-gray-900">Influencer Management</h1>
-              <p className="text-gray-600">Review and manage influencer applications</p>
-            </div>
+            <h1 className="text-xl font-bold text-gray-900">Influencer Management</h1>
           </div>
+          <p className="text-xs text-gray-500">Review and manage influencer applications</p>
         </div>
 
         {/* Stats Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4 mb-8">
-          <Card className="border-2 border-orange-200 bg-gradient-to-br from-white to-orange-50">
-            <CardContent className="p-4">
-              <div className="flex items-center justify-between mb-2">
-                <Clock className="w-5 h-5 text-orange-600" />
-                <Badge className="bg-orange-100 text-orange-700">Pending</Badge>
+        <div className="grid grid-cols-2 md:grid-cols-5 gap-3 mb-4">
+          <Card className="border border-orange-200">
+            <CardContent className="p-3">
+              <div className="flex items-center justify-between mb-1">
+                <Clock className="w-4 h-4 text-orange-600" />
+                <Badge className="bg-orange-100 text-orange-700 text-[10px]">Pending</Badge>
               </div>
-              <p className="text-2xl font-bold text-gray-900">{totalPendingInfluencers}</p>
-              <p className="text-xs text-gray-600">Awaiting Review</p>
+              <p className="text-xl font-bold text-gray-900">{totalPendingInfluencers}</p>
+              <p className="text-xs text-gray-500">Awaiting Review</p>
             </CardContent>
           </Card>
 
-          <Card className="border-2 border-green-200 bg-gradient-to-br from-white to-green-50">
-            <CardContent className="p-4">
-              <div className="flex items-center justify-between mb-2">
-                <Users className="w-5 h-5 text-green-600" />
-                <Badge className="bg-green-100 text-green-700">Active</Badge>
+          <Card className="border border-green-200">
+            <CardContent className="p-3">
+              <div className="flex items-center justify-between mb-1">
+                <Users className="w-4 h-4 text-green-600" />
+                <Badge className="bg-green-100 text-green-700 text-[10px]">Active</Badge>
               </div>
-              <p className="text-2xl font-bold text-gray-900">{totalActiveInfluencers}</p>
-              <p className="text-xs text-gray-600">Active Influencers</p>
+              <p className="text-xl font-bold text-gray-900">{totalActiveInfluencers}</p>
+              <p className="text-xs text-gray-500">Active</p>
             </CardContent>
           </Card>
 
-          <Card className="border-2 border-purple-200 bg-gradient-to-br from-white to-purple-50">
-            <CardContent className="p-4">
-              <div className="flex items-center justify-between mb-2">
-                <DollarSign className="w-5 h-5 text-purple-600" />
-                <Badge className="bg-purple-100 text-purple-700">Revenue</Badge>
+          <Card className="border border-purple-200">
+            <CardContent className="p-3">
+              <div className="flex items-center justify-between mb-1">
+                <DollarSign className="w-4 h-4 text-purple-600" />
+                <Badge className="bg-purple-100 text-purple-700 text-[10px]">Sales</Badge>
               </div>
-              <p className="text-2xl font-bold text-gray-900">${totalReferredSales.toLocaleString()}</p>
-              <p className="text-xs text-gray-600">Total Referred Sales</p>
+              <p className="text-xl font-bold text-gray-900">${totalReferredSales.toLocaleString()}</p>
+              <p className="text-xs text-gray-500">Referred Sales</p>
             </CardContent>
           </Card>
 
-          <Card className="border-2 border-blue-200 bg-gradient-to-br from-white to-blue-50">
-            <CardContent className="p-4">
-              <div className="flex items-center justify-between mb-2">
-                <Award className="w-5 h-5 text-blue-600" />
-                <Badge className="bg-blue-100 text-blue-700">Payouts</Badge>
+          <Card className="border border-blue-200">
+            <CardContent className="p-3">
+              <div className="flex items-center justify-between mb-1">
+                <Award className="w-4 h-4 text-blue-600" />
+                <Badge className="bg-blue-100 text-blue-700 text-[10px]">Payouts</Badge>
               </div>
-              <p className="text-2xl font-bold text-gray-900">${totalCommissionEarned.toLocaleString()}</p>
-              <p className="text-xs text-gray-600">Commission Earned</p>
+              <p className="text-xl font-bold text-gray-900">${totalCommissionEarned.toLocaleString()}</p>
+              <p className="text-xs text-gray-500">Commission</p>
             </CardContent>
           </Card>
 
-          <Card className="border-2 border-pink-200 bg-gradient-to-br from-white to-pink-50">
-            <CardContent className="p-4">
-              <div className="flex items-center justify-between mb-2">
-                <Share2 className="w-5 h-5 text-pink-600" />
-                <Badge className="bg-pink-100 text-pink-700">Sales</Badge>
+          <Card className="border border-pink-200">
+            <CardContent className="p-3">
+              <div className="flex items-center justify-between mb-1">
+                <Share2 className="w-4 h-4 text-pink-600" />
+                <Badge className="bg-pink-100 text-pink-700 text-[10px]">Convs</Badge>
               </div>
-              <p className="text-2xl font-bold text-gray-900">{totalConversions}</p>
-              <p className="text-xs text-gray-600">Total Conversions</p>
+              <p className="text-xl font-bold text-gray-900">{totalConversions}</p>
+              <p className="text-xs text-gray-500">Conversions</p>
             </CardContent>
           </Card>
         </div>
 
         {/* Tabs */}
-         <Tabs value={selectedTab} onValueChange={setSelectedTab} className="w-full">
-           <TabsList className="w-full flex gap-3 mb-8 bg-gray-900 p-2 overflow-x-auto md:grid md:grid-cols-4">
-             <TabsTrigger value="pending" className="relative px-5 py-3 text-sm font-medium whitespace-nowrap">
+        <Tabs value={selectedTab} onValueChange={setSelectedTab} className="w-full">
+          <div className="overflow-x-auto -mx-4 px-4">
+           <TabsList className="flex w-max min-w-full gap-1 mb-4 h-9">
+             <TabsTrigger value="pending" className="relative text-xs px-3 h-7 whitespace-nowrap">
                Pending
                {totalPendingInfluencers > 0 && (
-                 <Badge className="ml-2 bg-orange-500 text-white">{totalPendingInfluencers}</Badge>
+                 <Badge className="ml-1.5 bg-orange-500 text-white text-[10px] h-4 px-1">{totalPendingInfluencers}</Badge>
                )}
              </TabsTrigger>
-             <TabsTrigger value="active" className="px-5 py-3 text-sm font-medium whitespace-nowrap">
+             <TabsTrigger value="active" className="text-xs px-3 h-7 whitespace-nowrap">
                Active ({totalActiveInfluencers})
              </TabsTrigger>
-             <TabsTrigger value="rejected" className="px-5 py-3 text-sm font-medium whitespace-nowrap">
+             <TabsTrigger value="rejected" className="text-xs px-3 h-7 whitespace-nowrap">
                Rejected ({rejectedInfluencers.length})
              </TabsTrigger>
-             <TabsTrigger value="suspended" className="px-5 py-3 text-sm font-medium whitespace-nowrap">
+             <TabsTrigger value="suspended" className="text-xs px-3 h-7 whitespace-nowrap">
                Suspended ({suspendedInfluencers.length})
              </TabsTrigger>
            </TabsList>
+           </div>
 
           {/* Pending Tab */}
           <TabsContent value="pending">
@@ -371,13 +371,10 @@ export default function AdminInfluencers() {
                 <p className="text-gray-600">Loading influencer applications...</p>
               </div>
             ) : pendingInfluencers.length === 0 ? (
-              <Card>
-                <CardContent className="p-12 text-center">
-                  <CheckCircle className="w-16 h-16 text-gray-300 mx-auto mb-4" />
-                  <h3 className="text-xl font-semibold text-gray-900 mb-2">No Pending Applications</h3>
-                  <p className="text-gray-600">All influencer applications have been reviewed</p>
-                </CardContent>
-              </Card>
+              <div className="text-center py-8 text-sm text-gray-500">
+                <CheckCircle className="w-8 h-8 text-gray-300 mx-auto mb-2" />
+                All caught up — no pending applications
+              </div>
             ) : (
               <div className="grid grid-cols-1 gap-4">
                 <AnimatePresence>
@@ -399,13 +396,10 @@ export default function AdminInfluencers() {
           {/* Active Tab */}
           <TabsContent value="active">
             {activeInfluencers.length === 0 ? (
-              <Card>
-                <CardContent className="p-12 text-center">
-                  <Users className="w-16 h-16 text-gray-300 mx-auto mb-4" />
-                  <h3 className="text-xl font-semibold text-gray-900 mb-2">No Active Influencers</h3>
-                  <p className="text-gray-600">No influencers have been approved yet</p>
-                </CardContent>
-              </Card>
+              <div className="text-center py-8 text-sm text-gray-500">
+                <Users className="w-8 h-8 text-gray-300 mx-auto mb-2" />
+                No active influencers yet
+              </div>
             ) : (
               <div className="grid grid-cols-1 gap-4">
                 {activeInfluencers.map((influencer, index) => (
@@ -425,13 +419,7 @@ export default function AdminInfluencers() {
           {/* Rejected Tab */}
           <TabsContent value="rejected">
             {rejectedInfluencers.length === 0 ? (
-              <Card>
-                <CardContent className="p-12 text-center">
-                  <XCircle className="w-16 h-16 text-gray-300 mx-auto mb-4" />
-                  <h3 className="text-xl font-semibold text-gray-900 mb-2">No Rejected Applications</h3>
-                  <p className="text-gray-600">No applications have been rejected</p>
-                </CardContent>
-              </Card>
+              <div className="text-center py-8 text-sm text-gray-500">No rejected applications</div>
             ) : (
               <div className="grid grid-cols-1 gap-4">
                 {rejectedInfluencers.map((influencer, index) => (
@@ -451,13 +439,7 @@ export default function AdminInfluencers() {
           {/* Suspended Tab */}
           <TabsContent value="suspended">
             {suspendedInfluencers.length === 0 ? (
-              <Card>
-                <CardContent className="p-12 text-center">
-                  <Ban className="w-16 h-16 text-gray-300 mx-auto mb-4" />
-                  <h3 className="text-xl font-semibold text-gray-900 mb-2">No Suspended Accounts</h3>
-                  <p className="text-gray-600">No influencer accounts have been suspended</p>
-                </CardContent>
-              </Card>
+              <div className="text-center py-8 text-sm text-gray-500">No suspended accounts</div>
             ) : (
               <div className="grid grid-cols-1 gap-4">
                 {suspendedInfluencers.map((influencer, index) => (
@@ -479,10 +461,10 @@ export default function AdminInfluencers() {
       {/* Details Dialog */}
       {selectedInfluencer && (
         <Dialog open={showDetailsDialog} onOpenChange={setShowDetailsDialog}>
-          <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
+          <DialogContent className="w-full max-w-lg max-h-[90vh] overflow-y-auto">
             <DialogHeader>
-              <DialogTitle className="text-2xl flex items-center gap-2">
-                <Crown className="w-6 h-6 text-orange-600" />
+              <DialogTitle className="text-base flex items-center gap-2">
+                <Crown className="w-4 h-4 text-orange-600" />
                 Influencer Application Details
               </DialogTitle>
               <DialogDescription>
@@ -490,131 +472,73 @@ export default function AdminInfluencers() {
               </DialogDescription>
             </DialogHeader>
 
-            <div className="space-y-6">
-              {/* User Info */}
-              <div className="bg-gradient-to-br from-green-50 to-orange-50 rounded-xl p-4 border-2 border-green-200">
-                <h3 className="font-semibold text-gray-900 mb-3 flex items-center gap-2">
-                  <Users className="w-5 h-5 text-green-600" />
-                  Applicant Information
-                </h3>
-                <div className="space-y-2 text-sm">
-                  <div className="flex justify-between">
-                    <span className="text-gray-600">Email:</span>
-                    <span className="font-medium text-gray-900">{selectedInfluencer.user_email}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-gray-600">User ID:</span>
-                    <span className="font-mono text-xs text-gray-700">{selectedInfluencer.user_id}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-gray-600">Applied:</span>
-                    <span className="text-gray-900">
-                      {new Date(selectedInfluencer.created_date).toLocaleDateString('en-US', {
-                        month: 'long',
-                        day: 'numeric',
-                        year: 'numeric'
-                      })}
-                    </span>
-                  </div>
-                  {selectedInfluencer.approval_date && (
-                    <div className="flex justify-between">
-                      <span className="text-gray-600">Approved:</span>
-                      <span className="text-green-700 font-medium">
-                        {new Date(selectedInfluencer.approval_date).toLocaleDateString('en-US', {
-                          month: 'long',
-                          day: 'numeric',
-                          year: 'numeric'
-                        })}
-                      </span>
-                    </div>
-                  )}
+            <div className="space-y-3 text-sm">
+              {/* Key info rows */}
+              <div className="bg-muted/40 rounded-lg p-3 space-y-1.5">
+                <div className="flex justify-between gap-2">
+                  <span className="text-gray-500 flex-shrink-0">Email</span>
+                  <span className="font-medium text-right truncate">{selectedInfluencer.user_email}</span>
                 </div>
+                <div className="flex justify-between gap-2">
+                  <span className="text-gray-500 flex-shrink-0">Applied</span>
+                  <span className="text-right">{new Date(selectedInfluencer.created_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</span>
+                </div>
+                {selectedInfluencer.approval_date && (
+                  <div className="flex justify-between gap-2">
+                    <span className="text-gray-500 flex-shrink-0">Approved</span>
+                    <span className="text-green-700 font-medium text-right">{new Date(selectedInfluencer.approval_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</span>
+                  </div>
+                )}
               </div>
 
               {/* Referral Code */}
-              <div className="bg-blue-50 rounded-xl p-4 border-2 border-blue-200">
-                <h3 className="font-semibold text-gray-900 mb-2 flex items-center gap-2">
-                  <LinkIcon className="w-5 h-5 text-blue-600" />
-                  Referral Code
-                </h3>
-                <div className="bg-white rounded-lg p-3 border border-blue-200">
-                  <p className="font-mono text-lg text-blue-700 font-bold">
-                    {selectedInfluencer.referral_code}
-                  </p>
-                  <p className="text-xs text-gray-500 mt-1">
-                    credabilia.com?ref={selectedInfluencer.referral_code}
-                  </p>
-                </div>
+              <div className="bg-blue-50 rounded-lg p-3 border border-blue-200">
+                <p className="text-[11px] text-gray-500 mb-1">Referral Code</p>
+                <p className="font-mono font-bold text-blue-700">{selectedInfluencer.referral_code}</p>
+                <p className="text-[11px] text-gray-400 mt-0.5">credabilia.com?ref={selectedInfluencer.referral_code}</p>
               </div>
 
               {/* Platforms */}
-              <div>
-                <h3 className="font-semibold text-gray-900 mb-3 flex items-center gap-2">
-                  <Share2 className="w-5 h-5 text-purple-600" />
-                  Platforms
-                </h3>
-                <div className="flex flex-wrap gap-2">
-                  {selectedInfluencer.platforms?.map(platform => (
-                    <Badge
-                      key={platform}
-                      className="bg-gradient-to-r from-green-500 to-orange-500 text-white"
-                    >
-                      {platform}
-                    </Badge>
-                  ))}
+              {selectedInfluencer.platforms?.length > 0 && (
+                <div>
+                  <p className="text-xs font-medium text-gray-500 mb-1.5">Platforms</p>
+                  <div className="flex flex-wrap gap-1.5">
+                    {selectedInfluencer.platforms.map(platform => (
+                      <Badge key={platform} variant="outline" className="text-xs">{platform}</Badge>
+                    ))}
+                  </div>
                 </div>
-              </div>
+              )}
 
               {/* Application Notes */}
-              <div>
-                <h3 className="font-semibold text-gray-900 mb-3 flex items-center gap-2">
-                  <MessageSquare className="w-5 h-5 text-green-600" />
-                  Application Notes
-                </h3>
-                <div className="bg-gray-50 rounded-lg p-4 border border-gray-200">
-                  <p className="text-sm text-gray-700 whitespace-pre-wrap">
-                    {selectedInfluencer.application_notes || "No notes provided"}
-                  </p>
+              {selectedInfluencer.application_notes && (
+                <div>
+                  <p className="text-xs font-medium text-gray-500 mb-1.5">Application Notes</p>
+                  <p className="text-sm text-gray-700 bg-gray-50 rounded-lg p-2.5 border border-gray-200">{selectedInfluencer.application_notes}</p>
                 </div>
-              </div>
+              )}
 
-              {/* Performance Stats (for active influencers) */}
+              {/* Performance Stats */}
               {selectedInfluencer.status === 'active' && (
-                <div className="bg-purple-50 rounded-xl p-4 border-2 border-purple-200">
-                  <h3 className="font-semibold text-gray-900 mb-3 flex items-center gap-2">
-                    <Award className="w-5 h-5 text-purple-600" />
-                    Performance Stats
-                  </h3>
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <p className="text-xs text-gray-600 mb-1">Total Clicks</p>
-                      <p className="text-xl font-bold text-gray-900">{selectedInfluencer.total_clicks || 0}</p>
+                <div className="grid grid-cols-2 gap-2 pt-1">
+                  {[
+                    { label: 'Clicks', val: selectedInfluencer.total_clicks || 0 },
+                    { label: 'Conversions', val: selectedInfluencer.total_conversions || 0 },
+                    { label: 'Sales', val: `$${(selectedInfluencer.total_referred_sales || 0).toLocaleString()}` },
+                    { label: 'Commission', val: `$${(selectedInfluencer.total_commission_earned || 0).toLocaleString()}` },
+                  ].map(({ label, val }) => (
+                    <div key={label} className="bg-muted/40 rounded-lg p-2 text-center">
+                      <p className="text-[11px] text-gray-500">{label}</p>
+                      <p className="text-sm font-bold text-gray-900">{val}</p>
                     </div>
-                    <div>
-                      <p className="text-xs text-gray-600 mb-1">Conversions</p>
-                      <p className="text-xl font-bold text-gray-900">{selectedInfluencer.total_conversions || 0}</p>
-                    </div>
-                    <div>
-                      <p className="text-xs text-gray-600 mb-1">Referred Sales</p>
-                      <p className="text-xl font-bold text-gray-900">${(selectedInfluencer.total_referred_sales || 0).toLocaleString()}</p>
-                    </div>
-                    <div>
-                      <p className="text-xs text-gray-600 mb-1">Commission Earned</p>
-                      <p className="text-xl font-bold text-green-600">${(selectedInfluencer.total_commission_earned || 0).toLocaleString()}</p>
-                    </div>
-                  </div>
+                  ))}
                 </div>
               )}
 
               {/* Admin Notes */}
               <div>
-                <h3 className="font-semibold text-gray-900 mb-2">Admin Notes (Internal)</h3>
-                <Textarea
-                  value={adminNotes}
-                  onChange={(e) => setAdminNotes(e.target.value)}
-                  placeholder="Add internal notes about this application..."
-                  rows={4}
-                />
+                <p className="text-xs font-medium text-gray-500 mb-1.5">Admin Notes (Internal)</p>
+                <Textarea value={adminNotes} onChange={(e) => setAdminNotes(e.target.value)} placeholder="Add internal notes..." rows={3} className="text-sm" />
               </div>
             </div>
 
@@ -691,95 +615,64 @@ function InfluencerCard({ influencer, user, onViewDetails, index, isPending }) {
       animate={{ opacity: 1, y: 0 }}
       transition={{ delay: index * 0.05 }}
     >
-      <Card className={`hover:shadow-xl transition-all duration-300 border-2 ${
-        isPending ? 'border-orange-200 bg-gradient-to-br from-white to-orange-50' : ''
-      }`}>
-        <CardContent className="p-6">
-          <div className="flex items-start justify-between mb-4">
-            <div className="flex-1">
-              <div className="flex items-center gap-3 mb-2">
-                <h3 className="text-lg font-bold text-gray-900">{user?.full_name || influencer.user_email}</h3>
-                <Badge className={`${getStatusColor(influencer.status)} flex items-center gap-1`}>
+      <Card className={`tap-scale hover:shadow-md transition-shadow border ${isPending ? 'border-orange-200' : 'border-border'}`}>
+        <CardContent className="p-4">
+          <div className="flex items-start justify-between mb-3">
+            <div className="flex-1 min-w-0 mr-3">
+              <div className="flex items-center gap-2 mb-0.5 flex-wrap">
+                <h3 className="text-sm font-bold text-gray-900 truncate">{user?.full_name || influencer.user_email}</h3>
+                <Badge className={`${getStatusColor(influencer.status)} flex items-center gap-1 text-[11px] h-5`}>
                   {getStatusIcon(influencer.status)}
                   {influencer.status.replace(/_/g, ' ')}
                 </Badge>
               </div>
-              <p className="text-sm text-gray-600">{influencer.user_email}</p>
+              <p className="text-xs text-gray-500 truncate">{influencer.user_email}</p>
             </div>
-
-            <Button
-              onClick={() => onViewDetails(influencer)}
-              variant="outline"
-              size="sm"
-            >
-              <Eye className="w-4 h-4 mr-2" />
-              View Details
+            <Button onClick={() => onViewDetails(influencer)} variant="outline" size="sm" className="h-8 text-xs px-2.5 flex-shrink-0">
+              <Eye className="w-3.5 h-3.5 mr-1" />
+              Review
             </Button>
           </div>
 
-          {/* Referral Code Section */}
-          <div className="bg-blue-50 rounded-lg p-4 mb-8 border border-blue-200">
-            <div className="flex items-start justify-between gap-4">
-              <div>
-                <p className="text-xs font-semibold text-gray-600 mb-2 uppercase tracking-wide">Referral Code</p>
-                <p className="font-mono text-base font-bold text-blue-700">{influencer.referral_code}</p>
-              </div>
-              <LinkIcon className="w-5 h-5 text-blue-600 flex-shrink-0 mt-1" />
+          <div className="flex items-center justify-between gap-3 mb-3">
+            <div className="bg-blue-50 rounded-lg px-3 py-2 border border-blue-200 flex-1 min-w-0">
+              <p className="text-[10px] text-gray-500 mb-0.5">Referral Code</p>
+              <p className="font-mono text-sm font-bold text-blue-700 truncate">{influencer.referral_code}</p>
+            </div>
+            <div className="flex flex-wrap gap-1.5">
+              {influencer.platforms?.slice(0, 3).map(platform => (
+                <Badge key={platform} variant="outline" className="text-[11px] h-5">{platform}</Badge>
+              ))}
+              {(influencer.platforms?.length || 0) > 3 && (
+                <Badge variant="outline" className="text-[11px] h-5">+{influencer.platforms.length - 3}</Badge>
+              )}
             </div>
           </div>
 
-           {/* Platforms Section */}
-           <div className="mb-8 pb-8 border-b border-gray-200">
-             <p className="text-xs font-semibold text-gray-600 mb-3 uppercase tracking-wide">Platforms</p>
-             <div className="flex flex-wrap gap-2">
-               {influencer.platforms && influencer.platforms.length > 0 ? (
-                 influencer.platforms.map(platform => (
-                   <Badge key={platform} variant="outline" className="text-xs">
-                     {platform}
-                   </Badge>
-                 ))
-               ) : (
-                 <p className="text-xs text-gray-500 italic">No platforms specified</p>
-               )}
-             </div>
-           </div>
-
-          {/* Stats (for active influencers) */}
           {influencer.status === 'active' && (
-            <div className="grid grid-cols-4 gap-4 pt-6 border-t border-gray-200">
+            <div className="grid grid-cols-4 gap-2 pt-2 border-t border-gray-100">
               <div className="text-center">
-                <p className="text-xs font-semibold text-gray-600 mb-2 uppercase tracking-wide">Clicks</p>
-                <p className="text-lg font-bold text-gray-900">{influencer.total_clicks || 0}</p>
+                <p className="text-[10px] text-gray-500">Clicks</p>
+                <p className="text-sm font-bold text-gray-900">{influencer.total_clicks || 0}</p>
               </div>
               <div className="text-center">
-                <p className="text-xs font-semibold text-gray-600 mb-2 uppercase tracking-wide">Sales</p>
-                <p className="text-lg font-bold text-gray-900">{influencer.total_conversions || 0}</p>
+                <p className="text-[10px] text-gray-500">Sales</p>
+                <p className="text-sm font-bold text-gray-900">{influencer.total_conversions || 0}</p>
               </div>
               <div className="text-center">
-                <p className="text-xs font-semibold text-gray-600 mb-2 uppercase tracking-wide">Revenue</p>
-                <p className="text-lg font-bold text-gray-900">${(influencer.total_referred_sales || 0).toLocaleString()}</p>
+                <p className="text-[10px] text-gray-500">Revenue</p>
+                <p className="text-sm font-bold text-gray-900">${(influencer.total_referred_sales || 0).toLocaleString()}</p>
               </div>
               <div className="text-center">
-                <p className="text-xs font-semibold text-gray-600 mb-2 uppercase tracking-wide">Earned</p>
-                <p className="text-lg font-bold text-green-600">${(influencer.total_commission_earned || 0).toLocaleString()}</p>
+                <p className="text-[10px] text-gray-500">Earned</p>
+                <p className="text-sm font-bold text-green-600">${(influencer.total_commission_earned || 0).toLocaleString()}</p>
               </div>
             </div>
           )}
 
-          {/* Application Date */}
-          <div className="mt-6 pt-4 border-t border-gray-200 text-xs text-gray-500">
-            Applied {new Date(influencer.created_date).toLocaleDateString('en-US', {
-              month: 'short',
-              day: 'numeric',
-              year: 'numeric'
-            })}
-            {influencer.approval_date && (
-              <> • Approved {new Date(influencer.approval_date).toLocaleDateString('en-US', {
-                month: 'short',
-                day: 'numeric',
-                year: 'numeric'
-              })}</>
-            )}
+          <div className="mt-2 text-[11px] text-gray-400">
+            Applied {new Date(influencer.created_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+            {influencer.approval_date && <> • Approved {new Date(influencer.approval_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</>}
           </div>
         </CardContent>
       </Card>

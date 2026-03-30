@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Link } from "react-router-dom";
+import { Link, useLocation } from "react-router-dom";
 import { createPageUrl } from "@/utils";
 import {
   ShieldCheck,
@@ -34,8 +34,8 @@ import {
 const DEFAULT_BANNER_URL = "https://qtrypzzcjebvfcihiynt.supabase.co/storage/v1/object/public/base44-prod/public/690badbd56a85b130b88aa42/f0d1bb2d2_Photoroom_20251212_201111.png";
 
 export default function VendorProfile() {
-  const urlParams = new URLSearchParams(window.location.search);
-  const vendorEmail = urlParams.get("email");
+  const location = useLocation();
+  const vendorEmail = new URLSearchParams(location.search).get("email");
   const [user, setUser] = useState(null);
   const [showReviewDialog, setShowReviewDialog] = useState(false);
   const [rating, setRating] = useState(5);

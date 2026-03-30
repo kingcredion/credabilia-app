@@ -14,9 +14,9 @@ import {
   Eye,
   RefreshCw,
   Tag,
-  Gift, // NEW import
-  GraduationCap, // NEW import
-  Gavel // NEW import
+  Gift,
+  GraduationCap,
+  Hammer
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -594,7 +594,7 @@ export default function MyCollection() {
                       : "border-gray-200 hover:border-purple-200 text-gray-600"
                   }`}
                 >
-                  <Gavel className="w-5 h-5" />
+                  <Hammer className="w-5 h-5" />
                   <span className="text-sm font-semibold">Auction</span>
                 </button>
               </div>

@@ -533,7 +533,8 @@ export default function Marketplace() {
 
   const handlePageChange = useCallback((newPage) => {
     setCurrentPage(newPage);
-    window.scrollTo({ top: 0, behavior: 'smooth' });
+    // Scroll the app shell's internal scroll container, not window
+    document.querySelector('.ios-scroll')?.scrollTo({ top: 0, behavior: 'smooth' });
   }, []);
 
   const handleClearFilters = useCallback(() => {
@@ -922,6 +923,10 @@ export default function Marketplace() {
                       </div>
                     )}
 
+                    <motion.div
+                      whileTap={{ scale: 0.97 }}
+                      transition={{ type: "spring", stiffness: 700, damping: 40, mass: 0.4 }}
+                    >
                     <Link to={createPageUrl(`ItemDetails?id=${item.id}`)}>
                       {/* Educational badge overlay */}
                       {isEducational && (
@@ -1130,6 +1135,7 @@ export default function Marketplace() {
                         </CardContent>
                       </Card>
                     </Link>
+                    </motion.div>
 
                     {itemTags.length > 0 && (
                       <div className="mt-2 flex flex-wrap gap-2">

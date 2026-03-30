@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -9,13 +9,11 @@ import { Badge } from "@/components/ui/badge";
 import {
   Dialog,
   DialogContent,
-  DialogDescription,
   DialogHeader,
   DialogTitle,
   DialogFooter,
 } from "@/components/ui/dialog";
 import { Upload, Video, Loader2, Calendar, Hash, CheckCircle, Sparkles, Youtube, Trash2 } from "lucide-react";
-import { motion } from "framer-motion";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Select,
@@ -27,7 +25,7 @@ import {
 import VideoLibrary from "./VideoLibrary";
 
 const PLATFORMS = [
-  { id: "youtube", name: "YouTube", icon: <Youtube className="w-6 h-6" />, color: "#FF0000", autoUpload: true },
+  { id: "youtube", name: "YouTube", icon: <Youtube className="w-4 h-4" />, color: "#FF0000", autoUpload: true },
   { id: "tiktok", name: "TikTok", icon: "🎵", color: "#000000" },
   { id: "facebook", name: "Facebook", icon: "📘", color: "#1877F2" },
   { id: "instagram", name: "Instagram", icon: "📸", color: "#E4405F" },
@@ -51,7 +49,7 @@ export default function VideoScheduler({ user, open, onClose }) {
   const [generatingVideo, setGeneratingVideo] = useState(false);
   const [generationProgress, setGenerationProgress] = useState(0);
   const [generationStatus, setGenerationStatus] = useState("");
-  const [videoSize, setVideoSize] = useState("1080x1920"); // Default to Vertical for Shorts
+  const [videoSize, setVideoSize] = useState("1080x1920");
   const [referenceImage, setReferenceImage] = useState(null);
   const [generatedVideoId, setGeneratedVideoId] = useState(null);
   const [remixPrompt, setRemixPrompt] = useState("");
@@ -67,78 +65,70 @@ export default function VideoScheduler({ user, open, onClose }) {
   const queryClient = useQueryClient();
 
   useEffect(() => {
-    if (open) {
-        fetchSettings();
-    }
+    if (open) fetchSettings();
   }, [open]);
 
   const fetchSettings = async () => {
     setLoadingSettings(true);
     try {
-        const settings = await base44.entities.SystemSetting.filter({ key: 'auto_video_gen_enabled' });
-        if (settings.length > 0) {
-            setAutoGenEnabled(settings[0].value === 'true');
-        }
+      const settings = await base44.entities.SystemSetting.filter({ key: 'auto_video_gen_enabled' });
+      if (settings.length > 0) setAutoGenEnabled(settings[0].value === 'true');
     } catch (e) {
-        console.error(e);
+      console.error(e);
     } finally {
-        setLoadingSettings(false);
+      setLoadingSettings(false);
     }
   };
 
   const toggleAutoGeneration = async (enabled) => {
     setLoadingSettings(true);
     try {
-        const settings = await base44.entities.SystemSetting.filter({ key: 'auto_video_gen_enabled' });
-        if (settings.length > 0) {
-            await base44.entities.SystemSetting.update(settings[0].id, { value: enabled.toString() });
-        } else {
-            await base44.entities.SystemSetting.create({ 
-                key: 'auto_video_gen_enabled', 
-                value: enabled.toString(),
-                description: 'Enable daily automatic video generation campaign'
-            });
-        }
-        setAutoGenEnabled(enabled);
-        if (enabled) {
-            alert("Auto-generation enabled! The system will now generate 5 videos daily.");
-        } else {
-            alert("Auto-generation disabled.");
-        }
+      const settings = await base44.entities.SystemSetting.filter({ key: 'auto_video_gen_enabled' });
+      if (settings.length > 0) {
+        await base44.entities.SystemSetting.update(settings[0].id, { value: enabled.toString() });
+      } else {
+        await base44.entities.SystemSetting.create({
+          key: 'auto_video_gen_enabled',
+          value: enabled.toString(),
+          description: 'Enable daily automatic video generation campaign'
+        });
+      }
+      setAutoGenEnabled(enabled);
+      alert(enabled ? "Auto-generation enabled! The system will now generate 5 videos daily." : "Auto-generation disabled.");
     } catch (e) {
-        alert("Failed to update settings");
+      alert("Failed to update settings");
     } finally {
-        setLoadingSettings(false);
+      setLoadingSettings(false);
     }
   };
 
   const triggerDailyCampaign = async () => {
     if (!confirm("Generate 5 new videos right now? This will use OpenAI credits.")) return;
     try {
-        const { data } = await base44.functions.invoke('generateDailyCampaign', { force: true });
-        if (data.success) {
-            alert(`Started generation for ${data.results.length} videos. They will appear in 'Scheduled' once ready.`);
-            fetchScheduledPosts();
-        } else {
-            alert("Failed: " + (data.message || "Unknown error"));
-        }
+      const { data } = await base44.functions.invoke('generateDailyCampaign', { force: true });
+      if (data.success) {
+        alert(`Started generation for ${data.results.length} videos.`);
+        fetchScheduledPosts();
+      } else {
+        alert("Failed: " + (data.message || "Unknown error"));
+      }
     } catch (e) {
-        alert("Error: " + e.message);
+      alert("Error: " + e.message);
     }
   };
 
   const checkGenerations = async () => {
-      try {
-          const { data } = await base44.functions.invoke('checkVideoGenerations');
-          if (data.updates.length > 0) {
-              alert(`${data.updates.length} videos finished generating!`);
-              fetchScheduledPosts();
-          } else {
-              alert("No new videos finished yet. Check back later.");
-          }
-      } catch (e) {
-          console.error(e);
+    try {
+      const { data } = await base44.functions.invoke('checkVideoGenerations');
+      if (data.updates.length > 0) {
+        alert(`${data.updates.length} videos finished generating!`);
+        fetchScheduledPosts();
+      } else {
+        alert("No new videos finished yet.");
       }
+    } catch (e) {
+      console.error(e);
+    }
   };
 
   const fetchScheduledPosts = async () => {
@@ -155,7 +145,6 @@ export default function VideoScheduler({ user, open, onClose }) {
 
   const handleProcessQueue = async () => {
     if (!confirm("Run the scheduler now? This will attempt to publish any posts that are due.")) return;
-    
     setProcessingQueue(true);
     try {
       const { data } = await base44.functions.invoke('processScheduledPosts');
@@ -170,77 +159,45 @@ export default function VideoScheduler({ user, open, onClose }) {
 
   const handleSoraGeneration = async () => {
     if (!soraPrompt) return;
-
     setGeneratingVideo(true);
     setGenerationStatus("Starting...");
     setGenerationProgress(0);
-
     try {
-      const generationParams = {
-        model: 'sora-2-pro',
-        prompt: soraPrompt,
-        size: videoSize,
-        seconds: 8,
-      };
-
+      const generationParams = { model: 'sora-2-pro', prompt: soraPrompt, size: videoSize, seconds: 8 };
       if (referenceImage) {
-        // Note: Sending file objects to backend via JSON isn't directly supported.
-        // Ideally we should upload it first, then send URL.
-        // For now, assuming referenceImage logic might need adjustment if it's a File object.
-        // Let's assume we skip it or user needs to upload it elsewhere first if we want to be strict.
-        // But to keep it simple and assuming backend can handle it or we implement upload logic later:
-        // Actually, let's warn user or upload it if we can. 
-        // Best approach: Upload to base44 storage first if it's a File.
         if (referenceImage instanceof File) {
-            setGenerationStatus("Uploading reference image...");
-            const { file_url } = await base44.integrations.Core.UploadFile({ file: referenceImage });
-            generationParams.input_reference = file_url;
+          setGenerationStatus("Uploading reference image...");
+          const { file_url } = await base44.integrations.Core.UploadFile({ file: referenceImage });
+          generationParams.input_reference = file_url;
         } else {
-            generationParams.input_reference = referenceImage;
+          generationParams.input_reference = referenceImage;
         }
       }
-
-      // 1. Create Generation Task
-      const { data: video } = await base44.functions.invoke('sora', {
-        action: 'create',
-        ...generationParams
-      });
-
+      const { data: video } = await base44.functions.invoke('sora', { action: 'create', ...generationParams });
       if (!video || !video.id) throw new Error("Failed to start generation");
-
       setGeneratedVideoId(video.id);
       setGenerationStatus(video.status);
       if (video.progress) setGenerationProgress(video.progress);
-
-      // 2. Poll for completion
       let currentVideo = video;
       while (currentVideo.status === 'in_progress' || currentVideo.status === 'processing') {
         await new Promise(resolve => setTimeout(resolve, 3000));
-        
-        const { data: updatedVideo } = await base44.functions.invoke('sora', {
-            action: 'retrieve',
-            id: currentVideo.id
-        });
+        const { data: updatedVideo } = await base44.functions.invoke('sora', { action: 'retrieve', id: currentVideo.id });
         currentVideo = updatedVideo;
-        
         setGenerationStatus(currentVideo.status);
         if (currentVideo.progress) setGenerationProgress(currentVideo.progress);
       }
-
       if (currentVideo.status === 'succeeded' || currentVideo.status === 'completed') {
         const videoUrl = currentVideo.url || currentVideo.output?.[0] || currentVideo.output_url;
         if (videoUrl) {
           setFormData({ ...formData, video_url: videoUrl });
           alert("Video generated successfully!");
         } else {
-          throw new Error("Video completed but no URL found in response");
+          throw new Error("Video completed but no URL found");
         }
       } else {
-        throw new Error(`Generation failed with status: ${currentVideo.status}`);
+        throw new Error(`Generation failed: ${currentVideo.status}`);
       }
-
     } catch (error) {
-      console.error("Sora generation error:", error);
       alert("Failed to generate video: " + error.message);
     } finally {
       setGeneratingVideo(false);
@@ -250,54 +207,37 @@ export default function VideoScheduler({ user, open, onClose }) {
 
   const handleRemix = async () => {
     if (!remixPrompt || !generatedVideoId) return;
-
     setRemixingVideo(true);
     setGenerationStatus("Starting Remix...");
     setGenerationProgress(0);
-
     try {
-      const { data: video } = await base44.functions.invoke('sora', {
-        action: 'remix',
-        id: generatedVideoId,
-        body: { prompt: remixPrompt }
-      });
-
+      const { data: video } = await base44.functions.invoke('sora', { action: 'remix', id: generatedVideoId, body: { prompt: remixPrompt } });
       if (!video || !video.id) throw new Error("Failed to start remix");
-      
       setGeneratedVideoId(video.id);
       setGenerationStatus(video.status);
       if (video.progress) setGenerationProgress(video.progress);
-
       let currentVideo = video;
       while (currentVideo.status === 'in_progress' || currentVideo.status === 'processing') {
         await new Promise(resolve => setTimeout(resolve, 3000));
-        
-        const { data: updatedVideo } = await base44.functions.invoke('sora', {
-            action: 'retrieve',
-            id: currentVideo.id
-        });
+        const { data: updatedVideo } = await base44.functions.invoke('sora', { action: 'retrieve', id: currentVideo.id });
         currentVideo = updatedVideo;
-
         setGenerationStatus(currentVideo.status);
         if (currentVideo.progress) setGenerationProgress(currentVideo.progress);
       }
-
       if (currentVideo.status === 'succeeded' || currentVideo.status === 'completed') {
         const videoUrl = currentVideo.url || currentVideo.output?.[0] || currentVideo.output_url;
         if (videoUrl) {
           setFormData({ ...formData, video_url: videoUrl });
-          alert("Video remixed successfully!");
+          alert("Remixed!");
           setRemixPrompt("");
         } else {
           throw new Error("Remix completed but no URL found");
         }
       } else {
-        throw new Error(`Remix failed with status: ${currentVideo.status}`);
+        throw new Error(`Remix failed: ${currentVideo.status}`);
       }
-
     } catch (error) {
-      console.error("Remix error:", error);
-      alert("Failed to remix video: " + error.message);
+      alert("Failed to remix: " + error.message);
     } finally {
       setRemixingVideo(false);
       setGenerationStatus("");
@@ -308,7 +248,6 @@ export default function VideoScheduler({ user, open, onClose }) {
     setLoadingHistory(true);
     try {
       const { data } = await base44.functions.invoke('sora', { action: 'list' });
-      // Handle response structure { data: [...] } or just [...]
       setGeneratedVideos(Array.isArray(data) ? data : data.data || []);
     } catch (error) {
       console.error("Failed to fetch history:", error);
@@ -319,10 +258,8 @@ export default function VideoScheduler({ user, open, onClose }) {
 
   const deleteVideoById = async (id) => {
     if (!confirm("Delete this video?")) return;
-
     try {
       await base44.functions.invoke('sora', { action: 'delete', id });
-      
       alert("Video deleted");
       if (id === generatedVideoId) {
         setFormData({ ...formData, video_url: "" });
@@ -334,13 +271,8 @@ export default function VideoScheduler({ user, open, onClose }) {
       alert(error.message);
     }
   };
-  
-  // Initial fetch when tab is opened/active is handled by UI logic below or user click
-  // But let's add an effect to fetch history on mount if we are in the sora tab (or let user click refresh)
 
-  const handleDeleteVideo = () => {
-    if (generatedVideoId) deleteVideoById(generatedVideoId);
-  };
+  const handleDeleteVideo = () => { if (generatedVideoId) deleteVideoById(generatedVideoId); };
 
   const savePostMutation = useMutation({
     mutationFn: async (postData) => {
@@ -360,7 +292,6 @@ export default function VideoScheduler({ user, open, onClose }) {
   const handleVideoUpload = async (e) => {
     const file = e.target.files?.[0];
     if (!file) return;
-
     setUploadingVideo(true);
     try {
       const { file_url } = await base44.integrations.Core.UploadFile({ file });
@@ -375,7 +306,6 @@ export default function VideoScheduler({ user, open, onClose }) {
   const handleThumbnailUpload = async (e) => {
     const file = e.target.files?.[0];
     if (!file) return;
-
     setUploadingThumbnail(true);
     try {
       const { file_url } = await base44.integrations.Core.UploadFile({ file });
@@ -408,15 +338,7 @@ export default function VideoScheduler({ user, open, onClose }) {
   };
 
   const resetForm = () => {
-    setFormData({
-      title: "",
-      description: "",
-      video_url: "",
-      thumbnail_url: "",
-      platforms: [],
-      scheduled_date: "",
-      hashtags: []
-    });
+    setFormData({ title: "", description: "", video_url: "", thumbnail_url: "", platforms: [], scheduled_date: "", hashtags: [] });
     setHashtagInput("");
   };
 
@@ -430,597 +352,447 @@ export default function VideoScheduler({ user, open, onClose }) {
 
   return (
     <Dialog open={open} onOpenChange={onClose}>
-      <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
-        <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
-            <Sparkles className="w-6 h-6 text-purple-600" />
-            Auto-Ad Campaign Manager
+      <DialogContent className="w-full max-w-lg max-h-[92vh] overflow-y-auto p-0 gap-0">
+        {/* Sticky header */}
+        <DialogHeader className="sticky top-0 z-10 bg-background border-b px-4 py-3">
+          <DialogTitle className="flex items-center gap-2 text-base">
+            <Sparkles className="w-4 h-4 text-purple-600 flex-shrink-0" />
+            Ad Campaign Manager
           </DialogTitle>
-          <DialogDescription>
-            Manage your automated YouTube ad campaign and view scheduled posts
-          </DialogDescription>
         </DialogHeader>
 
-        <div className="space-y-6">
-          {/* Video Source */}
+        <div className="px-4 py-4 space-y-4">
           <Tabs defaultValue="scheduled" className="w-full">
-            <TabsList className="grid w-full grid-cols-4 mb-4">
-              <TabsTrigger value="scheduled" className="flex items-center gap-2" onClick={fetchScheduledPosts}>
-                <Calendar className="w-4 h-4 text-blue-500" /> Auto-Campaign
-              </TabsTrigger>
-              <TabsTrigger value="sora" className="flex items-center gap-2">
-                <Sparkles className="w-4 h-4 text-purple-500" /> Manual AI Gen
-              </TabsTrigger>
-              <TabsTrigger value="upload" className="flex items-center gap-2">
-                <Upload className="w-4 h-4" /> Manual Upload
-              </TabsTrigger>
-              <TabsTrigger value="library" className="flex items-center gap-2">
-                <Video className="w-4 h-4 text-green-500" /> Library
-              </TabsTrigger>
-            </TabsList>
+            {/* Horizontally scrollable tab bar */}
+            <div className="overflow-x-auto -mx-4 px-4">
+              <TabsList className="flex w-max min-w-full gap-1 h-9 mb-4">
+                <TabsTrigger value="scheduled" className="text-xs px-3 h-7 flex items-center gap-1.5 whitespace-nowrap" onClick={fetchScheduledPosts}>
+                  <Calendar className="w-3 h-3" /> Auto-Campaign
+                </TabsTrigger>
+                <TabsTrigger value="sora" className="text-xs px-3 h-7 flex items-center gap-1.5 whitespace-nowrap">
+                  <Sparkles className="w-3 h-3" /> AI Gen
+                </TabsTrigger>
+                <TabsTrigger value="upload" className="text-xs px-3 h-7 flex items-center gap-1.5 whitespace-nowrap">
+                  <Upload className="w-3 h-3" /> Upload
+                </TabsTrigger>
+                <TabsTrigger value="library" className="text-xs px-3 h-7 flex items-center gap-1.5 whitespace-nowrap">
+                  <Video className="w-3 h-3" /> Library
+                </TabsTrigger>
+              </TabsList>
+            </div>
 
-            <TabsContent value="upload">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Video File *
-                </label>
-                {!formData.video_url ? (
-                  <label className="flex flex-col items-center justify-center w-full h-32 border-2 border-dashed border-gray-300 rounded-lg cursor-pointer hover:bg-gray-50 transition-colors">
-                    <div className="flex flex-col items-center">
-                      {uploadingVideo ? (
-                        <>
-                          <Loader2 className="w-8 h-8 text-blue-600 animate-spin mb-2" />
-                          <p className="text-sm text-gray-600">Uploading video...</p>
-                        </>
-                      ) : (
-                        <>
-                          <Upload className="w-8 h-8 text-gray-400 mb-2" />
-                          <p className="text-sm text-gray-600">Click to upload video</p>
-                          <p className="text-xs text-gray-500">MP4, MOV, AVI supported</p>
-                        </>
-                      )}
+            {/* ── Auto-Campaign Tab ── */}
+            <TabsContent value="scheduled">
+              <div className="space-y-3">
+                {/* Compact auto-gen toggle */}
+                <div className="bg-indigo-50 dark:bg-indigo-950/30 border border-indigo-200 dark:border-indigo-800 rounded-lg p-3">
+                  <div className="flex items-center justify-between gap-3">
+                    <div className="min-w-0">
+                      <p className="text-sm font-semibold text-indigo-900 dark:text-indigo-300 flex items-center gap-1.5">
+                        <Sparkles className="w-3.5 h-3.5 flex-shrink-0" />
+                        Daily Auto-Campaign
+                      </p>
+                      <p className="text-xs text-indigo-600 dark:text-indigo-400 mt-0.5 leading-tight">
+                        Generates &amp; schedules 5 Shorts daily
+                      </p>
                     </div>
-                    <input
-                      type="file"
-                      accept="video/*"
-                      className="hidden"
-                      onChange={handleVideoUpload}
-                      disabled={uploadingVideo}
-                    />
-                  </label>
-                ) : (
-                  <div className="bg-green-50 border-2 border-green-200 rounded-lg p-4">
-                    <div className="flex items-center gap-3">
-                      <Video className="w-6 h-6 text-green-600" />
-                      <div className="flex-1">
-                        <p className="font-medium text-green-900">Video ready</p>
-                        <a href={formData.video_url} target="_blank" rel="noopener noreferrer" className="text-xs text-green-700 hover:underline">
-                          View video
-                        </a>
-                      </div>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => setFormData({ ...formData, video_url: "" })}
+                    <div className="flex items-center gap-2 flex-shrink-0">
+                      <span className={`text-xs font-bold ${autoGenEnabled ? "text-green-600" : "text-gray-400"}`}>
+                        {autoGenEnabled ? "ON" : "OFF"}
+                      </span>
+                      <div
+                        className={`w-10 h-6 rounded-full p-0.5 transition-colors cursor-pointer ${autoGenEnabled ? 'bg-green-500' : 'bg-gray-300'}`}
+                        onClick={() => toggleAutoGeneration(!autoGenEnabled)}
                       >
-                        Change
-                      </Button>
+                        <div className={`bg-white w-5 h-5 rounded-full shadow transform transition-transform ${autoGenEnabled ? 'translate-x-4' : 'translate-x-0'}`} />
+                      </div>
                     </div>
                   </div>
-                )}
-              </div>
-            </TabsContent>
 
-            <TabsContent value="scheduled">
-              <div className="space-y-4">
-                {/* Auto-Gen Controls - MOVED TO TOP */}
-                <div className="bg-gradient-to-r from-indigo-50 to-purple-50 p-6 rounded-xl border-2 border-indigo-100 mb-6 shadow-sm">
-                    <div className="flex items-center justify-between mb-2">
-                        <div>
-                            <h4 className="text-lg font-bold text-indigo-900 flex items-center gap-2">
-                                <Sparkles className="w-5 h-5 text-indigo-600" />
-                                Daily Auto-Campaign
-                            </h4>
-                            <p className="text-sm text-indigo-700 mt-1">
-                                Automatically generate & schedule 5 YouTube Shorts daily.
-                            </p>
-                        </div>
-                        <div className="flex items-center gap-3 bg-white px-4 py-2 rounded-full border border-indigo-100 shadow-sm">
-                            <span className={`text-sm font-bold ${autoGenEnabled ? "text-green-600" : "text-gray-500"}`}>
-                                {autoGenEnabled ? "ACTIVE" : "PAUSED"}
-                            </span>
-                            <div 
-                                className={`w-12 h-7 rounded-full p-1 transition-colors cursor-pointer ${autoGenEnabled ? 'bg-green-500' : 'bg-gray-300'}`}
-                                onClick={() => toggleAutoGeneration(!autoGenEnabled)}
-                            >
-                                <div className={`bg-white w-5 h-5 rounded-full shadow-md transform transition-transform ${autoGenEnabled ? 'translate-x-5' : 'translate-x-0'}`} />
-                            </div>
-                        </div>
+                  {autoGenEnabled && (
+                    <div className="mt-3 pt-3 border-t border-indigo-200 dark:border-indigo-700 flex gap-2">
+                      <Button size="sm" variant="outline" onClick={triggerDailyCampaign} className="text-xs h-8 border-indigo-200 text-indigo-700 hover:bg-indigo-100 bg-white flex-1">
+                        <Sparkles className="w-3 h-3 mr-1" /> Trigger Batch
+                      </Button>
+                      <Button size="sm" variant="outline" onClick={checkGenerations} className="text-xs h-8 border-indigo-200 text-indigo-700 hover:bg-indigo-100 bg-white flex-1">
+                        <Loader2 className="w-3 h-3 mr-1" /> Check Status
+                      </Button>
                     </div>
-                    
-                    {autoGenEnabled && (
-                        <div className="mt-4 pt-4 border-t border-indigo-200/50 flex flex-wrap gap-3">
-                            <Button size="sm" variant="outline" onClick={triggerDailyCampaign} className="text-xs h-8 border-indigo-200 text-indigo-700 hover:bg-indigo-100 bg-white">
-                                <Sparkles className="w-3 h-3 mr-2" /> Trigger Batch Now
-                            </Button>
-                            <Button size="sm" variant="outline" onClick={checkGenerations} className="text-xs h-8 border-indigo-200 text-indigo-700 hover:bg-indigo-100 bg-white">
-                                <Loader2 className="w-3 h-3 mr-2" /> Check Status
-                            </Button>
-                        </div>
-                    )}
+                  )}
                 </div>
 
-                <div className="flex justify-between items-center px-1">
-                  <h3 className="font-semibold text-gray-900 flex items-center gap-2">
-                    <Calendar className="w-4 h-4" /> Upcoming & Generating
-                  </h3>
-                  <div className="flex gap-2">
-                    <Button variant="ghost" size="sm" onClick={fetchScheduledPosts} disabled={loadingScheduled}>
-                      {loadingScheduled ? <Loader2 className="w-3 h-3 animate-spin" /> : "Refresh List"}
+                {/* Queue header */}
+                <div className="flex items-center justify-between">
+                  <p className="text-xs font-semibold text-gray-600 dark:text-gray-400 uppercase tracking-wide flex items-center gap-1.5">
+                    <Calendar className="w-3.5 h-3.5" /> Upcoming
+                  </p>
+                  <div className="flex gap-1.5">
+                    <Button variant="ghost" size="sm" onClick={fetchScheduledPosts} disabled={loadingScheduled} className="h-7 text-xs px-2">
+                      {loadingScheduled ? <Loader2 className="w-3 h-3 animate-spin" /> : "Refresh"}
                     </Button>
-                    <Button size="sm" variant="outline" onClick={handleProcessQueue} disabled={processingQueue} className="text-xs">
-                      {processingQueue ? <Loader2 className="w-3 h-3 animate-spin mr-2" /> : <CheckCircle className="w-3 h-3 mr-2" />}
-                      Force Publish
+                    <Button size="sm" variant="outline" onClick={handleProcessQueue} disabled={processingQueue} className="h-7 text-xs px-2">
+                      {processingQueue ? <Loader2 className="w-3 h-3 animate-spin" /> : <CheckCircle className="w-3 h-3" />}
+                      <span className="ml-1">Publish</span>
                     </Button>
                   </div>
                 </div>
 
                 {scheduledPosts.length > 0 ? (
-                  <div className="space-y-3 max-h-[400px] overflow-y-auto">
+                  <div className="space-y-2 max-h-72 overflow-y-auto">
                     {scheduledPosts.map(post => (
-                      <Card key={post.id} className="p-3 border border-gray-200">
-                        <div className="flex gap-3">
-                          <div className="w-16 h-16 bg-gray-100 rounded-md overflow-hidden flex-shrink-0">
-                             {post.thumbnail_url ? (
-                               <img src={post.thumbnail_url} alt="" className="w-full h-full object-cover" />
-                             ) : (
-                               <Video className="w-6 h-6 m-auto mt-4 text-gray-400" />
-                             )}
-                          </div>
-                          <div className="flex-1 min-w-0">
-                            <h4 className="font-medium text-sm truncate">{post.title}</h4>
-                            <p className="text-xs text-gray-500 truncate">{post.description}</p>
-                            <div className="flex items-center gap-2 mt-2 text-xs">
-                              <Badge variant="secondary" className="text-[10px]">
-                                {new Date(post.scheduled_date).toLocaleString()}
-                              </Badge>
-                              <div className="flex gap-1">
-                                {post.platforms.map(p => (
-                                  <span key={p} className="uppercase font-bold text-[9px] text-gray-600">{p}</span>
-                                ))}
-                              </div>
-                            </div>
-                          </div>
-                          <div className="flex items-center">
-                             <Badge className={new Date(post.scheduled_date) <= new Date() ? "bg-red-100 text-red-700 hover:bg-red-100" : "bg-blue-100 text-blue-700 hover:bg-blue-100"}>
-                               {new Date(post.scheduled_date) <= new Date() ? "Due Now" : "Upcoming"}
-                             </Badge>
+                      <div key={post.id} className="flex gap-2.5 p-2.5 rounded-lg border border-border bg-card">
+                        <div className="w-12 h-12 bg-muted rounded flex-shrink-0 overflow-hidden flex items-center justify-center">
+                          {post.thumbnail_url
+                            ? <img src={post.thumbnail_url} alt="" className="w-full h-full object-cover" />
+                            : <Video className="w-4 h-4 text-muted-foreground" />
+                          }
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-xs font-medium truncate">{post.title}</p>
+                          <p className="text-[11px] text-muted-foreground truncate">{post.description}</p>
+                          <div className="flex items-center gap-1.5 mt-1">
+                            <Badge variant="secondary" className="text-[10px] h-4 px-1.5">
+                              {new Date(post.scheduled_date).toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                            </Badge>
+                            <Badge className={`text-[10px] h-4 px-1.5 ${new Date(post.scheduled_date) <= new Date() ? "bg-red-100 text-red-700" : "bg-blue-100 text-blue-700"}`}>
+                              {new Date(post.scheduled_date) <= new Date() ? "Due" : "Upcoming"}
+                            </Badge>
                           </div>
                         </div>
-                      </Card>
+                      </div>
                     ))}
                   </div>
                 ) : (
-                  <div className="text-center py-8 bg-gray-50 rounded-lg border border-dashed border-gray-300">
-                    <Calendar className="w-8 h-8 text-gray-300 mx-auto mb-2" />
-                    <p className="text-sm text-gray-500">No scheduled posts found</p>
+                  <div className="text-center py-6 bg-muted/40 rounded-lg border border-dashed border-border">
+                    <Calendar className="w-6 h-6 text-muted-foreground mx-auto mb-1.5" />
+                    <p className="text-xs text-muted-foreground">No scheduled posts</p>
                   </div>
                 )}
               </div>
             </TabsContent>
 
+            {/* ── Upload Tab ── */}
+            <TabsContent value="upload">
+              {!formData.video_url ? (
+                <label className="flex flex-col items-center justify-center w-full h-24 border-2 border-dashed border-border rounded-lg cursor-pointer hover:bg-muted/40 transition-colors">
+                  {uploadingVideo ? (
+                    <>
+                      <Loader2 className="w-6 h-6 text-blue-600 animate-spin mb-1" />
+                      <p className="text-xs text-muted-foreground">Uploading...</p>
+                    </>
+                  ) : (
+                    <>
+                      <Upload className="w-6 h-6 text-muted-foreground mb-1" />
+                      <p className="text-xs text-muted-foreground">Tap to upload video</p>
+                      <p className="text-[11px] text-muted-foreground/70">MP4, MOV, AVI</p>
+                    </>
+                  )}
+                  <input type="file" accept="video/*" className="hidden" onChange={handleVideoUpload} disabled={uploadingVideo} />
+                </label>
+              ) : (
+                <div className="flex items-center gap-2.5 p-2.5 bg-green-50 dark:bg-green-950/30 border border-green-200 dark:border-green-800 rounded-lg">
+                  <Video className="w-5 h-5 text-green-600 flex-shrink-0" />
+                  <div className="flex-1 min-w-0">
+                    <p className="text-xs font-medium text-green-900 dark:text-green-300">Video ready</p>
+                    <a href={formData.video_url} target="_blank" rel="noopener noreferrer" className="text-[11px] text-green-700 hover:underline">View</a>
+                  </div>
+                  <Button variant="ghost" size="sm" onClick={() => setFormData({ ...formData, video_url: "" })} className="h-7 text-xs px-2">
+                    Change
+                  </Button>
+                </div>
+              )}
+            </TabsContent>
+
+            {/* ── Library Tab ── */}
             <TabsContent value="library">
               <VideoLibrary />
             </TabsContent>
 
+            {/* ── AI Gen Tab ── */}
             <TabsContent value="sora">
-              <div className="bg-gradient-to-br from-purple-50 to-blue-50 border border-purple-200 rounded-lg p-4">
-                <div className="flex items-center gap-2 mb-3">
-                  <Sparkles className="w-5 h-5 text-purple-600" />
-                  <h3 className="font-semibold text-purple-900">Sora AI Video Generation</h3>
+              <div className="bg-purple-50 dark:bg-purple-950/30 border border-purple-200 dark:border-purple-800 rounded-lg p-3 space-y-3">
+                <div className="flex items-center gap-2">
+                  <Sparkles className="w-4 h-4 text-purple-600" />
+                  <p className="text-sm font-semibold text-purple-900 dark:text-purple-300">Sora AI Generation</p>
                 </div>
-                
-                <div className="space-y-3">
-                  {/* API Key managed via backend secrets now */}
 
+                <div className="space-y-2.5">
                   <div>
-                    <label className="block text-sm font-medium text-purple-800 mb-1">
-                      Video Size (Aspect Ratio)
-                    </label>
+                    <label className="block text-xs font-medium text-purple-800 dark:text-purple-300 mb-1">Size</label>
                     <Select value={videoSize} onValueChange={setVideoSize}>
-                      <SelectTrigger className="w-full bg-white mb-3">
-                        <SelectValue placeholder="Select video size" />
+                      <SelectTrigger className="h-8 text-xs bg-white dark:bg-background">
+                        <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="1080x1920">
-                          1080x1920 (9:16) - YouTube Shorts / TikTok / Reels
-                        </SelectItem>
-                        <SelectItem value="1280x720">
-                          1280x720 (16:9) - Standard YouTube / Landscape
-                        </SelectItem>
-                        <SelectItem value="1080x1080">
-                          1080x1080 (1:1) - Square / Instagram Feed
-                        </SelectItem>
+                        <SelectItem value="1080x1920">1080×1920 — Shorts / TikTok</SelectItem>
+                        <SelectItem value="1280x720">1280×720 — YouTube Landscape</SelectItem>
+                        <SelectItem value="1080x1080">1080×1080 — Square</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
 
                   <div>
-                    <label className="block text-sm font-medium text-purple-800 mb-1">
-                      Prompt
-                    </label>
-                    <Textarea 
-                      placeholder="Describe the video you want to generate... e.g., A cinematic drone shot of a vintage baseball card collection with dramatic lighting."
-                      className="min-h-[100px] bg-white"
+                    <label className="block text-xs font-medium text-purple-800 dark:text-purple-300 mb-1">Prompt</label>
+                    <Textarea
+                      placeholder="Describe the video..."
+                      className="min-h-[80px] text-sm bg-white dark:bg-background"
                       value={soraPrompt}
                       onChange={(e) => setSoraPrompt(e.target.value)}
                     />
                   </div>
 
                   <div>
-                    <label className="block text-sm font-medium text-purple-800 mb-1">
-                      Reference Image (Optional)
-                    </label>
-                    <div className="flex items-center gap-3">
-                      <Input
-                        type="file"
-                        accept="image/*"
-                        className="bg-white"
-                        onChange={(e) => setReferenceImage(e.target.files?.[0] || null)}
-                      />
-                      {referenceImage && (
-                        <div className="text-xs text-green-600 font-medium">
-                          Selected: {referenceImage.name}
-                        </div>
-                      )}
-                    </div>
-                    <p className="text-xs text-purple-600 mt-1">
-                      Upload an image to guide the video generation (e.g. animate a static photo).
-                    </p>
+                    <label className="block text-xs font-medium text-purple-800 dark:text-purple-300 mb-1">Reference Image (optional)</label>
+                    <Input type="file" accept="image/*" className="h-8 text-xs bg-white dark:bg-background" onChange={(e) => setReferenceImage(e.target.files?.[0] || null)} />
+                    {referenceImage && <p className="text-[11px] text-green-600 mt-1">Selected: {referenceImage.name}</p>}
                   </div>
-                  
+
                   {!formData.video_url ? (
                     <div>
-                      <Button 
-                        className="w-full bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 text-white mb-2"
+                      <Button
+                        className="w-full h-9 text-sm bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 text-white"
                         onClick={handleSoraGeneration}
                         disabled={generatingVideo || !soraPrompt}
                       >
                         {generatingVideo ? (
-                          <>
-                            <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                            Generating... {generationProgress}%
-                          </>
+                          <><Loader2 className="w-3.5 h-3.5 mr-2 animate-spin" />Generating {generationProgress}%</>
                         ) : (
-                          <>
-                            <Sparkles className="w-4 h-4 mr-2" />
-                            Generate Video
-                          </>
+                          <><Sparkles className="w-3.5 h-3.5 mr-2" />Generate</>
                         )}
                       </Button>
                       {generatingVideo && (
-                        <div className="text-center">
-                          <p className="text-xs text-purple-700 font-medium mb-1">Status: {generationStatus}</p>
-                          <div className="w-full bg-purple-200 rounded-full h-2">
-                            <div 
-                              className="bg-purple-600 h-2 rounded-full transition-all duration-500"
-                              style={{ width: `${generationProgress}%` }}
-                            />
+                        <div className="mt-2">
+                          <p className="text-[11px] text-purple-700 mb-1">{generationStatus}</p>
+                          <div className="w-full bg-purple-200 rounded-full h-1.5">
+                            <div className="bg-purple-600 h-1.5 rounded-full transition-all duration-500" style={{ width: `${generationProgress}%` }} />
                           </div>
                         </div>
                       )}
                     </div>
                   ) : (
-                     <div className="bg-green-50 border-2 border-green-200 rounded-lg p-4 mt-2">
-                        <div className="flex items-center gap-3">
-                          <Video className="w-6 h-6 text-green-600" />
-                          <div className="flex-1">
-                            <p className="font-medium text-green-900">Sora video generated!</p>
-                            <p className="text-xs text-green-700">Ready for scheduling</p>
-                          </div>
-                          <div className="flex gap-2">
-                            {generatedVideoId && (
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={handleDeleteVideo}
-                                className="text-red-600 hover:text-red-700 hover:bg-red-50"
-                              >
-                                <Trash2 className="w-4 h-4 mr-1" />
-                                Delete
-                              </Button>
-                            )}
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => {
-                                setFormData({ ...formData, video_url: "" });
-                                setGeneratedVideoId(null);
-                              }}
-                            >
-                              New
+                    <div className="space-y-3">
+                      <div className="flex items-center gap-2 p-2.5 bg-green-50 dark:bg-green-950/30 border border-green-200 dark:border-green-800 rounded-lg">
+                        <Video className="w-4 h-4 text-green-600 flex-shrink-0" />
+                        <p className="text-xs font-medium text-green-900 dark:text-green-300 flex-1">Video ready</p>
+                        <div className="flex gap-1">
+                          {generatedVideoId && (
+                            <Button variant="ghost" size="sm" onClick={handleDeleteVideo} className="h-7 text-xs px-2 text-red-600">
+                              <Trash2 className="w-3 h-3" />
                             </Button>
-                          </div>
+                          )}
+                          <Button variant="ghost" size="sm" onClick={() => { setFormData({ ...formData, video_url: "" }); setGeneratedVideoId(null); }} className="h-7 text-xs px-2">
+                            New
+                          </Button>
                         </div>
-                        
-                        {generatedVideoId && (
-                          <div className="mt-3 pt-3 border-t border-green-200">
-                            {/* History Section */}
-                            <div className="mt-6 pt-6 border-t border-purple-200">
-                              <div className="flex items-center justify-between mb-3">
-                                <h4 className="font-semibold text-purple-900">Generation History</h4>
-                                <Button 
-                                  variant="ghost" 
-                                  size="sm" 
-                                  onClick={fetchGeneratedVideos}
-                                  disabled={loadingHistory}
-                                >
-                                  {loadingHistory ? <Loader2 className="w-3 h-3 animate-spin" /> : "Refresh"}
-                                </Button>
-                              </div>
-                              
-                              {generatedVideos.length > 0 ? (
-                                <div className="grid grid-cols-2 gap-3 max-h-60 overflow-y-auto">
-                                  {generatedVideos.map((vid) => (
-                                    <div key={vid.id} className="border border-gray-200 rounded-lg p-2 bg-white text-xs relative group">
-                                      <div className="flex justify-between items-start mb-1">
-                                        <Badge variant="outline" className="text-[10px]">{vid.status}</Badge>
-                                        <button 
-                                          onClick={() => deleteVideoById(vid.id)}
-                                          className="text-red-400 hover:text-red-600 opacity-0 group-hover:opacity-100 transition-opacity"
-                                        >
-                                          <Trash2 className="w-3 h-3" />
-                                        </button>
-                                      </div>
-                                      <p className="line-clamp-2 text-gray-600 mb-2" title={vid.prompt}>{vid.prompt || "No prompt"}</p>
-                                      {(vid.url || vid.output?.[0] || vid.output_url) && (
-                                        <Button 
-                                          size="sm" 
-                                          variant="secondary" 
-                                          className="w-full h-6 text-[10px]"
-                                          onClick={() => {
-                                            const url = vid.url || vid.output?.[0] || vid.output_url;
-                                            setFormData({ ...formData, video_url: url });
-                                            setGeneratedVideoId(vid.id);
-                                          }}
-                                        >
-                                          Select
-                                        </Button>
-                                      )}
-                                    </div>
-                                  ))}
-                                </div>
-                              ) : (
-                                <p className="text-xs text-gray-500 italic text-center py-4">No history found</p>
-                              )}
-                            </div>
+                      </div>
 
-                            <label className="block text-sm font-medium text-purple-800 mb-1 mt-4">
-                              Remix Video
-                            </label>
+                      {generatedVideoId && (
+                        <>
+                          {/* Remix */}
+                          <div>
+                            <label className="block text-xs font-medium text-purple-800 dark:text-purple-300 mb-1">Remix</label>
                             <div className="flex gap-2">
-                              <Input 
-                                placeholder="E.g. Shift colors to teal and rust, add warm backlight..."
+                              <Input
+                                placeholder="Remix prompt..."
                                 value={remixPrompt}
                                 onChange={(e) => setRemixPrompt(e.target.value)}
-                                className="bg-white"
+                                className="h-8 text-xs bg-white dark:bg-background"
                               />
-                              <Button 
+                              <Button
                                 onClick={handleRemix}
                                 disabled={remixingVideo || !remixPrompt}
-                                className="bg-purple-600 hover:bg-purple-700 text-white whitespace-nowrap"
+                                className="h-8 text-xs bg-purple-600 hover:bg-purple-700 text-white px-3"
                               >
-                                {remixingVideo ? (
-                                  <Loader2 className="w-4 h-4 animate-spin" />
-                                ) : (
-                                  <Sparkles className="w-4 h-4" />
-                                )}
-                                <span className="ml-2">Remix</span>
+                                {remixingVideo ? <Loader2 className="w-3 h-3 animate-spin" /> : <Sparkles className="w-3 h-3" />}
                               </Button>
                             </div>
                             {remixingVideo && (
-                              <div className="mt-2">
-                                <p className="text-xs text-purple-700 font-medium mb-1">Remixing: {generationStatus}</p>
-                                <div className="w-full bg-purple-200 rounded-full h-1.5">
-                                  <div 
-                                    className="bg-purple-600 h-1.5 rounded-full transition-all duration-500"
-                                    style={{ width: `${generationProgress}%` }}
-                                  />
+                              <div className="mt-1.5">
+                                <div className="w-full bg-purple-200 rounded-full h-1">
+                                  <div className="bg-purple-600 h-1 rounded-full transition-all" style={{ width: `${generationProgress}%` }} />
                                 </div>
                               </div>
                             )}
                           </div>
-                        )}
-                      </div>
+
+                          {/* History */}
+                          <div>
+                            <div className="flex items-center justify-between mb-1.5">
+                              <p className="text-xs font-semibold text-purple-900 dark:text-purple-300">History</p>
+                              <Button variant="ghost" size="sm" onClick={fetchGeneratedVideos} disabled={loadingHistory} className="h-6 text-xs px-2">
+                                {loadingHistory ? <Loader2 className="w-3 h-3 animate-spin" /> : "Refresh"}
+                              </Button>
+                            </div>
+                            {generatedVideos.length > 0 ? (
+                              <div className="grid grid-cols-2 gap-2 max-h-48 overflow-y-auto">
+                                {generatedVideos.map((vid) => (
+                                  <div key={vid.id} className="border border-border rounded-lg p-2 bg-white dark:bg-card text-xs relative group">
+                                    <div className="flex justify-between items-center mb-1">
+                                      <Badge variant="outline" className="text-[10px] h-4">{vid.status}</Badge>
+                                      <button onClick={() => deleteVideoById(vid.id)} className="text-red-400 hover:text-red-600 opacity-0 group-hover:opacity-100 transition-opacity">
+                                        <Trash2 className="w-3 h-3" />
+                                      </button>
+                                    </div>
+                                    <p className="line-clamp-2 text-muted-foreground mb-1.5 text-[11px]">{vid.prompt || "No prompt"}</p>
+                                    {(vid.url || vid.output?.[0] || vid.output_url) && (
+                                      <Button size="sm" variant="secondary" className="w-full h-6 text-[10px]"
+                                        onClick={() => { setFormData({ ...formData, video_url: vid.url || vid.output?.[0] || vid.output_url }); setGeneratedVideoId(vid.id); }}>
+                                        Select
+                                      </Button>
+                                    )}
+                                  </div>
+                                ))}
+                              </div>
+                            ) : (
+                              <p className="text-[11px] text-muted-foreground italic text-center py-3">No history</p>
+                            )}
+                          </div>
+                        </>
+                      )}
+                    </div>
                   )}
                 </div>
               </div>
             </TabsContent>
           </Tabs>
 
-          {/* Thumbnail Upload */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Thumbnail Image (Optional)
-            </label>
-            {!formData.thumbnail_url ? (
-              <label className="flex flex-col items-center justify-center w-full h-24 border-2 border-dashed border-gray-300 rounded-lg cursor-pointer hover:bg-gray-50 transition-colors">
-                <div className="flex flex-col items-center">
-                  {uploadingThumbnail ? (
-                    <>
-                      <Loader2 className="w-6 h-6 text-blue-600 animate-spin mb-2" />
-                      <p className="text-xs text-gray-600">Uploading...</p>
-                    </>
-                  ) : (
-                    <>
-                      <Upload className="w-6 h-6 text-gray-400 mb-2" />
-                      <p className="text-xs text-gray-600">Upload thumbnail</p>
-                    </>
-                  )}
+          {/* ── Manual scheduling fields (always visible) ── */}
+          <div className="space-y-3 pt-2 border-t border-border">
+            {/* Thumbnail */}
+            <div>
+              <label className="block text-xs font-medium text-foreground mb-1.5">Thumbnail (optional)</label>
+              {!formData.thumbnail_url ? (
+                <label className="flex items-center justify-center gap-2 w-full h-16 border-2 border-dashed border-border rounded-lg cursor-pointer hover:bg-muted/40 transition-colors">
+                  {uploadingThumbnail
+                    ? <><Loader2 className="w-4 h-4 animate-spin text-blue-500" /><span className="text-xs text-muted-foreground">Uploading...</span></>
+                    : <><Upload className="w-4 h-4 text-muted-foreground" /><span className="text-xs text-muted-foreground">Upload thumbnail</span></>
+                  }
+                  <input type="file" accept="image/*" className="hidden" onChange={handleThumbnailUpload} disabled={uploadingThumbnail} />
+                </label>
+              ) : (
+                <div className="relative h-20 rounded-lg overflow-hidden">
+                  <img src={formData.thumbnail_url} alt="Thumbnail" className="w-full h-full object-cover" />
+                  <Button variant="ghost" size="sm" onClick={() => setFormData({ ...formData, thumbnail_url: "" })} className="absolute top-1 right-1 h-6 text-xs px-2 bg-white/90">
+                    Change
+                  </Button>
                 </div>
-                <input
-                  type="file"
-                  accept="image/*"
-                  className="hidden"
-                  onChange={handleThumbnailUpload}
-                  disabled={uploadingThumbnail}
+              )}
+            </div>
+
+            {/* Title */}
+            <div>
+              <label className="block text-xs font-medium text-foreground mb-1">Title *</label>
+              <Input
+                value={formData.title}
+                onChange={(e) => setFormData({ ...formData, title: e.target.value })}
+                placeholder="Amazing Sports Memorabilia Collection"
+                className="h-9 text-sm"
+              />
+            </div>
+
+            {/* Description */}
+            <div>
+              <label className="block text-xs font-medium text-foreground mb-1">Caption</label>
+              <Textarea
+                value={formData.description}
+                onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                placeholder="Check out these incredible pieces..."
+                rows={3}
+                className="text-sm resize-none"
+              />
+            </div>
+
+            {/* Hashtags */}
+            <div>
+              <label className="block text-xs font-medium text-foreground mb-1">Hashtags</label>
+              <div className="flex gap-2 mb-1.5">
+                <Input
+                  value={hashtagInput}
+                  onChange={(e) => setHashtagInput(e.target.value)}
+                  onKeyPress={(e) => { if (e.key === 'Enter') { e.preventDefault(); addHashtag(); } }}
+                  placeholder="sports memorabilia"
+                  className="h-8 text-sm"
                 />
-              </label>
-            ) : (
-              <div className="relative">
-                <img src={formData.thumbnail_url} alt="Thumbnail" className="w-full h-32 object-cover rounded-lg" />
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => setFormData({ ...formData, thumbnail_url: "" })}
-                  className="absolute top-2 right-2 bg-white/90"
-                >
-                  Change
+                <Button onClick={addHashtag} variant="outline" size="sm" className="h-8 w-8 p-0 flex-shrink-0">
+                  <Hash className="w-3.5 h-3.5" />
                 </Button>
               </div>
-            )}
-          </div>
-
-          {/* Title & Description */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Title *
-            </label>
-            <Input
-              value={formData.title}
-              onChange={(e) => setFormData({ ...formData, title: e.target.value })}
-              placeholder="Amazing Sports Memorabilia Collection"
-            />
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Description/Caption
-            </label>
-            <Textarea
-              value={formData.description}
-              onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-              placeholder="Check out these incredible pieces from our collection..."
-              rows={4}
-            />
-          </div>
-
-          {/* Hashtags */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Hashtags
-            </label>
-            <div className="flex gap-2 mb-2">
-              <Input
-                value={hashtagInput}
-                onChange={(e) => setHashtagInput(e.target.value)}
-                onKeyPress={(e) => {
-                  if (e.key === 'Enter') {
-                    e.preventDefault();
-                    addHashtag();
-                  }
-                }}
-                placeholder="sports memorabilia"
-              />
-              <Button onClick={addHashtag} variant="outline">
-                <Hash className="w-4 h-4" />
-              </Button>
-            </div>
-            {formData.hashtags.length > 0 && (
-              <div className="flex flex-wrap gap-2">
-                {formData.hashtags.map((tag, idx) => (
-                  <Badge key={idx} variant="outline" className="cursor-pointer" onClick={() => removeHashtag(tag)}>
-                    {tag} ×
-                  </Badge>
-                ))}
-              </div>
-            )}
-          </div>
-
-          {/* Platform Selection */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-3">
-              Select Platforms to Post * (at least one)
-            </label>
-            <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-              {PLATFORMS.map((platform) => (
-                <button
-                  key={platform.id}
-                  onClick={() => togglePlatform(platform.id)}
-                  className={`p-4 rounded-lg border-2 transition-all ${
-                    formData.platforms.includes(platform.id)
-                      ? 'border-purple-500 bg-purple-50'
-                      : 'border-gray-200 hover:border-gray-300'
-                  }`}
-                >
-                  <div className="flex items-center gap-3">
-                    <span className="text-2xl">{typeof platform.icon === 'string' ? platform.icon : platform.icon}</span>
-                    <div className="text-left">
-                      <div className="flex items-center gap-2">
-                        <p className="font-semibold text-gray-900 text-sm">{platform.name}</p>
-                        {platform.autoUpload && (
-                          <Badge className="text-[9px] h-4 px-1 bg-red-100 text-red-700 hover:bg-red-100 border-red-200">
-                            AUTO
-                          </Badge>
-                        )}
-                      </div>
-                      {formData.platforms.includes(platform.id) && (
-                        <CheckCircle className="w-4 h-4 text-purple-600 inline-block mt-1" />
-                      )}
-                    </div>
-                  </div>
-                </button>
-              ))}
-            </div>
-          </div>
-
-          {/* Schedule Date */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Schedule Date & Time
-            </label>
-            <Input
-              type="datetime-local"
-              value={formData.scheduled_date}
-              onChange={(e) => setFormData({ ...formData, scheduled_date: e.target.value })}
-            />
-            <p className="text-xs text-gray-500 mt-1">
-              Leave empty to save as draft. Schedule for automatic posting.
-            </p>
-          </div>
-
-          {/* Notice */}
-          <Card className="bg-orange-50 border-2 border-orange-200">
-            <CardContent className="p-4">
-              <div className="flex items-start gap-3">
-                <Calendar className="w-5 h-5 text-orange-600 flex-shrink-0" />
-                <div>
-                  <p className="text-sm font-semibold text-orange-900 mb-1">
-                    Backend Functions Required
-                  </p>
-                  <p className="text-xs text-orange-800">
-                    Video upload and scheduling is ready. To enable automatic posting to social platforms, 
-                    enable backend functions in your dashboard settings. The system will then handle posting at the scheduled time.
-                  </p>
+              {formData.hashtags.length > 0 && (
+                <div className="flex flex-wrap gap-1.5">
+                  {formData.hashtags.map((tag, idx) => (
+                    <Badge key={idx} variant="outline" className="cursor-pointer text-xs h-6" onClick={() => removeHashtag(tag)}>
+                      {tag} ×
+                    </Badge>
+                  ))}
                 </div>
+              )}
+            </div>
+
+            {/* Platform selection — compact chip style */}
+            <div>
+              <label className="block text-xs font-medium text-foreground mb-2">Platforms *</label>
+              <div className="flex flex-wrap gap-2">
+                {PLATFORMS.map((platform) => {
+                  const selected = formData.platforms.includes(platform.id);
+                  return (
+                    <button
+                      key={platform.id}
+                      onClick={() => togglePlatform(platform.id)}
+                      className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border text-xs font-medium transition-all ${
+                        selected
+                          ? 'border-purple-500 bg-purple-50 dark:bg-purple-950/40 text-purple-800 dark:text-purple-300'
+                          : 'border-border text-muted-foreground hover:border-gray-400'
+                      }`}
+                    >
+                      <span className="flex-shrink-0">
+                        {typeof platform.icon === 'string' ? platform.icon : platform.icon}
+                      </span>
+                      {platform.name}
+                      {platform.autoUpload && <Badge className="text-[9px] h-3.5 px-1 bg-red-100 text-red-700 border-0 ml-0.5">AUTO</Badge>}
+                      {selected && <CheckCircle className="w-3 h-3 text-purple-600 ml-0.5" />}
+                    </button>
+                  );
+                })}
               </div>
-            </CardContent>
-          </Card>
+            </div>
+
+            {/* Schedule date */}
+            <div>
+              <label className="block text-xs font-medium text-foreground mb-1">Schedule Date & Time</label>
+              <Input
+                type="datetime-local"
+                value={formData.scheduled_date}
+                onChange={(e) => setFormData({ ...formData, scheduled_date: e.target.value })}
+                className="h-9 text-sm"
+              />
+              <p className="text-[11px] text-muted-foreground mt-1">Leave empty to save as draft.</p>
+            </div>
+
+            {/* Notice */}
+            <div className="flex gap-2.5 p-2.5 bg-orange-50 dark:bg-orange-950/30 border border-orange-200 dark:border-orange-800 rounded-lg">
+              <Calendar className="w-4 h-4 text-orange-600 flex-shrink-0 mt-0.5" />
+              <div>
+                <p className="text-xs font-semibold text-orange-900 dark:text-orange-300">Backend Functions Required</p>
+                <p className="text-[11px] text-orange-700 dark:text-orange-400 mt-0.5 leading-tight">
+                  Enable backend functions in dashboard settings to activate automatic platform posting.
+                </p>
+              </div>
+            </div>
+          </div>
         </div>
 
-        <DialogFooter>
-          <Button variant="outline" onClick={() => {
-            onClose();
-            resetForm();
-          }}>
+        {/* Sticky footer */}
+        <DialogFooter className="sticky bottom-0 bg-background border-t px-4 py-3 flex gap-2">
+          <Button variant="outline" size="sm" onClick={() => { onClose(); resetForm(); }} className="flex-1">
             Cancel
           </Button>
           <Button
+            size="sm"
             onClick={handleSave}
             disabled={!formData.title || !formData.video_url || formData.platforms.length === 0 || savePostMutation.isPending}
-            className="bg-purple-600 hover:bg-purple-700"
+            className="flex-1 bg-purple-600 hover:bg-purple-700"
           >
-            {savePostMutation.isPending ? "Saving..." : formData.scheduled_date ? "Schedule Post" : "Save as Draft"}
+            {savePostMutation.isPending ? "Saving..." : formData.scheduled_date ? "Schedule" : "Save Draft"}
           </Button>
         </DialogFooter>
       </DialogContent>

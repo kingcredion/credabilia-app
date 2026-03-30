@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useNavigate, useLocation } from "react-router-dom";
 import { createPageUrl } from "@/utils";
 import { toast } from "sonner";
 import {
@@ -83,8 +83,8 @@ import { updateMarketplaceRanking } from "../utils/marketplaceRanking";
 
 export default function ItemDetails() {
   const navigate = useNavigate();
-  const urlParams = new URLSearchParams(window.location.search);
-  const itemId = urlParams.get("id");
+  const location = useLocation();
+  const itemId = new URLSearchParams(location.search).get("id");
   
   const [user, setUser] = useState(null);
   const [selectedImage, setSelectedImage] = useState(0); // Keeping this for the thumbnail logic, but using zoomedImage for the dialog
@@ -112,7 +112,6 @@ export default function ItemDetails() {
 
   useEffect(() => {
     loadUser();
-    window.scrollTo(0, 0);
   }, []);
 
   const loadUser = async () => {
@@ -1453,7 +1452,7 @@ export default function ItemDetails() {
           <DialogFooter className="flex-col sm:flex-col gap-2">
             <Button 
               className="w-full bg-blue-600 hover:bg-blue-700 text-lg py-6"
-              onClick={() => navigate(`/SignIn?returnUrl=${encodeURIComponent(window.location.pathname + window.location.search)}`)}
+              onClick={() => navigate(`/SignIn?returnUrl=${encodeURIComponent(location.pathname + location.search)}`)}
             >
               Sign Up / Log In
             </Button>

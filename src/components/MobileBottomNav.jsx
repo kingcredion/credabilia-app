@@ -1,10 +1,11 @@
 import React from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { createPageUrl } from "@/utils";
-import { LayoutDashboard, MessageSquare, User, ShieldCheck, Store, Trophy, Building2, Palette } from "lucide-react";
+import { LayoutDashboard, MessageSquare, User, ShieldCheck, Store, Trophy } from "lucide-react";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import { CONTEXT_COLORS as roleColors } from "@/lib/permissions";
 import GlassIcon from "@/components/GlassIcon";
+import { motion } from "framer-motion";
 
 // PRIMARY roles only — these drive the shell mobile nav
 const primaryRolePageMap = {
@@ -13,8 +14,20 @@ const primaryRolePageMap = {
   auditor: { label: "Audits", url: "MyAudits", icon: ShieldCheck },
 };
 
-// Special roles are not top-level contexts; they're accessed via sidebar/settings
-// Mobile users can still reach them through their dashboards, but not via primary nav
+// Admin child pages — any of these make the Control tab highlight as active
+const ADMIN_CHILD_PAGES = new Set([
+  "/AdminDashboard", "/AdminApprovals", "/AdminTickets", "/AdminReviewQueuePage",
+  "/AdminAnalytics", "/AdminFramingRequests", "/AdminOnboardingPreview",
+  "/AdminArtists", "/AdminFrameShops", "/AdminInfluencers",
+  "/MarketingHub", "/AuditorRewards", "/CouncilRewards",
+]);
+
+const adminTabs = [
+  { label: "Market", url: "Marketplace", icon: LayoutDashboard },
+  { label: "Control", url: "AdminDashboard", icon: ShieldCheck },
+  { label: "Messages", url: "Messages", icon: MessageSquare },
+  { label: "Profile", url: "Profile", icon: User },
+];
 
 const staticTabs = [
   { label: "Market", url: "Marketplace", icon: LayoutDashboard },
@@ -28,16 +41,12 @@ export default function MobileBottomNav({ user, currentRole, unreadMessageCount 
 
   if (!user) return null;
 
-  // Only primary roles drive mobile nav. Special roles are accessed via sidebar.
-  const rolePage = primaryRolePageMap[currentRole] || primaryRolePageMap.collector;
-  
-  // Build tabs: Market, role-specific, Messages, Profile
-  const tabs = [
-    staticTabs[0],
-    rolePage,
-    staticTabs[1],
-    staticTabs[2],
-  ];
+  const isAdmin = user.role === 'admin';
+
+  // Admin gets its own fixed tab set
+  const tabs = isAdmin
+    ? adminTabs
+    : [staticTabs[0], primaryRolePageMap[currentRole] || primaryRolePageMap.collector, staticTabs[1], staticTabs[2]];
 
   const handleTabPress = (url) => {
     const href = createPageUrl(url);
@@ -64,23 +73,28 @@ export default function MobileBottomNav({ user, currentRole, unreadMessageCount 
     >
       {tabs.map(({ label, url, icon: Icon }) => {
         const href = createPageUrl(url);
-        const isActive = location.pathname === href ||
-          (location.pathname.startsWith(href) && (location.pathname[href.length] === "?" || location.pathname[href.length] === undefined));
-        const isRoleTab = url === primaryRolePageMap[currentRole]?.url;
+        const isControlTab = isAdmin && url === "AdminDashboard";
+        const isActive = isControlTab
+          ? (location.pathname === href || ADMIN_CHILD_PAGES.has(location.pathname))
+          : (location.pathname === href ||
+              (location.pathname.startsWith(href) && (location.pathname[href.length] === "?" || location.pathname[href.length] === undefined)));
+        const isRoleTab = !isAdmin && url === primaryRolePageMap[currentRole]?.url;
         const roleColor = roleColors[currentRole];
-        const activeColor = isRoleTab ? roleColor : "#2563eb";
+        const activeColor = isControlTab ? "#7c3aed" : isRoleTab ? roleColor : "#2563eb";
 
         const isProfileTab = url === "Profile";
 
         return (
-          <button
+          <motion.button
             key={url}
             onClick={() => handleTabPress(url)}
             aria-label={label}
             aria-current={isActive ? "page" : undefined}
             role="tab"
             aria-selected={isActive}
-            className="flex-1 flex flex-col items-center justify-center gap-1 active:opacity-70 transition-opacity"
+            whileTap={{ scale: 0.88 }}
+            transition={{ type: "spring", stiffness: 700, damping: 35, mass: 0.4 }}
+            className="flex-1 flex flex-col items-center justify-center gap-1"
             style={{
               minHeight: 56,
               WebkitTapHighlightColor: "transparent",
@@ -92,7 +106,7 @@ export default function MobileBottomNav({ user, currentRole, unreadMessageCount 
             <div className="relative">
               {isProfileTab ? (
                 <GlassIcon
-                  color={isActive ? (isRoleTab ? (currentRole === 'vendor' ? 'orange' : currentRole === 'auditor' ? 'green' : 'blue') : 'blue') : 'white'}
+                  color={isActive ? (isControlTab ? 'purple' : isRoleTab ? (currentRole === 'vendor' ? 'orange' : currentRole === 'auditor' ? 'green' : 'blue') : 'blue') : 'white'}
                   active={isActive}
                   size="sm"
                   className={!isActive ? "!bg-transparent !border-transparent !shadow-none" : ""}
@@ -106,7 +120,7 @@ export default function MobileBottomNav({ user, currentRole, unreadMessageCount 
                 </GlassIcon>
               ) : (
                 <GlassIcon
-                  color={isActive ? (isRoleTab ? (currentRole === 'vendor' ? 'orange' : currentRole === 'auditor' ? 'green' : 'blue') : 'blue') : 'white'}
+                  color={isActive ? (isControlTab ? 'purple' : isRoleTab ? (currentRole === 'vendor' ? 'orange' : currentRole === 'auditor' ? 'green' : 'blue') : 'blue') : 'white'}
                   active={isActive}
                   size="sm"
                   className={!isActive ? "!bg-transparent !border-transparent !shadow-none" : ""}
@@ -129,7 +143,7 @@ export default function MobileBottomNav({ user, currentRole, unreadMessageCount 
             >
               {label}
             </span>
-          </button>
+          </motion.button>
         );
       })}
     </nav>

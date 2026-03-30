@@ -22,20 +22,20 @@ function getVariants(direction, prefersReducedMotion) {
     };
   }
 
-  // Push: slide in from right
+  // Push: slide in from right — tighter, more immediate
   if (direction === "push") {
     return {
-      initial: { opacity: 0.98, x: 28 },
+      initial: { opacity: 0.97, x: 18 },
       animate: { opacity: 1, x: 0 },
-      exit: { opacity: 0.99, x: -12 },
+      exit: { opacity: 0.99, x: -8 },
     };
   }
 
   // Pop: slide in from left
   return {
-    initial: { opacity: 0.98, x: -28 },
+    initial: { opacity: 0.97, x: -18 },
     animate: { opacity: 1, x: 0 },
-    exit: { opacity: 0.99, x: 12 },
+    exit: { opacity: 0.99, x: 8 },
   };
 }
 
@@ -48,7 +48,7 @@ export default function PageTransition({ children }) {
 
   const transition = prefersReducedMotion
     ? { duration: 0 }
-    : { type: "spring", stiffness: 380, damping: 34, mass: 0.9 };
+    : { type: "spring", stiffness: 800, damping: 55, mass: 0.5 };
 
   return (
     <AnimatePresence mode="wait" initial={false}>

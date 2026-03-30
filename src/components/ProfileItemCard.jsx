@@ -4,6 +4,7 @@ import { createPageUrl } from "@/utils";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Star, Package, DollarSign, ShieldCheck, Bookmark } from "lucide-react";
+import { motion } from "framer-motion";
 
 export default function ProfileItemCard({ item, gradientClass, user, onToggleFavorite, isFavorited }) {
   const isFeatured = !!gradientClass;
@@ -13,6 +14,11 @@ export default function ProfileItemCard({ item, gradientClass, user, onToggleFav
       to={createPageUrl(`ItemDetails?id=${item.id}`)}
       className="group h-full block"
     >
+      <motion.div
+        whileTap={{ scale: 0.97 }}
+        transition={{ type: "spring", stiffness: 700, damping: 40, mass: 0.4 }}
+        className="h-full"
+      >
       <Card className={`overflow-hidden hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1 relative h-full flex flex-col border border-gray-200 dark:border-white/10 ${isFeatured ? 'border-none ring-2 ring-white/50' : 'group-hover:border-blue-400'} ${gradientClass || ''}`}>
         <div className="aspect-square bg-gray-100 relative overflow-hidden">
           {item.images?.[0] ? (
@@ -112,6 +118,7 @@ export default function ProfileItemCard({ item, gradientClass, user, onToggleFav
           </div>
         </CardContent>
       </Card>
+      </motion.div>
     </Link>
   );
 }

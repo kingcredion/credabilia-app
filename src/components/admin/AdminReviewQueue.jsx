@@ -33,7 +33,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { toast } from "sonner";
-import { motion, AnimatePresence } from "framer-motion";
+import { motion } from "framer-motion";
 
 export default function AdminReviewQueue() {
   const queryClient = useQueryClient();
@@ -233,7 +233,7 @@ export default function AdminReviewQueue() {
                   const isAnalyzing = analyzingIds.includes(item.id);
 
                   return (
-                    <TableRow key={item.id}>
+                    <TableRow key={item.id} className="transition-colors hover:bg-muted/40">
                       <TableCell>
                         <Checkbox 
                           checked={selectedItems.includes(item.id)}
@@ -311,24 +311,28 @@ export default function AdminReviewQueue() {
                       </TableCell>
                       <TableCell className="text-right">
                         <div className="flex justify-end gap-2">
-                            <Button
-                                variant="ghost"
-                                size="icon"
-                                className="text-green-600 hover:text-green-700 hover:bg-green-50"
-                                onClick={() => updateStatusMutation.mutate({ id: item.id, status: 'approved' })}
-                                title="Approve"
-                            >
-                                <CheckCircle2 className="w-5 h-5" />
-                            </Button>
-                            <Button
-                                variant="ghost"
-                                size="icon"
-                                className="text-red-600 hover:text-red-700 hover:bg-red-50"
-                                onClick={() => updateStatusMutation.mutate({ id: item.id, status: 'rejected' })}
-                                title="Reject & Remove"
-                            >
-                                <XCircle className="w-5 h-5" />
-                            </Button>
+                            <motion.div whileTap={{ scale: 0.88 }} transition={{ type: "spring", stiffness: 700, damping: 35 }}>
+                              <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  className="text-green-600 hover:text-green-700 hover:bg-green-50"
+                                  onClick={() => updateStatusMutation.mutate({ id: item.id, status: 'approved' })}
+                                  title="Approve"
+                              >
+                                  <CheckCircle2 className="w-5 h-5" />
+                              </Button>
+                            </motion.div>
+                            <motion.div whileTap={{ scale: 0.88 }} transition={{ type: "spring", stiffness: 700, damping: 35 }}>
+                              <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                                  onClick={() => updateStatusMutation.mutate({ id: item.id, status: 'rejected' })}
+                                  title="Reject & Remove"
+                              >
+                                  <XCircle className="w-5 h-5" />
+                              </Button>
+                            </motion.div>
                         </div>
                       </TableCell>
                     </TableRow>

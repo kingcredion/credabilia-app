@@ -66,6 +66,7 @@ import {
 } from "@/lib/permissions";
 import NotificationBell from "./components/NotificationBell";
 import PageTransition from "./components/PageTransition";
+import RouteProgressBar from "./components/RouteProgressBar";
 import { LanguageProvider, useLanguage } from "./components/contexts/LanguageContext";
 import GlassIcon from "./components/GlassIcon";
 
@@ -211,12 +212,19 @@ function InnerLayout({ children, currentPageName }) {
   const navigate = useNavigate();
   const mainScrollRef = useRef(null);
 
-  // Scroll to top on every route change
+  // Disable browser scroll restoration — we manage it manually
   useEffect(() => {
-    if (mainScrollRef.current) {
-      mainScrollRef.current.scrollTo({ top: 0, behavior: 'auto' });
+    if (window.history.scrollRestoration) {
+      window.history.scrollRestoration = 'manual';
     }
-  }, [location.pathname]);
+  }, []);
+
+  // Scroll to top on every route change, including query-string changes
+  useEffect(() => {
+    requestAnimationFrame(() => {
+      mainScrollRef.current?.scrollTo({ top: 0, behavior: 'auto' });
+    });
+  }, [location.pathname, location.search]);
 
   // Auth state comes exclusively from AuthContext — no parallel auth logic here
   const { authState, user: authUser, refreshUser, markOnboardingComplete } = useAuth();
@@ -892,6 +900,7 @@ function InnerLayout({ children, currentPageName }) {
 
   return (
     <SidebarProvider defaultOpen={true}>
+      <RouteProgressBar />
       <SidebarScrollRestorer />
       <div className="min-h-screen flex w-full app-bg">
         {user && (
@@ -1011,7 +1020,7 @@ function InnerLayout({ children, currentPageName }) {
                       <NavLink
                         key={item.title}
                         to={createPageUrl(item.url)}
-                        className={`flex items-center gap-3 px-2 py-2 rounded-lg transition-all duration-200 ${
+                        className={`tap-scale flex items-center gap-3 px-2 py-2 rounded-lg transition-all duration-200 ${
                           isActiveNav
                             ? 'font-semibold'
                             : isDark ? 'hover:bg-muted/50' : 'hover:bg-gray-50'
@@ -1052,21 +1061,21 @@ function InnerLayout({ children, currentPageName }) {
                     Universal Menu
                   </p>
 
-                  <NavLink to={createPageUrl("Marketplace")} className={`flex items-center gap-3 px-2 py-2 rounded-lg transition-all duration-200 ${location.pathname === createPageUrl("Marketplace") ? 'font-semibold' : isDark ? 'hover:bg-muted/50' : 'hover:bg-gray-50'}`} style={{ color: '#2563eb' }}>
+                  <NavLink to={createPageUrl("Marketplace")} className={`tap-scale flex items-center gap-3 px-2 py-2 rounded-lg transition-all duration-200 ${location.pathname === createPageUrl("Marketplace") ? 'font-semibold' : isDark ? 'hover:bg-muted/50' : 'hover:bg-gray-50'}`} style={{ color: '#2563eb' }}>
                     <GlassIcon color="blue" active={location.pathname === createPageUrl("Marketplace")} size="sm" className={location.pathname !== createPageUrl("Marketplace") ? "!bg-transparent !border-transparent !shadow-none hover:!bg-white/5" : ""}>
                       <LayoutDashboard className="w-4 h-4" />
                     </GlassIcon>
                     <span className="text-sm">{t("nav.marketplace")}</span>
                   </NavLink>
 
-                  <NavLink to={createPageUrl("RewardCenter")} className={`flex items-center gap-3 px-2 py-2 rounded-lg transition-all duration-200 ${location.pathname === createPageUrl("RewardCenter") ? 'font-semibold' : isDark ? 'hover:bg-muted/50' : 'hover:bg-gray-50'}`} style={{ color: '#059669' }}>
+                  <NavLink to={createPageUrl("RewardCenter")} className={`tap-scale flex items-center gap-3 px-2 py-2 rounded-lg transition-all duration-200 ${location.pathname === createPageUrl("RewardCenter") ? 'font-semibold' : isDark ? 'hover:bg-muted/50' : 'hover:bg-gray-50'}`} style={{ color: '#059669' }}>
                     <GlassIcon color="green" active={location.pathname === createPageUrl("RewardCenter")} size="sm" className={location.pathname !== createPageUrl("RewardCenter") ? "!bg-transparent !border-transparent !shadow-none hover:!bg-white/5" : ""}>
                       <Trophy className="w-4 h-4" />
                     </GlassIcon>
                     <span className="text-sm">{t("nav.reward_center")}</span>
                   </NavLink>
 
-                  <NavLink to={createPageUrl("ExploreFrameShops")} className={`flex items-center gap-3 px-2 py-2 rounded-lg transition-all duration-200 ${location.pathname === createPageUrl("ExploreFrameShops") ? 'font-semibold' : isDark ? 'hover:bg-muted/50' : 'hover:bg-gray-50'}`} style={{ color: '#7c3aed' }}>
+                  <NavLink to={createPageUrl("ExploreFrameShops")} className={`tap-scale flex items-center gap-3 px-2 py-2 rounded-lg transition-all duration-200 ${location.pathname === createPageUrl("ExploreFrameShops") ? 'font-semibold' : isDark ? 'hover:bg-muted/50' : 'hover:bg-gray-50'}`} style={{ color: '#7c3aed' }}>
                     <GlassIcon color="purple" active={location.pathname === createPageUrl("ExploreFrameShops")} size="sm" className={location.pathname !== createPageUrl("ExploreFrameShops") ? "!bg-transparent !border-transparent !shadow-none hover:!bg-white/5" : ""}>
                       <Users className="w-4 h-4" />
                     </GlassIcon>

@@ -121,123 +121,102 @@ export default function AdminFramingRequests() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-purple-50 via-blue-50 to-pink-50">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 py-8">
+      <div className="max-w-4xl mx-auto px-4 py-4 md:py-6">
         {/* Header */}
-        <div className="mb-8">
-          <h1 className="text-4xl font-bold text-gray-900 mb-2 flex items-center gap-3">
-            <Package className="w-10 h-10 text-purple-600" />
-            Framing Requests Management
+        <div className="mb-4">
+          <h1 className="text-xl font-bold text-gray-900 flex items-center gap-2">
+            <Package className="w-5 h-5 text-purple-600" />
+            Framing Requests
           </h1>
-          <p className="text-gray-600">
-            Monitor framing requests, quotes, and platform revenue
-          </p>
+          <p className="text-xs text-gray-500 mt-0.5">Monitor requests, quotes, and revenue</p>
         </div>
 
         {/* Statistics Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
           <Card className="bg-gradient-to-br from-blue-500 to-blue-600 text-white">
-            <CardContent className="p-6">
-              <div className="flex items-center justify-between mb-2">
-                <Package className="w-8 h-8" />
-                <Badge className="bg-white/20 text-white">Total</Badge>
+            <CardContent className="p-3">
+              <div className="flex items-center justify-between mb-1">
+                <Package className="w-4 h-4" />
+                <Badge className="bg-white/20 text-white text-[10px]">Total</Badge>
               </div>
-              <p className="text-3xl font-bold mb-1">{stats.total}</p>
-              <p className="text-sm text-white/80">All Requests</p>
+              <p className="text-xl font-bold">{stats.total}</p>
+              <p className="text-xs text-white/80">All Requests</p>
             </CardContent>
           </Card>
 
           <Card className="bg-gradient-to-br from-yellow-500 to-orange-600 text-white">
-            <CardContent className="p-6">
-              <div className="flex items-center justify-between mb-2">
-                <Clock className="w-8 h-8" />
-                <Badge className="bg-white/20 text-white">Pending</Badge>
+            <CardContent className="p-3">
+              <div className="flex items-center justify-between mb-1">
+                <Clock className="w-4 h-4" />
+                <Badge className="bg-white/20 text-white text-[10px]">Pending</Badge>
               </div>
-              <p className="text-3xl font-bold mb-1">{stats.pending}</p>
-              <p className="text-sm text-white/80">Awaiting Quotes</p>
+              <p className="text-xl font-bold">{stats.pending}</p>
+              <p className="text-xs text-white/80">Awaiting Quotes</p>
             </CardContent>
           </Card>
 
           <Card className="bg-gradient-to-br from-purple-500 to-pink-600 text-white">
-            <CardContent className="p-6">
-              <div className="flex items-center justify-between mb-2">
-                <TrendingUp className="w-8 h-8" />
-                <Badge className="bg-white/20 text-white">Active</Badge>
+            <CardContent className="p-3">
+              <div className="flex items-center justify-between mb-1">
+                <TrendingUp className="w-4 h-4" />
+                <Badge className="bg-white/20 text-white text-[10px]">Active</Badge>
               </div>
-              <p className="text-3xl font-bold mb-1">{stats.active}</p>
-              <p className="text-sm text-white/80">Jobs In Progress</p>
+              <p className="text-xl font-bold">{stats.active}</p>
+              <p className="text-xs text-white/80">In Progress</p>
             </CardContent>
           </Card>
 
           <Card className="bg-gradient-to-br from-green-500 to-emerald-600 text-white">
-            <CardContent className="p-6">
-              <div className="flex items-center justify-between mb-2">
-                <CheckCircle className="w-8 h-8" />
-                <Badge className="bg-white/20 text-white">Done</Badge>
+            <CardContent className="p-3">
+              <div className="flex items-center justify-between mb-1">
+                <CheckCircle className="w-4 h-4" />
+                <Badge className="bg-white/20 text-white text-[10px]">Done</Badge>
               </div>
-              <p className="text-3xl font-bold mb-1">{stats.completed}</p>
-              <p className="text-sm text-white/80">Completed</p>
+              <p className="text-xl font-bold">{stats.completed}</p>
+              <p className="text-xs text-white/80">Completed</p>
             </CardContent>
           </Card>
         </div>
 
         {/* Revenue Statistics */}
-        <Card className="mb-8 bg-gradient-to-br from-green-50 to-emerald-50 border-2 border-green-300">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2 text-green-900">
-              <DollarSign className="w-6 h-6" />
-              Platform Revenue from Framing Services
+        <Card className="mb-4 border border-green-300 bg-green-50/60">
+          <CardHeader className="pb-2 pt-3 px-4">
+            <CardTitle className="flex items-center gap-2 text-green-900 text-sm">
+              <DollarSign className="w-4 h-4" />
+              Platform Revenue — Framing
             </CardTitle>
           </CardHeader>
-          <CardContent>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-              <div className="bg-white rounded-lg p-4 border-2 border-green-200">
-                <p className="text-sm text-gray-600 mb-1">Total Revenue</p>
-                <p className="text-3xl font-bold text-green-600">
-                  ${stats.totalRevenue.toFixed(2)}
-                </p>
-                <p className="text-xs text-gray-500 mt-1">
-                  From {framingTransactions.length} transactions
-                </p>
+          <CardContent className="px-4 pb-3">
+            <div className="grid grid-cols-3 gap-3">
+              <div className="bg-white rounded-lg p-3 border border-green-200">
+                <p className="text-xs text-gray-500 mb-0.5">Total</p>
+                <p className="text-lg font-bold text-green-600">${stats.totalRevenue.toFixed(2)}</p>
+                <p className="text-[11px] text-gray-400">{framingTransactions.length} txns</p>
               </div>
-
-              <div className="bg-white rounded-lg p-4 border-2 border-emerald-200">
-                <p className="text-sm text-gray-600 mb-1">Completed Revenue</p>
-                <p className="text-3xl font-bold text-emerald-600">
-                  ${stats.completedRevenue.toFixed(2)}
-                </p>
-                <p className="text-xs text-gray-500 mt-1">
-                  From finished jobs
-                </p>
+              <div className="bg-white rounded-lg p-3 border border-emerald-200">
+                <p className="text-xs text-gray-500 mb-0.5">Completed</p>
+                <p className="text-lg font-bold text-emerald-600">${stats.completedRevenue.toFixed(2)}</p>
+                <p className="text-[11px] text-gray-400">Finished jobs</p>
               </div>
-
-              <div className="bg-white rounded-lg p-4 border-2 border-yellow-200">
-                <p className="text-sm text-gray-600 mb-1">Pending Revenue</p>
-                <p className="text-3xl font-bold text-yellow-600">
-                  ${stats.pendingRevenue.toFixed(2)}
-                </p>
-                <p className="text-xs text-gray-500 mt-1">
-                  From active jobs
-                </p>
+              <div className="bg-white rounded-lg p-3 border border-yellow-200">
+                <p className="text-xs text-gray-500 mb-0.5">Pending</p>
+                <p className="text-lg font-bold text-yellow-600">${stats.pendingRevenue.toFixed(2)}</p>
+                <p className="text-[11px] text-gray-400">Active jobs</p>
               </div>
-            </div>
-
-            <div className="mt-4 bg-blue-50 border border-blue-200 rounded-lg p-3">
-              <p className="text-sm text-blue-900">
-                💡 <strong>Revenue Model:</strong> Platform collects a $50 deposit/fee from each accepted quote. 
-                This covers the service of connecting collectors with frame shops.
-              </p>
             </div>
           </CardContent>
         </Card>
 
         {/* Requests Tabs */}
         <Tabs defaultValue="all" className="w-full">
-          <TabsList className="grid w-full grid-cols-4 mb-6">
-            <TabsTrigger value="all">All ({stats.total})</TabsTrigger>
-            <TabsTrigger value="pending">Pending ({stats.pending})</TabsTrigger>
-            <TabsTrigger value="active">Active ({stats.active})</TabsTrigger>
-            <TabsTrigger value="completed">Completed ({stats.completed})</TabsTrigger>
+          <div className="overflow-x-auto -mx-4 px-4">
+          <TabsList className="flex w-max min-w-full gap-1 h-9 mb-4">
+            <TabsTrigger value="all" className="text-xs px-3 h-7 whitespace-nowrap">All ({stats.total})</TabsTrigger>
+            <TabsTrigger value="pending" className="text-xs px-3 h-7 whitespace-nowrap">Pending ({stats.pending})</TabsTrigger>
+            <TabsTrigger value="active" className="text-xs px-3 h-7 whitespace-nowrap">Active ({stats.active})</TabsTrigger>
+            <TabsTrigger value="completed" className="text-xs px-3 h-7 whitespace-nowrap">Completed ({stats.completed})</TabsTrigger>
           </TabsList>
+          </div>
 
           <TabsContent value="all">
             <RequestList 
@@ -280,9 +259,9 @@ export default function AdminFramingRequests() {
       {/* Request Details Dialog */}
       {selectedRequest && (
         <Dialog open={showDetailsDialog} onOpenChange={setShowDetailsDialog}>
-          <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+          <DialogContent className="w-full max-w-lg max-h-[90vh] overflow-y-auto">
             <DialogHeader>
-              <DialogTitle className="text-2xl">{selectedRequest.title}</DialogTitle>
+              <DialogTitle className="text-base">{selectedRequest.title}</DialogTitle>
               <DialogDescription>
                 Request ID: {selectedRequest.id}
               </DialogDescription>
@@ -303,17 +282,15 @@ export default function AdminFramingRequests() {
 function RequestList({ requests, quotes, transactions, onViewDetails }) {
   if (requests.length === 0) {
     return (
-      <Card>
-        <CardContent className="p-12 text-center">
-          <Package className="w-16 h-16 text-gray-300 mx-auto mb-4" />
-          <p className="text-gray-600">No requests in this category</p>
-        </CardContent>
-      </Card>
+      <div className="text-center py-8 text-sm text-gray-400">
+        <Package className="w-8 h-8 text-gray-300 mx-auto mb-2" />
+        No requests in this category
+      </div>
     );
   }
 
   return (
-    <div className="grid grid-cols-1 gap-4">
+    <div className="space-y-3">
       {requests.map((request) => (
         <RequestCard 
           key={request.id} 
@@ -339,61 +316,54 @@ function RequestCard({ request, quotes, transactions, onViewDetails }) {
   };
 
   return (
-    <Card className="hover:shadow-lg transition-all">
-      <CardContent className="p-6">
-        <div className="flex items-start justify-between mb-4">
-          <div className="flex-1">
-            <h3 className="text-xl font-bold text-gray-900 mb-2">
-              {request.title}
-            </h3>
-            <div className="flex items-center gap-4 text-sm text-gray-600">
+    <Card className="tap-scale hover:shadow-md transition-shadow">
+      <CardContent className="p-4">
+        <div className="flex items-start justify-between mb-3">
+          <div className="flex-1 min-w-0 mr-3">
+            <h3 className="font-semibold text-gray-900 text-sm truncate">{request.title}</h3>
+            <div className="flex items-center gap-3 text-xs text-gray-500 mt-0.5">
               <span className="flex items-center gap-1">
-                <Calendar className="w-4 h-4" />
+                <Calendar className="w-3 h-3" />
                 {new Date(request.created_date).toLocaleDateString()}
               </span>
-              <span>By: {request.user_name}</span>
+              {request.user_name && <span>By: {request.user_name}</span>}
             </div>
           </div>
-
-          <div className="flex items-center gap-3">
-            <Badge className={`${statusColors[request.status]} capitalize`}>
+          <div className="flex flex-col items-end gap-1 flex-shrink-0">
+            <Badge className={`${statusColors[request.status]} capitalize text-[11px] h-5`}>
               {request.status}
             </Badge>
             {requestTransaction && (
-              <Badge className="bg-green-500 text-white">
-                <DollarSign className="w-3 h-3 mr-1" />
+              <Badge className="bg-green-500 text-white text-[11px] h-5">
+                <DollarSign className="w-2.5 h-2.5 mr-0.5" />
                 ${requestTransaction.platform_total_revenue?.toFixed(2)}
               </Badge>
             )}
           </div>
         </div>
 
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
+        <div className="grid grid-cols-2 gap-2 mb-3">
           <div>
-            <p className="text-xs text-gray-600">Dimensions</p>
-            <p className="font-medium text-gray-900">{request.dimensions || "Not specified"}</p>
+            <p className="text-[11px] text-gray-500">Dimensions</p>
+            <p className="text-xs font-medium">{request.dimensions || "Not specified"}</p>
           </div>
           <div>
-            <p className="text-xs text-gray-600">Budget</p>
-            <p className="font-medium text-gray-900">{request.budget_range || "Flexible"}</p>
+            <p className="text-[11px] text-gray-500">Budget</p>
+            <p className="text-xs font-medium">{request.budget_range || "Flexible"}</p>
           </div>
           <div>
-            <p className="text-xs text-gray-600">Quotes Received</p>
-            <p className="font-medium text-gray-900">{requestQuotes.length}</p>
+            <p className="text-[11px] text-gray-500">Quotes</p>
+            <p className="text-xs font-medium">{requestQuotes.length}</p>
           </div>
           <div>
-            <p className="text-xs text-gray-600">Deadline</p>
-            <p className="font-medium text-gray-900">{request.deadline || "Flexible"}</p>
+            <p className="text-[11px] text-gray-500">Deadline</p>
+            <p className="text-xs font-medium">{request.deadline || "Flexible"}</p>
           </div>
         </div>
 
-        <Button
-          onClick={() => onViewDetails(request)}
-          variant="outline"
-          className="w-full"
-        >
-          <Eye className="w-4 h-4 mr-2" />
-          View Full Details & Quotes
+        <Button onClick={() => onViewDetails(request)} variant="outline" size="sm" className="w-full h-8 text-xs">
+          <Eye className="w-3.5 h-3.5 mr-1.5" />
+          View Details & Quotes
         </Button>
       </CardContent>
     </Card>
@@ -405,147 +375,72 @@ function RequestDetails({ request, quotes, transactions }) {
   const transaction = transactions[0]; // Should only be one per request
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
       {/* Request Information */}
-      <div>
-        <h3 className="font-semibold text-gray-900 mb-3 flex items-center gap-2">
-          <FileText className="w-5 h-5" />
-          Request Details
-        </h3>
-        <div className="bg-gray-50 rounded-lg p-4 space-y-3">
-          <div>
-            <p className="text-xs text-gray-600">Description</p>
-            <p className="text-sm text-gray-900">{request.description}</p>
-          </div>
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <p className="text-xs text-gray-600">Dimensions</p>
-              <p className="text-sm font-medium text-gray-900">{request.dimensions || "Not specified"}</p>
+      <div className="bg-gray-50 rounded-lg p-3 space-y-2">
+        <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide flex items-center gap-1.5"><FileText className="w-3.5 h-3.5" />Details</p>
+        {request.description && <p className="text-xs text-gray-700">{request.description}</p>}
+        <div className="grid grid-cols-2 gap-x-4 gap-y-1.5">
+          {[
+            { label: 'Dimensions', val: request.dimensions || 'Not specified' },
+            { label: 'Frame Style', val: request.frame_style || 'Not specified' },
+            { label: 'Matting', val: request.matting_preference || 'Not specified' },
+            { label: 'Budget', val: request.budget_range || 'Flexible' },
+          ].map(({ label, val }) => (
+            <div key={label}>
+              <p className="text-[11px] text-gray-500">{label}</p>
+              <p className="text-xs font-medium text-gray-900">{val}</p>
             </div>
-            <div>
-              <p className="text-xs text-gray-600">Frame Style</p>
-              <p className="text-sm font-medium text-gray-900">{request.frame_style || "Not specified"}</p>
-            </div>
-            <div>
-              <p className="text-xs text-gray-600">Matting</p>
-              <p className="text-sm font-medium text-gray-900">{request.matting_preference || "Not specified"}</p>
-            </div>
-            <div>
-              <p className="text-xs text-gray-600">Budget Range</p>
-              <p className="text-sm font-medium text-gray-900">{request.budget_range || "Flexible"}</p>
-            </div>
-          </div>
+          ))}
         </div>
       </div>
 
       {/* Reference Images */}
-      {request.reference_images && request.reference_images.length > 0 && (
+      {request.reference_images?.length > 0 && (
         <div>
-          <h3 className="font-semibold text-gray-900 mb-3 flex items-center gap-2">
-            <ImageIcon className="w-5 h-5" />
-            Reference Images
-          </h3>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+          <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2 flex items-center gap-1.5"><ImageIcon className="w-3.5 h-3.5" />Images</p>
+          <div className="grid grid-cols-3 gap-2">
             {request.reference_images.map((img, idx) => (
-              <img
-                key={idx}
-                src={img}
-                alt={`Reference ${idx + 1}`}
-                className="w-full h-32 object-cover rounded-lg border-2 border-gray-200"
-              />
+              <img key={idx} src={img} alt={`Ref ${idx + 1}`} className="w-full h-20 object-cover rounded-lg border border-gray-200" />
             ))}
           </div>
         </div>
       )}
 
-      {/* Transaction Info (Platform Revenue) */}
+      {/* Transaction Info */}
       {transaction && (
-        <div>
-          <h3 className="font-semibold text-gray-900 mb-3 flex items-center gap-2">
-            <DollarSign className="w-5 h-5 text-green-600" />
-            Platform Revenue
-          </h3>
-          <Card className="bg-gradient-to-r from-green-50 to-emerald-50 border-2 border-green-300">
-            <CardContent className="p-4">
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                <div>
-                  <p className="text-xs text-gray-600">Platform Fee</p>
-                  <p className="text-xl font-bold text-green-600">
-                    ${transaction.platform_deposit?.toFixed(2)}
-                  </p>
-                </div>
-                <div>
-                  <p className="text-xs text-gray-600">Total Revenue</p>
-                  <p className="text-xl font-bold text-green-600">
-                    ${transaction.platform_total_revenue?.toFixed(2)}
-                  </p>
-                </div>
-                <div>
-                  <p className="text-xs text-gray-600">Status</p>
-                  <Badge className="bg-green-500 text-white capitalize">
-                    {transaction.status.replace('_', ' ')}
-                  </Badge>
-                </div>
-                <div>
-                  <p className="text-xs text-gray-600">Date</p>
-                  <p className="text-sm text-gray-900">
-                    {new Date(transaction.deposit_date).toLocaleDateString()}
-                  </p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
+        <div className="bg-green-50 rounded-lg p-3 border border-green-200">
+          <p className="text-xs font-semibold text-green-800 mb-2 flex items-center gap-1.5"><DollarSign className="w-3.5 h-3.5" />Platform Revenue</p>
+          <div className="grid grid-cols-2 gap-2 text-xs">
+            <div><p className="text-gray-500">Platform Fee</p><p className="font-bold text-green-600">${transaction.platform_deposit?.toFixed(2)}</p></div>
+            <div><p className="text-gray-500">Total Revenue</p><p className="font-bold text-green-600">${transaction.platform_total_revenue?.toFixed(2)}</p></div>
+            <div><p className="text-gray-500">Status</p><Badge className="bg-green-500 text-white capitalize text-[10px] h-4 mt-0.5">{transaction.status.replace('_', ' ')}</Badge></div>
+            {transaction.deposit_date && <div><p className="text-gray-500">Date</p><p className="text-gray-900">{new Date(transaction.deposit_date).toLocaleDateString()}</p></div>}
+          </div>
         </div>
       )}
 
       {/* Quotes */}
       <div>
-        <h3 className="font-semibold text-gray-900 mb-3">
-          Quotes Received ({quotes.length})
-        </h3>
+        <p className="text-xs font-semibold text-gray-700 mb-2">Quotes ({quotes.length})</p>
         {quotes.length === 0 ? (
-          <p className="text-sm text-gray-600 bg-gray-50 rounded-lg p-4">
-            No quotes submitted yet
-          </p>
+          <p className="text-xs text-gray-500 bg-gray-50 rounded-lg p-3">No quotes yet</p>
         ) : (
-          <div className="space-y-3">
+          <div className="space-y-2">
             {quotes.map((quote) => (
-              <Card 
-                key={quote.id} 
-                className={`${
-                  quote.status === 'accepted' 
-                    ? 'bg-green-50 border-2 border-green-300' 
-                    : 'bg-gray-50'
-                }`}
-              >
-                <CardContent className="p-4">
-                  <div className="flex items-start justify-between mb-2">
-                    <div>
-                      <h4 className="font-semibold text-gray-900">
-                        {quote.frame_shop_name}
-                      </h4>
-                      <p className="text-sm text-gray-600">
-                        {quote.estimated_turnaround}
-                      </p>
-                    </div>
-                    <div className="text-right">
-                      <p className="text-2xl font-bold text-gray-900">
-                        ${quote.quote_amount?.toFixed(2)}
-                      </p>
-                      <Badge 
-                        className={`${
-                          quote.status === 'accepted' ? 'bg-green-500' :
-                          quote.status === 'rejected' ? 'bg-red-500' :
-                          'bg-yellow-500'
-                        } text-white capitalize`}
-                      >
-                        {quote.status}
-                      </Badge>
-                    </div>
+              <div key={quote.id} className={`rounded-lg p-3 border text-xs ${quote.status === 'accepted' ? 'bg-green-50 border-green-300' : 'bg-gray-50 border-gray-200'}`}>
+                <div className="flex items-start justify-between mb-1">
+                  <div>
+                    <p className="font-semibold text-gray-900">{quote.frame_shop_name}</p>
+                    {quote.estimated_turnaround && <p className="text-gray-500">{quote.estimated_turnaround}</p>}
                   </div>
-                  <p className="text-sm text-gray-700">{quote.quote_details}</p>
-                </CardContent>
-              </Card>
+                  <div className="text-right flex-shrink-0 ml-2">
+                    <p className="text-base font-bold text-gray-900">${quote.quote_amount?.toFixed(2)}</p>
+                    <Badge className={`${quote.status === 'accepted' ? 'bg-green-500' : quote.status === 'rejected' ? 'bg-red-500' : 'bg-yellow-500'} text-white capitalize text-[10px] h-4`}>{quote.status}</Badge>
+                  </div>
+                </div>
+                {quote.quote_details && <p className="text-gray-600 mt-1">{quote.quote_details}</p>}
+              </div>
             ))}
           </div>
         )}

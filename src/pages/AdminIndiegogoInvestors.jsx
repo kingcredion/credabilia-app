@@ -260,123 +260,82 @@ export default function AdminIndiegogoInvestors() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-yellow-50 via-orange-50 to-gray-50">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 py-8">
-        <div className="mb-8">
-          <Link to={createPageUrl("Marketplace")} className="inline-flex items-center gap-2 text-muted-foreground hover:text-foreground mb-4">
-            <ArrowLeft className="w-4 h-4" />
-            <span>Back to Marketplace</span>
+      <div className="max-w-4xl mx-auto px-4 py-4 md:py-6">
+        <div className="mb-4">
+          <Link to={createPageUrl("Marketplace")} className="inline-flex items-center gap-1.5 text-muted-foreground hover:text-foreground mb-3 text-sm">
+            <ArrowLeft className="w-3.5 h-3.5" />
+            Back
           </Link>
-          
-          <div className="flex items-center gap-3 mb-2">
-            <img 
-              src="https://qtrypzzcjebvfcihiynt.supabase.co/storage/v1/object/public/base44-prod/public/690badbd56a85b130b88aa42/e1bb7b419_IMG_0622.png"
-              alt="Indiegogo"
-              className="w-12 h-12 object-contain"
-            />
-            <h1 className="text-3xl md:text-4xl font-bold text-foreground">
-              Indiegogo Investors
-            </h1>
+          <div className="flex items-center gap-2 mb-1">
+            <img src="https://qtrypzzcjebvfcihiynt.supabase.co/storage/v1/object/public/base44-prod/public/690badbd56a85b130b88aa42/e1bb7b419_IMG_0622.png" alt="Indiegogo" className="w-7 h-7 object-contain" />
+            <h1 className="text-xl font-bold text-foreground">Indiegogo Investors</h1>
           </div>
-          <p className="text-muted-foreground">
-            Manage Founder Circle members and distribute rewards
-          </p>
+          <p className="text-xs text-muted-foreground">Manage Founder Circle members and rewards</p>
         </div>
 
         {/* Stats Overview */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">
-          <Card className="border-2 border-pink-300 bg-gradient-to-br from-pink-50 to-white">
-            <CardContent className="p-6">
-              <div className="flex items-center justify-between mb-2">
-                <HeartHandshake className="w-8 h-8 text-pink-600" />
-              </div>
-              <p className="text-3xl font-bold text-gray-900">{investors.length}</p>
-              <p className="text-sm text-gray-600">Total Investors</p>
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
+          <Card className="border border-pink-300">
+            <CardContent className="p-3">
+              <HeartHandshake className="w-4 h-4 text-pink-600 mb-1" />
+              <p className="text-xl font-bold text-gray-900">{investors.length}</p>
+              <p className="text-xs text-gray-500">Total</p>
             </CardContent>
           </Card>
-
-          <Card className="border-2 border-orange-300">
-            <CardContent className="p-6">
-              <div className="flex items-center justify-between mb-2">
-                <AlertCircle className="w-8 h-8 text-orange-600" />
-              </div>
-              <p className="text-3xl font-bold text-gray-900">{pendingInvestors.length}</p>
-              <p className="text-sm text-gray-600">Pending Verification</p>
+          <Card className="border border-orange-300">
+            <CardContent className="p-3">
+              <AlertCircle className="w-4 h-4 text-orange-600 mb-1" />
+              <p className="text-xl font-bold text-gray-900">{pendingInvestors.length}</p>
+              <p className="text-xs text-gray-500">Pending</p>
             </CardContent>
           </Card>
-
-          <Card className="border-2 border-green-300">
-            <CardContent className="p-6">
-              <div className="flex items-center justify-between mb-2">
-                <CheckCircle className="w-8 h-8 text-green-600" />
-              </div>
-              <p className="text-3xl font-bold text-gray-900">{verifiedInvestors.length}</p>
-              <p className="text-sm text-gray-600">Verified</p>
+          <Card className="border border-green-300">
+            <CardContent className="p-3">
+              <CheckCircle className="w-4 h-4 text-green-600 mb-1" />
+              <p className="text-xl font-bold text-gray-900">{verifiedInvestors.length}</p>
+              <p className="text-xs text-gray-500">Verified</p>
             </CardContent>
           </Card>
-
-          <Card className="border-2 border-blue-300">
-            <CardContent className="p-6">
-              <div className="flex items-center justify-between mb-2">
-                <DollarSign className="w-8 h-8 text-blue-600" />
-              </div>
-              <p className="text-3xl font-bold text-gray-900">${totalInvestmentAmount.toLocaleString()}</p>
-              <p className="text-sm text-gray-600">Total Raised</p>
+          <Card className="border border-blue-300">
+            <CardContent className="p-3">
+              <DollarSign className="w-4 h-4 text-blue-600 mb-1" />
+              <p className="text-xl font-bold text-gray-900">${totalInvestmentAmount.toLocaleString()}</p>
+              <p className="text-xs text-gray-500">Raised</p>
             </CardContent>
           </Card>
         </div>
 
         {/* Pending Investors */}
         {pendingInvestors.length > 0 && (
-          <Card className="mb-8 border-2 border-orange-300">
-            <CardHeader className="bg-gradient-to-r from-orange-50 to-yellow-50">
-              <CardTitle className="flex items-center gap-2">
-                <AlertCircle className="w-6 h-6 text-orange-600" />
+          <Card className="mb-4 border border-orange-300">
+            <CardHeader className="bg-orange-50 pb-2 pt-3 px-4">
+              <CardTitle className="flex items-center gap-2 text-sm">
+                <AlertCircle className="w-4 h-4 text-orange-600" />
                 Pending Verification ({pendingInvestors.length})
               </CardTitle>
             </CardHeader>
-            <CardContent className="p-6">
-              <div className="space-y-4">
+            <CardContent className="p-4">
+              <div className="space-y-2">
                 {pendingInvestors.map((investor) => (
-                  <motion.div
-                    key={investor.id}
-                    initial={{ opacity: 0, y: 20 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    className="flex items-center justify-between p-4 bg-background dark:bg-white/[0.04] rounded-lg border-2 border-orange-200 dark:border-orange-500/30 hover:shadow-md transition-all"
-                  >
-                    <div className="flex-1">
-                      <div className="flex items-center gap-3 mb-2">
-                        <Mail className="w-5 h-5 text-gray-400" />
-                        <p className="font-semibold text-gray-900">{investor.user_email}</p>
-                        <Badge className="bg-orange-100 text-orange-700">Pending</Badge>
+                  <motion.div key={investor.id} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}
+                    className="flex items-center justify-between gap-3 p-3 bg-background rounded-lg border border-orange-200 dark:border-orange-500/30">
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 mb-1 flex-wrap">
+                        <p className="text-sm font-semibold text-gray-900 truncate">{investor.user_email}</p>
+                        <Badge className="bg-orange-100 text-orange-700 text-[10px] h-4 px-1.5">Pending</Badge>
                       </div>
-                      <div className="grid grid-cols-2 gap-4 text-sm text-gray-600">
-                        <div>
-                          <span className="font-medium">Backer ID:</span> {investor.indiegogo_backer_id}
-                        </div>
+                      <div className="flex items-center gap-3 text-xs text-gray-500 flex-wrap">
+                        <span>ID: {investor.indiegogo_backer_id}</span>
+                        <span>{new Date(investor.created_date).toLocaleDateString()}</span>
                         {investor.indiegogo_profile_url && (
-                          <div className="flex items-center gap-1">
-                            <span className="font-medium">Profile:</span>
-                            <a 
-                              href={investor.indiegogo_profile_url} 
-                              target="_blank" 
-                              rel="noopener noreferrer"
-                              className="text-blue-600 hover:underline flex items-center gap-1"
-                            >
-                              View <ExternalLink className="w-3 h-3" />
-                            </a>
-                          </div>
+                          <a href={investor.indiegogo_profile_url} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline flex items-center gap-0.5">
+                            Profile <ExternalLink className="w-2.5 h-2.5" />
+                          </a>
                         )}
-                        <div>
-                          <span className="font-medium">Applied:</span> {new Date(investor.created_date).toLocaleDateString()}
-                        </div>
                       </div>
                     </div>
-                    <Button
-                      onClick={() => handleOpenVerifyDialog(investor)}
-                      className="bg-orange-600 hover:bg-orange-700"
-                    >
-                      <Edit className="w-4 h-4 mr-2" />
-                      Review
+                    <Button onClick={() => handleOpenVerifyDialog(investor)} size="sm" className="bg-orange-600 hover:bg-orange-700 h-8 text-xs flex-shrink-0">
+                      <Edit className="w-3.5 h-3.5 mr-1" />Review
                     </Button>
                   </motion.div>
                 ))}
@@ -386,59 +345,39 @@ export default function AdminIndiegogoInvestors() {
         )}
 
         {/* Verified Investors */}
-        <Card className="mb-8 border-2 border-green-300">
-          <CardHeader className="bg-gradient-to-r from-green-50 to-blue-50">
-            <CardTitle className="flex items-center gap-2">
-              <CheckCircle className="w-6 h-6 text-green-600" />
+        <Card className="mb-4 border border-green-300">
+          <CardHeader className="bg-green-50 pb-2 pt-3 px-4">
+            <CardTitle className="flex items-center gap-2 text-sm">
+              <CheckCircle className="w-4 h-4 text-green-600" />
               Verified Founders ({verifiedInvestors.length})
             </CardTitle>
           </CardHeader>
-          <CardContent className="p-6">
+          <CardContent className="p-4">
             {verifiedInvestors.length === 0 ? (
-              <div className="text-center py-12">
-                <Crown className="w-16 h-16 text-gray-300 mx-auto mb-4" />
-                <p className="text-gray-600">No verified investors yet</p>
+              <div className="text-center py-6 text-sm text-gray-500">
+                <Crown className="w-8 h-8 text-gray-300 mx-auto mb-2" />No verified investors yet
               </div>
             ) : (
-              <div className="space-y-4">
+              <div className="space-y-2">
                 {verifiedInvestors.map((investor) => (
-                  <div
-                    key={investor.id}
-                    className="flex items-center justify-between p-4 bg-background dark:bg-white/[0.04] rounded-lg border-2 border-green-200 dark:border-green-700/50"
-                  >
-                    <div className="flex-1">
-                      <div className="flex items-center gap-3 mb-2">
-                        <Crown className="w-5 h-5 text-yellow-600" />
-                        <p className="font-semibold text-gray-900">{investor.user_email}</p>
-                        <Badge className="bg-green-100 text-green-700">Verified</Badge>
-                        <Badge className="bg-yellow-100 text-yellow-700 capitalize">
-                          {investor.founder_circle_tier?.replace('_', ' ')}
-                        </Badge>
+                  <div key={investor.id} className="flex items-center justify-between gap-3 p-3 bg-background rounded-lg border border-green-200 dark:border-green-700/50">
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-1.5 mb-1 flex-wrap">
+                        <Crown className="w-3.5 h-3.5 text-yellow-600 flex-shrink-0" />
+                        <p className="text-sm font-semibold text-gray-900 truncate">{investor.user_email}</p>
+                        <Badge className="bg-green-100 text-green-700 text-[10px] h-4 px-1.5">Verified</Badge>
+                        {investor.founder_circle_tier && (
+                          <Badge className="bg-yellow-100 text-yellow-700 text-[10px] h-4 px-1.5 capitalize">{investor.founder_circle_tier.replace('_', ' ')}</Badge>
+                        )}
                       </div>
-                      <div className="grid grid-cols-3 gap-4 text-sm text-gray-600">
-                        <div>
-                          <span className="font-medium">Investment:</span> ${investor.investment_amount_usd?.toLocaleString() || 0}
-                        </div>
-                        <div>
-                          <span className="font-medium">Store Credits:</span> {investor.store_credits_balance?.toLocaleString() || 0}
-                        </div>
-                        <div>
-                          <span className="font-medium">Verified:</span> {new Date(investor.verification_date).toLocaleDateString()}
-                        </div>
+                      <div className="flex items-center gap-3 text-xs text-gray-500 flex-wrap">
+                        <span>${investor.investment_amount_usd?.toLocaleString() || 0} invested</span>
+                        <span>{investor.store_credits_balance?.toLocaleString() || 0} credits</span>
+                        {investor.verification_date && <span>{new Date(investor.verification_date).toLocaleDateString()}</span>}
                       </div>
-                      {investor.admin_notes && (
-                        <p className="text-xs text-gray-500 mt-2">
-                          <span className="font-medium">Notes:</span> {investor.admin_notes}
-                        </p>
-                      )}
                     </div>
-                    <Button
-                      onClick={() => handleOpenVerifyDialog(investor)}
-                      variant="outline"
-                      size="sm"
-                    >
-                      <Edit className="w-4 h-4 mr-2" />
-                      Edit
+                    <Button onClick={() => handleOpenVerifyDialog(investor)} variant="outline" size="sm" className="h-8 text-xs flex-shrink-0">
+                      <Edit className="w-3.5 h-3.5 mr-1" />Edit
                     </Button>
                   </div>
                 ))}
@@ -448,52 +387,34 @@ export default function AdminIndiegogoInvestors() {
         </Card>
 
         {/* Founder's Circle Communication */}
-        <Card className="border-2 border-orange-300">
-          <CardHeader className="bg-gradient-to-r from-orange-500 to-amber-500 text-white">
-            <CardTitle className="flex items-center gap-2">
-              <MessageCircle className="w-6 h-6" />
+        <Card className="border border-orange-300">
+          <CardHeader className="bg-gradient-to-r from-orange-500 to-amber-500 text-white pb-3 pt-3 px-4">
+            <CardTitle className="flex items-center gap-2 text-sm">
+              <MessageCircle className="w-4 h-4" />
               Founder's Circle Community
             </CardTitle>
-            <p className="text-sm text-white/90 mt-1">
-              Post announcements and connect directly with your founding members
-            </p>
           </CardHeader>
           <CardContent className="p-0">
             {/* Founder Post Form */}
-            <div className="p-6 border-b bg-gradient-to-r from-yellow-50 to-orange-50">
-              <div className="flex items-start gap-3 mb-3">
-                <Avatar className="w-10 h-10 ring-2 ring-yellow-500">
-                  <AvatarFallback className="bg-yellow-600 text-white font-bold">
-                    👑
-                  </AvatarFallback>
+            <div className="p-3 border-b bg-yellow-50/50">
+              <div className="flex items-start gap-2">
+                <Avatar className="w-8 h-8 ring-1 ring-yellow-500 flex-shrink-0">
+                  <AvatarFallback className="bg-yellow-600 text-white text-xs">👑</AvatarFallback>
                 </Avatar>
                 <div className="flex-1">
-                  <p className="font-bold text-gray-900 mb-1">Post as Founder</p>
-                  <Textarea
-                    value={newFounderPost}
-                    onChange={(e) => setNewFounderPost(e.target.value)}
-                    placeholder="Share an update with your Founder's Circle members..."
-                    className="mb-3"
-                    rows={3}
-                  />
-                  <Button
-                    onClick={handleFounderPostSubmit}
-                    disabled={!newFounderPost.trim() || createFounderPostMutation.isPending}
-                    className="w-full bg-gradient-to-r from-yellow-600 to-orange-600 hover:from-yellow-700 hover:to-orange-700"
-                  >
-                    <Send className="w-4 h-4 mr-2" />
-                    Post to Community
+                  <Textarea value={newFounderPost} onChange={(e) => setNewFounderPost(e.target.value)} placeholder="Post an update to Founder's Circle..." className="mb-2 text-sm" rows={2} />
+                  <Button onClick={handleFounderPostSubmit} disabled={!newFounderPost.trim() || createFounderPostMutation.isPending} size="sm" className="w-full bg-gradient-to-r from-yellow-600 to-orange-600 h-8 text-xs">
+                    <Send className="w-3.5 h-3.5 mr-1.5" />Post to Community
                   </Button>
                 </div>
               </div>
             </div>
 
             {/* Posts Feed */}
-            <div className="max-h-[600px] overflow-y-auto">
+            <div className="max-h-80 overflow-y-auto">
               {founderPosts.length === 0 ? (
-                <div className="p-12 text-center">
-                  <MessageCircle className="w-16 h-16 text-gray-300 mx-auto mb-3" />
-                  <p className="text-gray-500">No posts yet. Be the first to connect with your founders!</p>
+                <div className="p-6 text-center text-sm text-gray-500">
+                  <MessageCircle className="w-8 h-8 text-gray-300 mx-auto mb-2" />No posts yet
                 </div>
               ) : (
                 founderPosts.map(post => (
@@ -563,7 +484,7 @@ export default function AdminIndiegogoInvestors() {
 
       {/* Verify/Edit Dialog */}
       <Dialog open={showVerifyDialog} onOpenChange={setShowVerifyDialog}>
-        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+        <DialogContent className="w-full max-w-lg max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <img 
@@ -581,69 +502,31 @@ export default function AdminIndiegogoInvestors() {
           </DialogHeader>
 
           {selectedInvestor && (
-            <div className="space-y-4">
-              <div className="bg-muted/40 rounded-lg p-4 border border-border">
-                <p className="text-sm font-medium text-muted-foreground mb-1">Investor Email</p>
-                <p className="text-base text-foreground">{selectedInvestor.user_email}</p>
-              </div>
-
-              <div className="bg-muted/40 rounded-lg p-4 border border-border">
-                <p className="text-sm font-medium text-muted-foreground mb-1">Indiegogo Backer ID</p>
-                <p className="text-base text-foreground">{selectedInvestor.indiegogo_backer_id}</p>
-              </div>
-
-              {selectedInvestor.indiegogo_profile_url && (
-                <div className="bg-muted/40 rounded-lg p-4 border border-border">
-                  <p className="text-sm font-medium text-gray-700 mb-1">Indiegogo Profile</p>
-                  <a 
-                    href={selectedInvestor.indiegogo_profile_url} 
-                    target="_blank" 
-                    rel="noopener noreferrer"
-                    className="text-blue-600 hover:underline flex items-center gap-1"
-                  >
-                    {selectedInvestor.indiegogo_profile_url} <ExternalLink className="w-3 h-3" />
-                  </a>
-                </div>
-              )}
-
-              <div>
-                <label className="text-sm font-medium text-gray-700 mb-2 block">
-                  Investment Amount (USD) *
-                </label>
-                <Input
-                  type="number"
-                  value={investmentAmount}
-                  onChange={(e) => setInvestmentAmount(e.target.value)}
-                  placeholder="100"
-                  min="0"
-                  step="0.01"
-                />
+            <div className="space-y-3 text-sm">
+              <div className="bg-muted/40 rounded-lg p-3 space-y-1">
+                <div className="flex justify-between gap-2"><span className="text-muted-foreground">Email</span><span className="font-medium truncate max-w-[60%]">{selectedInvestor.user_email}</span></div>
+                <div className="flex justify-between gap-2"><span className="text-muted-foreground">Backer ID</span><span>{selectedInvestor.indiegogo_backer_id}</span></div>
+                {selectedInvestor.indiegogo_profile_url && (
+                  <div className="flex justify-between gap-2"><span className="text-muted-foreground">Profile</span>
+                    <a href={selectedInvestor.indiegogo_profile_url} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline flex items-center gap-0.5 text-xs">View <ExternalLink className="w-2.5 h-2.5" /></a>
+                  </div>
+                )}
               </div>
 
               <div>
-                <label className="text-sm font-medium text-gray-700 mb-2 block">
-                  Initial Store Credits (optional)
-                </label>
-                <Input
-                  type="number"
-                  value={initialStoreCredits}
-                  onChange={(e) => setInitialStoreCredits(e.target.value)}
-                  placeholder="1000"
-                  min="0"
-                />
-                <p className="text-xs text-gray-500 mt-1">
-                  100 credits = $1 purchasing power
-                </p>
+                <label className="text-xs font-medium text-gray-600 mb-1 block">Investment Amount (USD) *</label>
+                <Input type="number" value={investmentAmount} onChange={(e) => setInvestmentAmount(e.target.value)} placeholder="100" min="0" step="0.01" className="h-8 text-sm" />
               </div>
 
               <div>
-                <label className="text-sm font-medium text-gray-700 mb-2 block">
-                  Founder Circle Tier
-                </label>
+                <label className="text-xs font-medium text-gray-600 mb-1 block">Initial Store Credits <span className="font-normal text-gray-400">(100 = $1)</span></label>
+                <Input type="number" value={initialStoreCredits} onChange={(e) => setInitialStoreCredits(e.target.value)} placeholder="1000" min="0" className="h-8 text-sm" />
+              </div>
+
+              <div>
+                <label className="text-xs font-medium text-gray-600 mb-1 block">Founder Circle Tier</label>
                 <Select value={founderTier} onValueChange={setFounderTier}>
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
+                  <SelectTrigger className="h-8 text-sm"><SelectValue /></SelectTrigger>
                   <SelectContent>
                     <SelectItem value="elite_tier">Elite Tier</SelectItem>
                     <SelectItem value="standard_tier">Standard Tier</SelectItem>
@@ -652,15 +535,8 @@ export default function AdminIndiegogoInvestors() {
               </div>
 
               <div>
-                <label className="text-sm font-medium text-gray-700 mb-2 block">
-                  Admin Notes
-                </label>
-                <Textarea
-                  value={adminNotes}
-                  onChange={(e) => setAdminNotes(e.target.value)}
-                  placeholder="Add any internal notes..."
-                  rows={3}
-                />
+                <label className="text-xs font-medium text-gray-600 mb-1 block">Admin Notes</label>
+                <Textarea value={adminNotes} onChange={(e) => setAdminNotes(e.target.value)} placeholder="Internal notes..." rows={2} className="text-sm" />
               </div>
             </div>
           )}

@@ -82,7 +82,7 @@ export default function StorefrontAboutSection({
             </div>
             <div className="text-center p-3 bg-muted/30 rounded-lg">
               <p className="text-2xl font-bold text-foreground">
-                {activeListings || 0}
+                {activeListings?.length ?? 0}
               </p>
               <p className="text-xs text-muted-foreground mt-1">Listings</p>
             </div>

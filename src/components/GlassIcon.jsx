@@ -48,13 +48,16 @@ export default function GlassIcon({
         "glass-icon-base",
         SIZE[size],
         active && "glass-icon-active",
+        onClick && "active:scale-[0.97]",
         className
       )}
       style={{
         boxShadow,
         cursor: onClick ? "pointer" : undefined,
+        transition: onClick ? "transform 0.1s ease" : undefined,
         ...style,
       }}
+      onTouchStart={onClick ? () => {} : undefined}
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
       onClick={onClick}

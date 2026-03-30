@@ -98,103 +98,73 @@ export default function AdminArtists() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 p-6 md:p-12">
+    <div className="min-h-screen bg-gray-50 p-4 md:p-6">
       <div className="max-w-5xl mx-auto">
-        <Link to={createPageUrl("AdminApprovals")} className="inline-flex items-center text-gray-600 hover:text-gray-900 mb-6">
-          <ArrowLeft className="w-4 h-4 mr-2" />
+        <Link to={createPageUrl("AdminApprovals")} className="inline-flex items-center text-gray-500 hover:text-gray-900 mb-3 text-sm">
+          <ArrowLeft className="w-3.5 h-3.5 mr-1.5" />
           Back to Approvals
         </Link>
 
-        <div className="flex items-center gap-3 mb-8">
-          <div className="bg-rose-100 text-rose-600 p-2 rounded-lg">
-            <Palette className="w-6 h-6" />
+        <div className="flex items-center gap-2 mb-4">
+          <div className="bg-rose-100 text-rose-600 p-1.5 rounded-lg">
+            <Palette className="w-4 h-4" />
           </div>
           <div>
-            <h1 className="text-3xl font-bold text-gray-900">Artist Applications</h1>
-            <p className="text-gray-600">Review and approve artist portfolios</p>
+            <h1 className="text-xl font-bold text-gray-900">Artist Applications</h1>
+            <p className="text-xs text-gray-500">Review and approve artist portfolios</p>
           </div>
         </div>
 
         {pendingArtists.length === 0 ? (
-          <div className="text-center py-16 bg-white rounded-xl border border-dashed border-gray-300">
-            <CheckCircle className="w-16 h-16 text-green-500 mx-auto mb-4" />
-            <h3 className="text-xl font-bold text-gray-900 mb-2">All Caught Up!</h3>
-            <p className="text-gray-500">No pending artist applications.</p>
+          <div className="text-center py-10 bg-white rounded-xl border border-dashed border-gray-300">
+            <CheckCircle className="w-10 h-10 text-green-500 mx-auto mb-3" />
+            <h3 className="text-base font-bold text-gray-900 mb-1">All Caught Up!</h3>
+            <p className="text-sm text-gray-500">No pending artist applications.</p>
           </div>
         ) : (
-          <div className="grid gap-6">
+          <div className="space-y-3">
             {pendingArtists.map((artist) => (
               <Card key={artist.id}>
-                <CardContent className="p-6">
-                  <div className="flex flex-col md:flex-row gap-6">
-                    <div className="flex-1">
-                      <div className="flex items-start justify-between mb-4">
-                        <div>
-                          <h3 className="text-xl font-bold text-gray-900">{artist.artist_name}</h3>
-                          <p className="text-sm text-gray-500">{artist.user_email}</p>
-                        </div>
-                        <Badge className="bg-yellow-100 text-yellow-700">Pending Review</Badge>
+                <CardContent className="p-3">
+                  {/* Top row: identity + actions */}
+                  <div className="flex items-start justify-between gap-3 mb-2">
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 mb-0.5 flex-wrap">
+                        <h3 className="text-sm font-bold text-gray-900">{artist.artist_name}</h3>
+                        <Badge className="bg-yellow-100 text-yellow-700 text-[11px] h-5">Pending</Badge>
                       </div>
-
-                      <div className="space-y-4 mb-6">
-                        <div>
-                          <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1">Bio</p>
-                          <p className="text-sm text-gray-700 bg-gray-50 p-3 rounded-lg">
-                            {artist.bio || "No bio provided."}
-                          </p>
-                        </div>
-
-                        <div className="flex flex-wrap gap-4">
-                          {artist.portfolio_url && (
-                            <a 
-                              href={artist.portfolio_url} 
-                              target="_blank" 
-                              rel="noopener noreferrer"
-                              className="flex items-center gap-2 text-sm text-blue-600 hover:underline"
-                            >
-                              <Globe className="w-4 h-4" />
-                              Portfolio Website
-                              <ExternalLink className="w-3 h-3" />
-                            </a>
-                          )}
-                          {artist.instagram_handle && (
-                            <div className="flex items-center gap-2 text-sm text-pink-600">
-                              <Instagram className="w-4 h-4" />
-                              @{artist.instagram_handle.replace('@', '')}
-                            </div>
-                          )}
-                        </div>
-
-                        <div>
-                          <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">Specialties</p>
-                          <div className="flex flex-wrap gap-2">
-                            {artist.specialties?.map(spec => (
-                              <Badge key={spec} variant="outline">{spec}</Badge>
-                            ))}
-                          </div>
-                        </div>
-                      </div>
+                      <p className="text-xs text-gray-500 truncate">{artist.user_email}</p>
                     </div>
-
-                    <div className="flex flex-col gap-3 justify-center border-l pl-6 md:w-48">
-                      <Button 
-                        onClick={() => approveMutation.mutate(artist)}
-                        disabled={approveMutation.isPending}
-                        className="bg-green-600 hover:bg-green-700 w-full"
-                      >
-                        <CheckCircle className="w-4 h-4 mr-2" />
-                        Approve
+                    <div className="flex gap-1.5 flex-shrink-0">
+                      <Button onClick={() => approveMutation.mutate(artist)} disabled={approveMutation.isPending} size="sm" className="bg-green-600 hover:bg-green-700 h-8 text-xs px-2.5">
+                        <CheckCircle className="w-3.5 h-3.5 mr-1" />Approve
                       </Button>
-                      <Button 
-                        onClick={() => rejectMutation.mutate(artist.id)}
-                        disabled={rejectMutation.isPending}
-                        variant="outline"
-                        className="text-red-600 hover:bg-red-50 w-full border-red-200"
-                      >
-                        <XCircle className="w-4 h-4 mr-2" />
-                        Reject
+                      <Button onClick={() => rejectMutation.mutate(artist.id)} disabled={rejectMutation.isPending} variant="outline" size="sm" className="text-red-600 hover:bg-red-50 h-8 text-xs px-2.5 border-red-200">
+                        <XCircle className="w-3.5 h-3.5 mr-1" />Reject
                       </Button>
                     </div>
+                  </div>
+
+                  {/* Bio — collapsed to 2 lines */}
+                  {artist.bio && (
+                    <p className="text-xs text-gray-600 bg-gray-50 rounded px-2.5 py-1.5 mb-2 line-clamp-2">{artist.bio}</p>
+                  )}
+
+                  {/* Links + specialties */}
+                  <div className="flex flex-wrap items-center gap-2">
+                    {artist.portfolio_url && (
+                      <a href={artist.portfolio_url} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1 text-xs text-blue-600 hover:underline">
+                        <Globe className="w-3 h-3" />Portfolio <ExternalLink className="w-2.5 h-2.5" />
+                      </a>
+                    )}
+                    {artist.instagram_handle && (
+                      <span className="flex items-center gap-1 text-xs text-pink-600">
+                        <Instagram className="w-3 h-3" />@{artist.instagram_handle.replace('@', '')}
+                      </span>
+                    )}
+                    {artist.specialties?.map(spec => (
+                      <Badge key={spec} variant="outline" className="text-[11px] h-5">{spec}</Badge>
+                    ))}
                   </div>
                 </CardContent>
               </Card>
