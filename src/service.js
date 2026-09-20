@@ -65,7 +65,11 @@ export function makeService() {
       const user=unwrap(await client.auth.getUser()).user;
       if(!user) throw new Error('Sign in to add photos.');
       const newPath=user.id+'/'+crypto.randomUUID()+'.png';
-      unwrap(await client.storage.from('listing-media').upload(newPath,data,{contentType:'image/png',upsert:false}));
+      // storage-js reads the upload body's own Blob.type when the body is already a Blob, ignoring
+      // the contentType option below -- data's type is application/octet-stream (from the edge
+      // function response), so it must be re-wrapped with the real type before uploading.
+      const png=new Blob([data],{type:'image/png'});
+      unwrap(await client.storage.from('listing-media').upload(newPath,png,{contentType:'image/png',upsert:false}));
       const signed=unwrap(await client.storage.from('listing-media').createSignedUrl(newPath,3600));
       await client.storage.from('listing-media').remove([path]).catch(()=>{});
       return {path:newPath,kind:'item',url:signed.signedUrl};
