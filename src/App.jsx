@@ -12,6 +12,7 @@ import { ArrowUpRight, ArrowRight, Search, ShieldCheck, Plus, Store, Compass, Cl
 import { DEMO_ACCOUNTS } from './demo.js';
 import { makeService } from './service.js';
 import { Storefront } from './Storefront.jsx';
+import { TermsPage, PrivacyPage } from './Legal.jsx';
 import { ItemArt, money } from './ItemArt.jsx';
 import { MessageThread } from './MessageThread.jsx';
 import { SupportChat } from './SupportChat.jsx';
@@ -594,6 +595,9 @@ export default function App() {
   // Computed once per load (this app never navigates client-side between routes) so the
   // storefront route can skip the main app's data-fetch effects entirely below.
   const storefrontSlug = (() => { const segments = window.location.pathname.split('/').filter(Boolean); return segments.length === 1 && segments[0] !== 'auth' ? segments[0] : null; })();
+  // /terms and /privacy are standalone, no-login-required pages -- checked before storefrontSlug
+  // so they can never be shadowed by a seller's store name (also reserved server-side).
+  const legalPage = window.location.pathname === '/terms' ? 'terms' : window.location.pathname === '/privacy' ? 'privacy' : null;
   const [session, setSession] = useState(null), [authReady, setAuthReady] = useState(false), [profile, setProfile] = useState(null);
   const [workspace, setWorkspace] = useState('collector'), [items, setItems] = useState([]), [audits, setAudits] = useState([]);
   const [category, setCategory] = useState('All items'), [query, setQuery] = useState(''), [selectedId, setSelectedId] = useState(null);
@@ -604,7 +608,7 @@ export default function App() {
   const [revision, setRevision] = useState(0);
   const refresh = () => setRevision(v => v + 1);
   useEffect(() => {
-    if (service.mode === 'unconfigured' || storefrontSlug) return;
+    if (service.mode === 'unconfigured' || storefrontSlug || legalPage) return;
     let alive = true, eventSeen = false;
     // Auth can emit again with the same session object when a tab regains focus.
     // Reload account data whenever it is cleared, even if session identity is unchanged.
@@ -616,7 +620,7 @@ export default function App() {
     return () => { alive = false; unsubscribe(); };
   }, []);
   useEffect(() => {
-    if (service.mode === 'unconfigured' || storefrontSlug) return;
+    if (service.mode === 'unconfigured' || storefrontSlug || legalPage) return;
     let alive = true; setLoading(true);
     Promise.all([service.listings(), session ? service.profile(session.user.id) : null, session ? service.myAudits() : [], session ? service.myFavoriteIds() : [], session ? service.myPurchases() : [], session ? service.mySales() : [], session ? service.myNotifications() : []])
       .then(([listings, account, myAudits, favorites, myPurchases, mySales, myNotifications]) => { if (alive) { setItems(listings); setProfile(account); setAudits(myAudits); setFavoriteIds(favorites); setPurchases(myPurchases); setSales(mySales); setNotifications(myNotifications); } })
@@ -624,7 +628,7 @@ export default function App() {
     return () => { alive = false; };
   }, [session, revision, authReady]);
   useEffect(() => {
-    if (!authReady || service.mode !== 'live' || storefrontSlug) return;
+    if (!authReady || service.mode !== 'live' || storefrontSlug || legalPage) return;
     const params = new URLSearchParams(window.location.search);
     const checkout = params.get('checkout'), stripeSession = params.get('session');
     const onboarding = params.get('stripe_onboarding');
@@ -664,6 +668,8 @@ export default function App() {
     }
   }, [items]);
   if (service.mode === 'unconfigured') return <main className="setup"><div className="brand"><Brand/></div><h1>The new foundation is ready to connect.</h1><p>Configure your Supabase project URL and public publishable key to enable email sign-in. Local development also includes a separate sample workspace.</p><p>See README.md for the Supabase setup steps. No real accounts are active in this build yet.</p></main>;
+  if (legalPage === 'terms') return <TermsPage/>;
+  if (legalPage === 'privacy') return <PrivacyPage/>;
   if (storefrontSlug) return <Storefront slug={storefrontSlug} service={service} onBack={() => { window.location.href = '/'; }}/>;
 
   const selected = items.find(item => item.id === selectedId);
@@ -758,10 +764,10 @@ export default function App() {
             </>}
           </section><section className="community-note"><div className="note-icon"><ShieldCheck size={25}/></div><div><h3>Confidence grows with evidence.</h3><p>A community opinion is a starting point. For valuable purchases, seek qualified authentication.</p></div><button className="icon-button" aria-label="Read the auditing guide" onClick={() => setModal('learn')}><ArrowUpRight size={24}/></button></section>
         </>}
-        <footer><span>© {new Date().getFullYear()} Credabilia</span><span>Made for the love of the find.</span></footer>
+        <footer><span>© {new Date().getFullYear()} Credabilia</span><span>Made for the love of the find.</span><span className="footer-legal"><a href="/terms">Terms</a><a href="/privacy">Privacy</a></span></footer>
       </main>
     </div>
-    {modal === 'login' && <Modal title="Welcome to Credabilia" onClose={() => setModal(null)}><p className="muted">One account to collect, sell, and share your perspective.</p>{service.mode === 'demo' ? <><div className="evidence-box"><h3>Try the local preview</h3><p>These two separate practice accounts stay in this browser. Each can switch between all three workspaces. Real sign-in is available when the Supabase project is connected.</p></div><div className="form-stack">{DEMO_ACCOUNTS.map(account => <button key={account.id} className="primary full-width" onClick={() => signIn(account.id)} disabled={busy}>{busy ? 'Opening…' : `Continue as ${account.display_name}`}<ArrowRight size={18}/></button>)}</div></> : <><button className="primary full-width" onClick={() => signIn()} disabled={busy}>{busy ? 'Opening…' : 'Continue with Google'}<ArrowRight size={18}/></button><p className="field-note">or</p><EmailLogin/></>}<p className="field-note">Your sign-in method does not determine your workspace. You can switch between all three after signing in.</p></Modal>}
+    {modal === 'login' && <Modal title="Welcome to Credabilia" onClose={() => setModal(null)}><p className="muted">One account to collect, sell, and share your perspective.</p>{service.mode === 'demo' ? <><div className="evidence-box"><h3>Try the local preview</h3><p>These two separate practice accounts stay in this browser. Each can switch between all three workspaces. Real sign-in is available when the Supabase project is connected.</p></div><div className="form-stack">{DEMO_ACCOUNTS.map(account => <button key={account.id} className="primary full-width" onClick={() => signIn(account.id)} disabled={busy}>{busy ? 'Opening…' : `Continue as ${account.display_name}`}<ArrowRight size={18}/></button>)}</div></> : <><button className="primary full-width" onClick={() => signIn()} disabled={busy}>{busy ? 'Opening…' : 'Continue with Google'}<ArrowRight size={18}/></button><p className="field-note">or</p><EmailLogin/><p className="field-note">By continuing, you agree to Credabilia's <a href="/terms" target="_blank" rel="noreferrer">Terms of Service</a> and <a href="/privacy" target="_blank" rel="noreferrer">Privacy Policy</a>.</p></>}<p className="field-note">Your sign-in method does not determine your workspace. You can switch between all three after signing in.</p></Modal>}
     {modal === 'checkout-address' && selected && <CheckoutAddress item={selected} profile={profile} busy={busy} onClose={() => setModal(null)} onConfirm={(address, applyCreditCents, wantInsurance) => { setModal(null); buyNow(selected.id, address, applyCreditCents, wantInsurance); }}/>}
     {modal === 'create' && <CreateListing onClose={() => setModal(null)} onCreated={id => { setModal(null); setNotice('Your listing is published.'); setSelectedId(id); refresh(); }}/>}
     {modal === 'relist' && ownedItem && <CreateListing relistFrom={ownedItem} onClose={() => setModal(null)} onCreated={id => { setModal(null); setNotice('Your relisted item is published.'); switchWorkspace('seller'); setSelectedId(id); refresh(); }}/>}
