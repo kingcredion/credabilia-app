@@ -29,3 +29,10 @@
   .hero-mascot { padding: 0 24px 18px; }
   .hero-mascot img { max-width: 225px; max-height: 260px; }
 }
+/* Narrow phones (e.g. 360-390px Android widths) -- the 600px sizing above still overflows once
+   the header's icon row (theme/King Credion/notifications/avatar/sign-out) is added back in. */
+@media (max-width: 400px) {
+  .brand .brand-logo { width: 108px; height: 35px; }
+  .brand .brand-tagline { display: none; }
+  .topbar { gap: 8px; }
+}
