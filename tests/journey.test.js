@@ -1,0 +1,34 @@
+import { test } from 'node:test';
+import assert from 'node:assert/strict';
+import { createDemoService, DEMO_ACCOUNTS } from '../src/demo.js';
+import { priceInCents } from '../src/domain.js';
+
+test('two accounts create, review and audit with isolated progress and persisted state', async () => {
+  const values = new Map();
+  const storage = { getItem: key => values.get(key), setItem: (key,value) => values.set(key,value) };
+  let service = createDemoService(storage);
+  const [seller,auditor] = DEMO_ACCOUNTS;
+  const input = { title:'Journey test comic', description:'A fictional comic used to verify the complete review journey.', category:'Comics', price_cents:priceInCents('19.99'), weight_oz:4, length_in:8, width_in:6, height_in:1 };
+  const assessment = { verdict:'uncertain', explanation:'Provenance is missing and further evidence is required.' };
+  await assert.rejects(service.createListing(input), /Sign in/);
+  await service.signIn(seller.id);
+  const id = await service.createListing({...input,seller_id:auditor.id});
+  assert.equal((await service.listings()).find(x=>x.id===id).seller_id,seller.id);
+  await assert.rejects(service.submitAudit(id,assessment), /own listing/);
+  await service.signOut();
+  await service.signIn(auditor.id);
+  assert.equal((await service.profile()).xp,0);
+  assert.deepEqual(await service.submitAudit(id,assessment),{xp_earned:5,already_submitted:false});
+  assert.deepEqual(await service.submitAudit(id,assessment),{xp_earned:0,already_submitted:true});
+  assert.equal((await service.profile()).xp,5);
+  assert.equal((await service.myAudits()).length,1);
+  service=createDemoService(storage);
+  assert.equal((await service.getSession()).user.id,auditor.id);
+  assert.equal((await service.profile()).xp,5);
+  await service.signOut();
+  await assert.rejects(service.submitAudit(id,assessment), /Sign in/);
+  await service.signIn(seller.id);
+  assert.equal((await service.profile()).xp,0);
+  assert.equal((await service.myAudits()).length,0);
+  assert.equal((await service.listings()).find(x=>x.id===id).audit_count,1);
+});
