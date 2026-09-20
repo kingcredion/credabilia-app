@@ -9,7 +9,7 @@ test('legacy blending thresholds and neutral smoothing',()=>{
   const item={certificate_issuer:'psa',certificate_number:'00001234'};
   assert.equal(credibilityScore(item).credibility_score,86);
   assert.equal(credibilityScore({}).certificate_supplied,false);
-  assert.equal(credibilityScore({}).credibility_score,50);
+  assert.equal(credibilityScore({}).credibility_score,30);
   assert.equal(credibilityScore(item,[{verdict:'concerns'}]).community_score,42);
   assert.equal(credibilityScore(item,[{verdict:'uncertain'}]).community_score,50);
   for(const [count,weight] of [[0,80],[9,80],[10,65],[24,65],[25,50],[99,50],[100,35]]) {
@@ -27,7 +27,7 @@ test('server and preview agree for all issuer ratings and every blend boundary',
       create table auth.users(id uuid primary key,raw_user_meta_data jsonb default '{}');
       create function auth.uid() returns uuid language sql stable as $$select nullif(current_setting('request.jwt.claim.sub',true),'')::uuid$$;
       grant usage on schema public,auth to anon,authenticated;`);
-    for(const file of ['202609100001_foundation.sql','202609100002_certificates.sql','202609100003_credibility.sql']) await db.exec(await readFile(new URL('../supabase/migrations/'+file,import.meta.url),'utf8'));
+    for(const file of ['202609100001_foundation.sql','202609100002_certificates.sql','202609100003_credibility.sql','202609300027_credibility_low_default.sql']) await db.exec(await readFile(new URL('../supabase/migrations/'+file,import.meta.url),'utf8'));
     for(const issuer of ISSUERS) assert.equal((await db.query('select public.certificate_rating($1) as score',[issuer.id])).rows[0].score,issuer.rating);
     const owner='11111111-1111-4111-8111-111111111111';
     await db.query('insert into auth.users(id) values ($1)',[owner]);
