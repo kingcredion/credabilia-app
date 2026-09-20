@@ -8,10 +8,10 @@ export const DEMO_ACCOUNTS = [DEMO_USER, { ...DEMO_USER, id: '22222222-2222-4222
 export function createDemoService(storage = window.localStorage) {
   const key = 'credabilia-next-demo-v2';
   let listeners = new Set();
-  const fresh = () => ({ userId: null, listings: sampleListings(), audits: [], uploads: {}, xp: {}, names: {}, favorites: {}, purchases: [], revisions: [], slugs: {}, shippingAddresses: {}, messages: [], credits: [], supportMessages: [], refundRequests: [] });
+  const fresh = () => ({ userId: null, listings: sampleListings(), audits: [], uploads: {}, xp: {}, names: {}, favorites: {}, purchases: [], revisions: [], slugs: {}, shippingAddresses: {}, messages: [], credits: [], supportMessages: [], refundRequests: [], buyRequests: [] });
   let state;
   try { const saved = JSON.parse(storage.getItem(key)); state = saved && Array.isArray(saved.listings) && Array.isArray(saved.audits) ? saved : fresh(); } catch { state = fresh(); }
-  state.uploads ||= {}; state.names ||= {}; state.favorites ||= {}; state.purchases ||= []; state.revisions ||= []; state.slugs ||= {}; state.shippingAddresses ||= {}; state.messages ||= []; state.credits ||= []; state.supportMessages ||= []; state.refundRequests ||= [];
+  state.uploads ||= {}; state.names ||= {}; state.favorites ||= {}; state.purchases ||= []; state.revisions ||= []; state.slugs ||= {}; state.shippingAddresses ||= {}; state.messages ||= []; state.credits ||= []; state.supportMessages ||= []; state.refundRequests ||= []; state.buyRequests ||= [];
   const REQUIRED_ADDRESS_FIELDS = ['name', 'street1', 'city', 'state', 'zip', 'country'];
   function validAddress(address) { return REQUIRED_ADDRESS_FIELDS.every(key => String(address?.[key] || '').trim()); }
   function save() { storage.setItem(key, JSON.stringify(state)); }
@@ -66,10 +66,50 @@ export function createDemoService(storage = window.localStorage) {
       mine.push(listingId); save(); return true;
     },
     async myFavoriteIds() { requireUser(); return state.favorites[state.userId] || []; },
-    async startCheckout(listingId, shippingAddress, applyCreditCents, wantInsurance) {
+    async requestToBuy(listingId) {
       requireUser();
       const item=state.listings.find(x=>x.id===listingId);
       if(!item || item.status!=='active') throw new Error('This item is not available to buy.');
+      if(item.seller_id===state.userId) throw new Error('You cannot buy your own listing.');
+      const request={id:crypto.randomUUID(),listing_id:listingId,buyer_id:state.userId,seller_id:item.seller_id,status:'pending',
+        created_at:new Date().toISOString(),expires_at:new Date(Date.now()+24*60*60*1000).toISOString()};
+      state.buyRequests.push(request); item.status='pending';
+      try{save();}catch(error){state.buyRequests.pop();item.status='active';throw error;}
+      return {id:request.id,listing_id:listingId,status:'pending',expires_at:request.expires_at};
+    },
+    async respondToBuyRequest(requestId,available) {
+      requireUser();
+      const request=state.buyRequests.find(r=>r.id===requestId && r.seller_id===state.userId);
+      if(!request) throw new Error('Request not found.');
+      if(request.status!=='pending') throw new Error('This request has already been answered.');
+      request.status=available?'confirmed':'declined'; request.responded_at=new Date().toISOString();
+      if(!available) { const item=state.listings.find(x=>x.id===request.listing_id); if(item && item.status==='pending') item.status='active'; }
+      save();
+      return {id:requestId,status:request.status};
+    },
+    async myOpenBuyRequests() {
+      requireUser();
+      return state.buyRequests.filter(r=>r.buyer_id===state.userId && (r.status==='pending' || r.status==='confirmed')).map(r=>{
+        const item=state.listings.find(x=>x.id===r.listing_id) || {};
+        return {id:r.id,listing_id:r.listing_id,title:item.title,category:item.category,price_cents:item.price_cents,status:r.status,expires_at:r.expires_at,
+          media:(item.media||[]).filter(asset=>asset.kind==='item')};
+      });
+    },
+    async myBuyRequests() {
+      requireUser();
+      return state.buyRequests.filter(r=>r.seller_id===state.userId && r.status==='pending').map(r=>{
+        const item=state.listings.find(x=>x.id===r.listing_id) || {};
+        return {id:r.id,listing_id:r.listing_id,title:item.title,price_cents:item.price_cents,created_at:r.created_at,expires_at:r.expires_at,
+          buyer_name:state.names[r.buyer_id] || DEMO_ACCOUNTS.find(u=>u.id===r.buyer_id)?.display_name || 'A collector',
+          media:(item.media||[]).filter(asset=>asset.kind==='item')};
+      });
+    },
+    async startCheckout(listingId, shippingAddress, applyCreditCents, wantInsurance) {
+      requireUser();
+      const item=state.listings.find(x=>x.id===listingId);
+      const confirmedRequest=state.buyRequests.find(r=>r.listing_id===listingId && r.buyer_id===state.userId && r.status==='confirmed');
+      if(!confirmedRequest) throw new Error('Ask the seller to confirm this item is still available before buying.');
+      if(!item || item.status!=='pending') throw new Error('This item is not available to buy.');
       if(item.seller_id===state.userId) throw new Error('You cannot buy your own listing.');
       if(!validAddress(shippingAddress)) throw new Error('Fill in all required address fields.');
       // platform_fee_cents/seller_payout_cents mirror the real eBay-style fee (13.6% + $0.30/$0.40),
@@ -194,6 +234,12 @@ export function createDemoService(storage = window.localStorage) {
           const lastFromSeller=messages.filter(m=>m.sender_id===p.seller_id).reduce((max,m)=>m.created_at>max?m.created_at:max,'');
           if(lastFromSeller && (!p.buyer_last_read_at || lastFromSeller>p.buyer_last_read_at)) notifications.push({kind:'message',role:'buyer',purchase_id:p.id,listing_id:item.id,title:item.title,message:`New message about "${item.title}"`});
         }
+      }
+      for(const r of state.buyRequests) {
+        const item=state.listings.find(x=>x.id===r.listing_id);
+        if(!item) continue;
+        if(r.seller_id===state.userId && r.status==='pending') notifications.push({kind:'buy_request_pending',role:'seller',purchase_id:null,listing_id:item.id,title:item.title,message:`Confirm "${item.title}" is still available`});
+        if(r.buyer_id===state.userId && r.status==='confirmed') notifications.push({kind:'buy_request_confirmed',role:'buyer',purchase_id:null,listing_id:item.id,title:item.title,message:`"${item.title}" is confirmed available — complete your purchase`});
       }
       return notifications;
     },

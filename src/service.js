@@ -145,6 +145,10 @@ export function makeService() {
       if(error) { let detail; try {detail=await error.context?.json();} catch {} throw new Error(detail?.error || 'Could not open your Stripe dashboard.'); }
       return data;
     },
+    async requestToBuy(listingId) { return unwrap(await client.rpc('request_to_buy', { p_listing_id: listingId })); },
+    async respondToBuyRequest(requestId, available) { return unwrap(await client.rpc('respond_to_buy_request', { p_request_id: requestId, p_available: available })); },
+    async myOpenBuyRequests() { return signMedia(unwrap(await client.rpc('my_open_buy_requests'))); },
+    async myBuyRequests() { return signMedia(unwrap(await client.rpc('my_buy_requests'))); },
     async startCheckout(listingId, shippingAddress, applyCreditCents, wantInsurance) {
       const {data,error}=await client.functions.invoke('create-checkout-session',{body:{listing_id:listingId,shipping_address:shippingAddress,apply_credit_cents:applyCreditCents||0,want_insurance:wantInsurance!==false}});
       if(error) { let detail; try {detail=await error.context?.json();} catch {} throw new Error(detail?.error || 'This item could not be purchased right now.'); }

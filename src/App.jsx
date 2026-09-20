@@ -45,7 +45,7 @@ function NotificationBell({ notifications, onNavigate }) {
     </button>
     {open && <div className="notif-panel" role="menu">
       {!notifications.length ? <p className="notif-empty field-note">Nothing needs your attention.</p>
-        : notifications.map(n => <button key={`${n.purchase_id}-${n.kind}`} type="button" className="notif-row" role="menuitem" onClick={() => { onNavigate(n); setOpen(false); }}>
+        : notifications.map(n => <button key={`${n.purchase_id}-${n.listing_id}-${n.kind}`} type="button" className="notif-row" role="menuitem" onClick={() => { onNavigate(n); setOpen(false); }}>
             {n.kind === 'message' ? <MessageCircle size={16}/> : <AlertCircle size={16}/>}<span>{n.message}</span>
           </button>)}
     </div>}
@@ -523,6 +523,25 @@ function BuyerRefundPanel({ item, onRequested }) {
   </form>;
 }
 
+function BuyRequestCard({ request, onResolved }) {
+  const [busy, setBusy] = useState(false), [error, setError] = useState('');
+  async function respond(available) {
+    setBusy(true); setError('');
+    try { await service.respondToBuyRequest(request.id, available); onResolved(request.id); }
+    catch (err) { setError(err.message); } finally { setBusy(false); }
+  }
+  return <div className="item-card"><ItemArt photo={request.media?.find(asset => asset.kind === 'item')?.url}/><div className="item-card-content">
+    <div className="card-meta"><span>{request.buyer_name} wants to buy this</span></div>
+    <h3>{request.title}</h3>
+    <div className="card-bottom"><strong>{money(request.price_cents)}</strong></div>
+    {error && <p role="alert" className="error">{error}</p>}
+    <div className="submit-row">
+      <button type="button" className="primary" disabled={busy} onClick={() => respond(true)}>{busy ? 'Working…' : 'Still available'}</button>
+      <button type="button" className="text-button" disabled={busy} onClick={() => respond(false)}>No longer available</button>
+    </div>
+  </div></div>;
+}
+
 function SoldItemCard({ sale, session, onShipped, onRefundChanged, focusPurchaseId, onFocused }) {
   const [shipping, setShipping] = useState(false);
   const [needsParcel, setNeedsParcel] = useState(false);
@@ -684,6 +703,7 @@ export default function App() {
   const [modal, setModal] = useState(null), [busy, setBusy] = useState(false), [loading, setLoading] = useState(true), [error, setError] = useState(''), [notice, setNotice] = useState('');
   const [favoriteIds, setFavoriteIds] = useState([]), [purchases, setPurchases] = useState([]), [collectionFilter, setCollectionFilter] = useState('all');
   const [sales, setSales] = useState([]), [sellerTab, setSellerTab] = useState('active');
+  const [buyRequests, setBuyRequests] = useState([]), [sellerBuyRequests, setSellerBuyRequests] = useState([]);
   const [notifications, setNotifications] = useState([]), [focusPurchaseId, setFocusPurchaseId] = useState(null);
   const [revision, setRevision] = useState(0);
   const refresh = () => setRevision(v => v + 1);
@@ -702,8 +722,8 @@ export default function App() {
   useEffect(() => {
     if (service.mode === 'unconfigured' || storefrontSlug || legalPage) return;
     let alive = true; setLoading(true);
-    Promise.all([service.listings(), session ? service.profile(session.user.id) : null, session ? service.myAudits() : [], session ? service.myFavoriteIds() : [], session ? service.myPurchases() : [], session ? service.mySales() : [], session ? service.myNotifications() : []])
-      .then(([listings, account, myAudits, favorites, myPurchases, mySales, myNotifications]) => { if (alive) { setItems(listings); setProfile(account); setAudits(myAudits); setFavoriteIds(favorites); setPurchases(myPurchases); setSales(mySales); setNotifications(myNotifications); } })
+    Promise.all([service.listings(), session ? service.profile(session.user.id) : null, session ? service.myAudits() : [], session ? service.myFavoriteIds() : [], session ? service.myPurchases() : [], session ? service.mySales() : [], session ? service.myNotifications() : [], session ? service.myOpenBuyRequests() : [], session ? service.myBuyRequests() : []])
+      .then(([listings, account, myAudits, favorites, myPurchases, mySales, myNotifications, myOpenBuyRequests, myBuyRequests]) => { if (alive) { setItems(listings); setProfile(account); setAudits(myAudits); setFavoriteIds(favorites); setPurchases(myPurchases); setSales(mySales); setNotifications(myNotifications); setBuyRequests(myOpenBuyRequests); setSellerBuyRequests(myBuyRequests); } })
       .catch(err => { if (alive) setError(err.message); }).finally(() => { if (alive) setLoading(false); });
     return () => { alive = false; };
   }, [session, revision, authReady]);
@@ -744,7 +764,9 @@ export default function App() {
     const itemId = params.get('item');
     if (itemId) {
       appliedItemParam.current = true;
-      if (items.some(item => item.id === itemId)) { setSelectedId(itemId); window.history.replaceState({}, '', window.location.pathname); }
+      // A listing under an open buy request is 'pending', not 'active', so it won't be in items --
+      // check buyRequests too so a push notification's deep link still resolves after a fresh load.
+      if (items.some(item => item.id === itemId) || buyRequests.some(r => r.listing_id === itemId)) { setSelectedId(itemId); window.history.replaceState({}, '', window.location.pathname); }
     }
   }, [items]);
   if (service.mode === 'unconfigured') return <main className="setup"><div className="brand"><Brand/></div><h1>The new foundation is ready to connect.</h1><p>Configure your Supabase project URL and public publishable key to enable email sign-in. Local development also includes a separate sample workspace.</p><p>See README.md for the Supabase setup steps. No real accounts are active in this build yet.</p></main>;
@@ -754,6 +776,8 @@ export default function App() {
 
   const selected = items.find(item => item.id === selectedId);
   const ownedItem = !selected ? purchases.find(item => item.id === selectedId) : null;
+  const pendingBuy = !selected && !ownedItem ? buyRequests.find(r => r.listing_id === selectedId) : null;
+  const myRequest = buyRequests.find(r => r.listing_id === selected?.id);
   const own = selected?.seller_id === session?.user.id;
   const previousAudit = audits.find(a => a.listing_id === selectedId && a.listing_version === selected?.version);
   const eligible = workspace === 'seller' ? items.filter(item => item.seller_id === session?.user.id)
@@ -765,6 +789,7 @@ export default function App() {
   function focusNotification(n) {
     setModal(null);
     if (n.role === 'buyer') { setSelectedId(n.listing_id); }
+    else if (n.kind === 'buy_request_pending') { setWorkspace('seller'); setSellerTab('requests'); setSelectedId(null); }
     else { setWorkspace('seller'); setSellerTab('sold'); setSelectedId(null); }
     setFocusPurchaseId(n.kind === 'message' ? n.purchase_id : null);
   }
@@ -785,6 +810,22 @@ export default function App() {
       setNotice('Purchase complete — this item is now in your collection.'); setSelectedId(null); refresh();
     } catch (err) { setError(err.message); }
     setBusy(false);
+  }
+  async function requestToBuy(listingId) {
+    if (!session) { setModal('login'); return; }
+    setBusy(true); setError('');
+    try {
+      const r = await service.requestToBuy(listingId);
+      setBuyRequests(list => [...list.filter(x => x.listing_id !== listingId), { ...r, title: selected?.title, category: selected?.category, price_cents: selected?.price_cents, media: selected?.media }]);
+    } catch (err) { setError(err.message); } finally { setBusy(false); }
+  }
+  async function respondToBuyRequestAction(requestId, available) {
+    setBusy(true); setError('');
+    try {
+      await service.respondToBuyRequest(requestId, available);
+      setSellerBuyRequests(list => list.filter(r => r.id !== requestId));
+      setNotice(available ? 'The buyer has been notified — they can now complete checkout.' : 'The buyer has been notified this item is no longer available.');
+    } catch (err) { setError(err.message); } finally { setBusy(false); }
   }
   async function submitAudit(event) {
     event.preventDefault(); if (busy) return; setBusy(true); setError('');
@@ -818,7 +859,7 @@ export default function App() {
           <button className="back-button" onClick={() => setSelectedId(null)}><ArrowLeft size={17}/>Back to {workspace === 'auditor' ? 'audit queue' : 'listings'}</button>
           {own && profile?.can_sell && <button className="text-button" onClick={()=>setModal('edit')}>Edit listing</button>}
           {session && !own && <button className="text-button" onClick={()=>toggleFavorite(selected.id)}><Heart size={16} fill={favoriteIds.includes(selected.id) ? 'currentColor' : 'none'}/>{favoriteIds.includes(selected.id) ? 'Saved' : 'Save to collection'}</button>}
-          <div className="detail-grid"><div>{selected.media?.some(asset=>asset.kind==='item') ? <PhotoGallery key={selected.id} media={selected.media} title={selected.title}/> : <ItemArt kind={selected.artwork} category={selected.category} large/>}<PhotoGallery key={selected.id+'cert'} media={selected.media} kind="certificate" title={selected.title}/></div><section className="item-info"><span className="pill">{selected.category}</span><h1>{selected.title}</h1><p className="seller-name">Shared by {selected.seller_name}</p><p className="detail-price">{money(selected.price_cents)}</p>{session && !own && <>{service.mode==='live' && !selected.seller_charges_enabled && <p className="field-note">This seller hasn't finished payment setup yet.</p>}<button className="primary" disabled={busy || (service.mode==='live' && !selected.seller_charges_enabled)} onClick={()=>setModal('checkout-address')}>{busy ? 'Processing…' : 'Buy now'}<ArrowRight size={16}/></button></>}<p>{selected.description}</p><ListingDetailSummary item={selected}/><div className="evidence-box"><h3><ShieldCheck size={18}/>Evidence notes</h3><p>{selected.evidence || 'No evidence has been provided yet. Ask for more information before reaching a conclusion.'}</p></div><CertificateDetails key={selected.id} item={selected}/><CredibilityDetails item={selected}/><ItemHistory key={selected.id+selected.version} item={selected} service={service}/><TriviaPanel key={selected.id} item={selected} service={service} signedIn={!!session}/><p className="field-note">Community assessments are opinions, not professional authentication.</p></section></div>
+          <div className="detail-grid"><div>{selected.media?.some(asset=>asset.kind==='item') ? <PhotoGallery key={selected.id} media={selected.media} title={selected.title}/> : <ItemArt kind={selected.artwork} category={selected.category} large/>}<PhotoGallery key={selected.id+'cert'} media={selected.media} kind="certificate" title={selected.title}/></div><section className="item-info"><span className="pill">{selected.category}</span><h1>{selected.title}</h1><p className="seller-name">Shared by {selected.seller_name}</p><p className="detail-price">{money(selected.price_cents)}</p>{session && !own && <>{service.mode==='live' && !selected.seller_charges_enabled && <p className="field-note">This seller hasn't finished payment setup yet.</p>}{myRequest?.status==='confirmed' ? <><p className="field-note">The seller confirmed this is still available.</p><button className="primary" disabled={busy} onClick={()=>setModal('checkout-address')}>Continue to checkout<ArrowRight size={16}/></button></> : myRequest?.status==='pending' ? <p role="status" className="field-note">Waiting for the seller to confirm this item is still available…</p> : <button className="primary" disabled={busy || (service.mode==='live' && !selected.seller_charges_enabled)} onClick={()=>requestToBuy(selected.id)}>{busy ? 'Processing…' : 'Ask to buy'}<ArrowRight size={16}/></button>}</>}<p>{selected.description}</p><ListingDetailSummary item={selected}/><div className="evidence-box"><h3><ShieldCheck size={18}/>Evidence notes</h3><p>{selected.evidence || 'No evidence has been provided yet. Ask for more information before reaching a conclusion.'}</p></div><CertificateDetails key={selected.id} item={selected}/><CredibilityDetails item={selected}/><ItemHistory key={selected.id+selected.version} item={selected} service={service}/><TriviaPanel key={selected.id} item={selected} service={service} signedIn={!!session}/><p className="field-note">Community assessments are opinions, not professional authentication.</p></section></div>
           <section className="audit-panel"><div><p className="eyebrow">LOOK CLOSER</p><h2>What does the evidence tell you?</h2><p className="muted">Explain what you observed. “Need more evidence” is a useful answer.</p></div>
             {!session ? <button className="primary" onClick={() => setModal('login')}>Sign in to audit <ArrowRight size={16}/></button>
               : own ? <p className="empty-inline">This is your listing. Other members can submit assessments.</p>
@@ -830,14 +871,19 @@ export default function App() {
         </> : ownedItem ? <>
           <button className="back-button" onClick={() => setSelectedId(null)}><ArrowLeft size={17}/>Back to listings</button>
           <div className="detail-grid"><div>{ownedItem.media?.some(asset=>asset.kind==='item') ? <PhotoGallery key={ownedItem.id} media={ownedItem.media} title={ownedItem.title}/> : <ItemArt category={ownedItem.category} large/>}<PhotoGallery key={ownedItem.id+'cert'} media={ownedItem.media} kind="certificate" title={ownedItem.title}/></div><section className="item-info"><span className="pill">{ownedItem.category}</span><h1>{ownedItem.title}</h1><p className="seller-name">Purchased {new Date(ownedItem.purchased_at).toLocaleDateString()}</p><p className="detail-price">{money(ownedItem.price_cents)}</p><p>{ownedItem.description}</p><ListingDetailSummary item={ownedItem}/><div className="evidence-box"><h3><Package size={18}/>Shipping</h3>{ownedItem.shipped_at ? <><p>Shipped {new Date(ownedItem.shipped_at).toLocaleDateString()}</p>{ownedItem.tracking_number && <p><a href={ownedItem.tracking_url} target="_blank" rel="noreferrer">Track: {ownedItem.tracking_number}</a></p>}{ownedItem.tracking_status && ownedItem.tracking_status !== 'UNKNOWN' && <p className="field-note">Status: {ownedItem.tracking_status}</p>}</> : <p className="field-note">The seller hasn't shipped this yet.</p>}<p className="field-note">{ownedItem.escrow_status === 'released' ? 'Payment released to the seller' : 'We hold your payment until delivery is confirmed'}{ownedItem.insured ? ' · Insured' : ''}</p></div><BuyerRefundPanel item={ownedItem} onRequested={refresh}/><MessageThread purchaseId={ownedItem.purchase_id} service={service} session={session} counterpartyLabel="seller" messageCount={ownedItem.message_count} autoOpen={focusPurchaseId === ownedItem.purchase_id} onFocused={() => setFocusPurchaseId(null)} onRead={refresh}/><CertificateDetails item={ownedItem}/><button className="primary" onClick={()=>setModal('relist')}><RefreshCw size={16}/>Relist this item</button></section></div>
+        </> : pendingBuy ? <>
+          <button className="back-button" onClick={() => setSelectedId(null)}><ArrowLeft size={17}/>Back to listings</button>
+          <div className="detail-grid"><div>{pendingBuy.media?.some(asset=>asset.kind==='item') ? <PhotoGallery key={pendingBuy.listing_id} media={pendingBuy.media} title={pendingBuy.title}/> : <ItemArt category={pendingBuy.category} large/>}</div><section className="item-info"><span className="pill">{pendingBuy.category}</span><h1>{pendingBuy.title}</h1><p className="detail-price">{money(pendingBuy.price_cents)}</p>{pendingBuy.status === 'confirmed' ? <><p className="field-note">The seller confirmed this is still available.</p><button className="primary" disabled={busy} onClick={()=>setModal('checkout-address')}>Continue to checkout<ArrowRight size={16}/></button></> : <p role="status" className="field-note">Waiting for the seller to confirm this item is still available…</p>}</section></div>
         </> : <>
           <section className="hero"><div className="hero-copy"><p className="eyebrow"><span className="small-line"/>{workspace === 'collector' ? 'FOR THE CURIOUS COLLECTOR' : workspace === 'seller' ? 'YOUR NEXT GREAT FIND STARTS HERE' : 'OBSERVATION OVER ASSUMPTION'}</p><h1>{workspace === 'collector' ? <>Good finds.<br/><em>Better informed.</em></> : workspace === 'seller' ? <>Your collection.<br/><em>A new chapter.</em></> : <>Look closer.<br/><em>Share what you see.</em></>}</h1><p>{workspace === 'collector' ? 'Discover pieces with a story. Explore the evidence. Collect with a community that cares about the details.' : workspace === 'seller' ? 'Give every piece the context it deserves. Share its story, its condition, and what you know.' : 'Help collectors make informed decisions. Review evidence, explain your reasoning, and keep learning.'}</p><button className="primary" onClick={workspace === 'seller' ? openCreate : () => document.getElementById('listings').scrollIntoView({ behavior: 'smooth' })}>{workspace === 'seller' ? 'Create a listing' : workspace === 'auditor' ? 'Explore the audit queue' : 'Explore the collection'}<ArrowUpRight size={18}/></button></div><div className="hero-mascot"><img src="/brand/king-credion-memorabilia-concept-v1.png" width="1166" height="1349" alt="King Credion holding a signed baseball beside a basketball and framed jersey" fetchPriority="high" /></div></section>
           <div className="values-strip"><span><Search size={16}/>Discover the details</span><span><ClipboardCheck size={16}/>Share your perspective</span><span><BookOpen size={16}/>Keep learning</span></div>
-          <section id="listings" className="listings-section"><div className="section-heading"><div><p className="eyebrow">{workspace === 'auditor' ? 'A FRESH PERSPECTIVE' : 'THE COLLECTION'}</p><h2>{workspace === 'seller' ? (sellerTab === 'sold' ? 'Sold items' : 'Your listings') : workspace === 'auditor' ? 'Ready for a closer look' : collectionFilter === 'owned' ? 'Items you own' : collectionFilter === 'saved' ? 'Items you saved' : 'Discover something worth keeping'}</h2></div><span className="item-count">{workspace === 'seller' && sellerTab === 'sold' ? sales.length : collectionItems.length} {(workspace === 'seller' && sellerTab === 'sold' ? sales.length : collectionItems.length) === 1 ? 'item' : 'items'}</span></div>
-            {workspace === 'seller' && session && <div className="categories" aria-label="Your listings"><button aria-pressed={sellerTab === 'active'} className={sellerTab === 'active' ? 'active' : ''} onClick={() => setSellerTab('active')}>Active</button><button aria-pressed={sellerTab === 'sold'} className={sellerTab === 'sold' ? 'active' : ''} onClick={() => setSellerTab('sold')}>Sold {sales.length ? `(${sales.length})` : ''}</button></div>}
+          <section id="listings" className="listings-section"><div className="section-heading"><div><p className="eyebrow">{workspace === 'auditor' ? 'A FRESH PERSPECTIVE' : 'THE COLLECTION'}</p><h2>{workspace === 'seller' ? (sellerTab === 'sold' ? 'Sold items' : sellerTab === 'requests' ? 'Buy requests' : 'Your listings') : workspace === 'auditor' ? 'Ready for a closer look' : collectionFilter === 'owned' ? 'Items you own' : collectionFilter === 'saved' ? 'Items you saved' : 'Discover something worth keeping'}</h2></div><span className="item-count">{workspace === 'seller' && sellerTab === 'sold' ? sales.length : workspace === 'seller' && sellerTab === 'requests' ? sellerBuyRequests.length : collectionItems.length} {(workspace === 'seller' && sellerTab === 'sold' ? sales.length : workspace === 'seller' && sellerTab === 'requests' ? sellerBuyRequests.length : collectionItems.length) === 1 ? 'item' : 'items'}</span></div>
+            {workspace === 'seller' && session && <div className="categories" aria-label="Your listings"><button aria-pressed={sellerTab === 'active'} className={sellerTab === 'active' ? 'active' : ''} onClick={() => setSellerTab('active')}>Active</button><button aria-pressed={sellerTab === 'requests'} className={sellerTab === 'requests' ? 'active' : ''} onClick={() => setSellerTab('requests')}>Requests {sellerBuyRequests.length ? `(${sellerBuyRequests.length})` : ''}</button><button aria-pressed={sellerTab === 'sold'} className={sellerTab === 'sold' ? 'active' : ''} onClick={() => setSellerTab('sold')}>Sold {sales.length ? `(${sales.length})` : ''}</button></div>}
             {workspace === 'collector' && session && <div className="categories" aria-label="My collection"><button aria-pressed={collectionFilter === 'all'} className={collectionFilter === 'all' ? 'active' : ''} onClick={() => setCollectionFilter('all')}>All items</button><button aria-pressed={collectionFilter === 'saved'} className={collectionFilter === 'saved' ? 'active' : ''} onClick={() => setCollectionFilter('saved')}><Heart size={14}/> Saved</button><button aria-pressed={collectionFilter === 'owned'} className={collectionFilter === 'owned' ? 'active' : ''} onClick={() => setCollectionFilter('owned')}>Owned</button></div>}
             {workspace === 'seller' && sellerTab === 'sold' ? (!sales.length ? <div className="empty-state"><Layers size={34}/><h3>Nothing sold yet.</h3><p>Sales will show up here, ready to ship.</p></div>
-              : <div className="items-grid">{sales.map(sale => <SoldItemCard key={sale.id} sale={sale} session={session} onShipped={shipped => setSales(list => list.map(s => s.id === shipped.id ? shipped : s))} onRefundChanged={refresh} focusPurchaseId={focusPurchaseId} onFocused={() => setFocusPurchaseId(null)}/>)}</div>) : <>
+              : <div className="items-grid">{sales.map(sale => <SoldItemCard key={sale.id} sale={sale} session={session} onShipped={shipped => setSales(list => list.map(s => s.id === shipped.id ? shipped : s))} onRefundChanged={refresh} focusPurchaseId={focusPurchaseId} onFocused={() => setFocusPurchaseId(null)}/>)}</div>)
+              : workspace === 'seller' && sellerTab === 'requests' ? (!sellerBuyRequests.length ? <div className="empty-state"><Layers size={34}/><h3>No buy requests right now.</h3><p>When a buyer wants to purchase one of your active listings, it'll show up here for you to confirm.</p></div>
+              : <div className="items-grid">{sellerBuyRequests.map(request => <BuyRequestCard key={request.id} request={request} onResolved={id => setSellerBuyRequests(list => list.filter(r => r.id !== id))}/>)}</div>) : <>
             {collectionFilter !== 'owned' && <div className="filters"><div className="categories" aria-label="Filter by category">{['All items', ...CATEGORIES].map(c => <button key={c} aria-pressed={category === c} className={category === c ? 'active' : ''} onClick={() => setCategory(c)}>{c}</button>)}</div><label className="search"><Search size={17}/><input aria-label="Search listings" value={query} onChange={e => setQuery(e.target.value)} placeholder="Find your next discovery"/></label></div>}
             {loading ? <p role="status" className="empty-state">Loading the collection…</p> : !collectionItems.length ? <div className="empty-state"><Layers size={34}/><h3>{workspace === 'seller' ? 'Your first listing starts here.' : collectionFilter === 'owned' ? 'Nothing purchased yet.' : collectionFilter === 'saved' ? 'Nothing saved yet.' : 'No items here yet.'}</h3><p>{workspace === 'seller' ? 'Add a piece and tell its story.' : collectionFilter === 'owned' ? 'Items you buy will show up here.' : collectionFilter === 'saved' ? 'Tap the heart on an item to save it here.' : 'Try a different category or search.'}</p>{workspace === 'seller' && <button className="primary" onClick={openCreate}>Create a listing <Plus size={17}/></button>}</div>
               : <div className="items-grid">{collectionItems.map(item => <button className="item-card" key={item.id} onClick={() => { setSelectedId(item.id); window.scrollTo({ top: 0 }); }} aria-label={`View ${item.title}`}><ItemArt kind={item.artwork} category={item.category} photo={item.media?.find(asset=>asset.kind==='item')?.url}/><div className="item-card-content"><div className="card-meta"><span>{item.category}</span>{collectionFilter === 'owned' ? <span>OWNED</span> : <><span>{item.sample ? 'SAMPLE' : 'NEW LISTING'}</span>{session && item.seller_id !== session.user.id && <span role="button" tabIndex={0} className="icon-button" aria-label={favoriteIds.includes(item.id) ? 'Remove from saved' : 'Save to collection'} onClick={event => { event.stopPropagation(); toggleFavorite(item.id); }}><Heart size={14} fill={favoriteIds.includes(item.id) ? 'currentColor' : 'none'}/></span>}</>}</div><h3>{item.title}</h3><p>{collectionFilter === 'owned' ? `Purchased ${new Date(item.purchased_at).toLocaleDateString()}` : item.seller_name}</p>{collectionFilter !== 'owned' && <CredibilityMeter score={item.credibility_score} compact/>}<div className="card-bottom"><strong>{money(item.price_cents)}</strong>{collectionFilter !== 'owned' && <span><ClipboardCheck size={14}/>{item.audit_count || 0} audits</span>}</div></div></button>)}</div>}
@@ -848,7 +894,7 @@ export default function App() {
       </main>
     </div>
     {modal === 'login' && <Modal title="Welcome to Credabilia" onClose={() => setModal(null)}><p className="muted">One account to collect, sell, and share your perspective.</p>{service.mode === 'demo' ? <><div className="evidence-box"><h3>Try the local preview</h3><p>These two separate practice accounts stay in this browser. Each can switch between all three workspaces. Real sign-in is available when the Supabase project is connected.</p></div><div className="form-stack">{DEMO_ACCOUNTS.map(account => <button key={account.id} className="primary full-width" onClick={() => signIn(account.id)} disabled={busy}>{busy ? 'Opening…' : `Continue as ${account.display_name}`}<ArrowRight size={18}/></button>)}</div></> : <><button className="primary full-width" onClick={() => signIn()} disabled={busy}>{busy ? 'Opening…' : 'Continue with Google'}<ArrowRight size={18}/></button><p className="field-note">or</p><EmailLogin/><p className="field-note">By continuing, you agree to Credabilia's <a href="/terms" target="_blank" rel="noreferrer">Terms of Service</a> and <a href="/privacy" target="_blank" rel="noreferrer">Privacy Policy</a>.</p></>}<p className="field-note">Your sign-in method does not determine your workspace. You can switch between all three after signing in.</p></Modal>}
-    {modal === 'checkout-address' && selected && <CheckoutAddress item={selected} profile={profile} busy={busy} onClose={() => setModal(null)} onConfirm={(address, applyCreditCents, wantInsurance) => { setModal(null); buyNow(selected.id, address, applyCreditCents, wantInsurance); }}/>}
+    {modal === 'checkout-address' && (selected || pendingBuy) && <CheckoutAddress item={selected || pendingBuy} profile={profile} busy={busy} onClose={() => setModal(null)} onConfirm={(address, applyCreditCents, wantInsurance) => { const id = selected?.id || pendingBuy?.listing_id; setModal(null); buyNow(id, address, applyCreditCents, wantInsurance); }}/>}
     {modal === 'create' && <CreateListing onClose={() => setModal(null)} onCreated={id => { setModal(null); setNotice('Your listing is published.'); setSelectedId(id); refresh(); }}/>}
     {modal === 'relist' && ownedItem && <CreateListing relistFrom={ownedItem} onClose={() => setModal(null)} onCreated={id => { setModal(null); setNotice('Your relisted item is published.'); switchWorkspace('seller'); setSelectedId(id); refresh(); }}/>}
     {modal === 'edit' && selected && own && <EditListing key={selected.id} item={selected} onClose={()=>setModal(null)} onSaved={()=>{setModal(null);setNotice('Your listing changes are saved.');refresh();}}/>}
