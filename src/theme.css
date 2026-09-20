@@ -1,0 +1,88 @@
+/* Single source of truth for every themeable color in the app. Light values below are the
+   app's current, already-live colors (captured from the branding.css-wins cascade, not
+   invented) -- so switching to tokens changes nothing visually in light mode, only where the
+   values are declared. Dark values keep the same brand hues (blue/teal/gold) but flip
+   lightness so surfaces/text/contrast work on a dark background -- this is why --green and
+   --on-brand swap direction (a brand-blue button needs to get *lighter* on a dark page to stay
+   legible, which then needs dark text on top of it instead of white). */
+:root{
+  color-scheme:light;
+  --bg:#fafaf7;--text:#243c48;
+  --surface:#fff;--surface-2:#edf2e5;--surface-2-border:#dde6cf;--surface-3:#efece3;
+  --text-muted:#596e78;
+  --border:#dce5e7;--border-soft:#dce3d3;--border-faint:#e5e9df;
+
+  --green:#205d78;--green-hover:#16475e;--on-brand:#fff;
+  --brand-teal:#17695f;--brand-gold:#bd8b32;
+  --focus-ring:#205d78;--focus-ring-input:#17695f;
+
+  --selected-bg:#e5f0ef;--selected-text:#185c54;
+  --hover-bg:#edf3f5;
+
+  --banner-bg:#eaf2f5;--banner-text:#365965;
+
+  --learning-bg:#faf4e7;--learning-border:#eadab6;--learning-icon:#8b6425;--learning-text:#655b47;
+
+  --hero-bg-start:#edf4f7;--hero-bg-end:#edf5f1;--hero-border:#d8e6e8;
+  --hero-heading:#234c62;--hero-eyebrow:#496977;--hero-ring-border:#cddfe0;
+
+  --error-bg:#fceee7;--error-text:#873d28;--error-border:#f0c9b8;
+  --success-bg:#e4efdc;--success-text:#375431;
+
+  --overlay:#172a2080;--shadow-dialog:#172a2040;--shadow-card:#253d2410;--shadow-panel:#172a2026;
+  --credibility-marker:#243b34;
+}
+@media(prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  color-scheme:dark;
+  --bg:#12181b;--text:#e7edf0;
+  --surface:#1c262b;--surface-2:#1f2b26;--surface-2-border:#33443b;--surface-3:#232d2a;
+  --text-muted:#9db0b8;
+  --border:#2c3a40;--border-soft:#33434a;--border-faint:#26333a;
+
+  --green:#5aa3c9;--green-hover:#7fb9d8;--on-brand:#06171d;
+  --brand-teal:#4fb3a0;--brand-gold:#e0ae57;
+  --focus-ring:#5aa3c9;--focus-ring-input:#4fb3a0;
+
+  --selected-bg:#1f3a3a;--selected-text:#7fd8c7;
+  --hover-bg:#223034;
+
+  --banner-bg:#1c333d;--banner-text:#a9cfe0;
+
+  --learning-bg:#2b2416;--learning-border:#4a3c22;--learning-icon:#e0ae57;--learning-text:#c9b98f;
+
+  --hero-bg-start:#16232a;--hero-bg-end:#16241f;--hero-border:#24373d;
+  --hero-heading:#bfe0ee;--hero-eyebrow:#8fb0bd;--hero-ring-border:#2a3f45;
+
+  --error-bg:#3a2018;--error-text:#f2a98c;--error-border:#5a2f20;
+  --success-bg:#1c2f1c;--success-text:#a6d9a0;
+
+  --overlay:#000000a6;--shadow-dialog:#00000066;--shadow-card:#00000040;--shadow-panel:#00000055;
+  --credibility-marker:#f2f5f3;
+}}
+:root[data-theme="dark"]{
+  color-scheme:dark;
+  --bg:#12181b;--text:#e7edf0;
+  --surface:#1c262b;--surface-2:#1f2b26;--surface-2-border:#33443b;--surface-3:#232d2a;
+  --text-muted:#9db0b8;
+  --border:#2c3a40;--border-soft:#33434a;--border-faint:#26333a;
+
+  --green:#5aa3c9;--green-hover:#7fb9d8;--on-brand:#06171d;
+  --brand-teal:#4fb3a0;--brand-gold:#e0ae57;
+  --focus-ring:#5aa3c9;--focus-ring-input:#4fb3a0;
+
+  --selected-bg:#1f3a3a;--selected-text:#7fd8c7;
+  --hover-bg:#223034;
+
+  --banner-bg:#1c333d;--banner-text:#a9cfe0;
+
+  --learning-bg:#2b2416;--learning-border:#4a3c22;--learning-icon:#e0ae57;--learning-text:#c9b98f;
+
+  --hero-bg-start:#16232a;--hero-bg-end:#16241f;--hero-border:#24373d;
+  --hero-heading:#bfe0ee;--hero-eyebrow:#8fb0bd;--hero-ring-border:#2a3f45;
+
+  --error-bg:#3a2018;--error-text:#f2a98c;--error-border:#5a2f20;
+  --success-bg:#1c2f1c;--success-text:#a6d9a0;
+
+  --overlay:#000000a6;--shadow-dialog:#00000066;--shadow-card:#00000040;--shadow-panel:#00000055;
+  --credibility-marker:#f2f5f3;
+}

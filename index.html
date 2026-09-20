@@ -4,6 +4,19 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="theme-color" content="#173f36" />
+    <!-- Applies a saved Light/Dark override before first paint (the dark palette itself is
+         already handled by @media(prefers-color-scheme:dark) in theme.css for "System" -- this
+         only needs to run for an explicit choice, plus keep this tag's own color honest). -->
+    <script>
+      (function () {
+        try {
+          var t = localStorage.getItem('credabilia-theme');
+          var dark = t === 'dark' || (t !== 'light' && window.matchMedia('(prefers-color-scheme: dark)').matches);
+          if (t === 'light' || t === 'dark') document.documentElement.setAttribute('data-theme', t);
+          document.querySelector('meta[name="theme-color"]').setAttribute('content', dark ? '#12181b' : '#173f36');
+        } catch (e) {}
+      })();
+    </script>
     <meta name="description" content="Credabilia — collect with curiosity, audit with evidence." />
     <link rel="manifest" href="/manifest.json" />
     <link rel="icon" type="image/png" sizes="32x32" href="/brand/app-icons/web/favicon-32.png" />

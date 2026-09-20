@@ -8,7 +8,7 @@ import { TriviaPanel } from './Trivia.jsx';
 import { ItemHistory } from './ItemHistory.jsx';
 import CertificateDetails, { CertificateFields } from './CertificateDetails.jsx';
 import React, { useEffect, useRef, useState } from 'react';
-import { ArrowUpRight, ArrowRight, Search, ShieldCheck, Plus, Store, Compass, ClipboardCheck, LogOut, X, Check, BookOpen, Sparkles, Layers, ArrowLeft, AlertCircle, Heart, Settings, RefreshCw, Package, Bell, MessageCircle } from 'lucide-react';
+import { ArrowUpRight, ArrowRight, Search, ShieldCheck, Plus, Store, Compass, ClipboardCheck, LogOut, X, Check, BookOpen, Sparkles, Layers, ArrowLeft, AlertCircle, Heart, Settings, RefreshCw, Package, Bell, MessageCircle, Sun, Moon, Monitor } from 'lucide-react';
 import { DEMO_ACCOUNTS } from './demo.js';
 import { makeService } from './service.js';
 import { Storefront } from './Storefront.jsx';
@@ -47,6 +47,60 @@ function NotificationBell({ notifications, onNavigate }) {
         : notifications.map(n => <button key={`${n.purchase_id}-${n.kind}`} type="button" className="notif-row" role="menuitem" onClick={() => { onNavigate(n); setOpen(false); }}>
             {n.kind === 'message' ? <MessageCircle size={16}/> : <AlertCircle size={16}/>}<span>{n.message}</span>
           </button>)}
+    </div>}
+  </div>;
+}
+
+const THEME_KEY = 'credabilia-theme';
+const THEME_OPTIONS = [
+  { value: 'light', label: 'Light', Icon: Sun },
+  { value: 'dark', label: 'Dark', Icon: Moon },
+  { value: 'system', label: 'System', Icon: Monitor },
+];
+
+// The dark palette in theme.css already applies itself via `@media(prefers-color-scheme:dark)`
+// for "System" -- this only needs to touch the DOM for an *explicit* light/dark override, and to
+// keep the address-bar theme-color tag honest (which CSS alone can't drive).
+function applyTheme(pref) {
+  const root = document.documentElement;
+  if (pref === 'system') root.removeAttribute('data-theme'); else root.setAttribute('data-theme', pref);
+  const isDark = pref === 'dark' || (pref === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches);
+  document.querySelector('meta[name="theme-color"]')?.setAttribute('content', isDark ? '#12181b' : '#173f36');
+}
+
+function ThemeToggle() {
+  const [theme, setTheme] = useState(() => { try { return localStorage.getItem(THEME_KEY) || 'system'; } catch { return 'system'; } });
+  const [open, setOpen] = useState(false);
+  const wrap = useRef(null);
+  useEffect(() => {
+    if (!open) return;
+    const onDocClick = event => { if (wrap.current && !wrap.current.contains(event.target)) setOpen(false); };
+    document.addEventListener('mousedown', onDocClick);
+    return () => document.removeEventListener('mousedown', onDocClick);
+  }, [open]);
+  // Keep the theme-color tag honest if the OS preference flips while this tab is open and the
+  // user hasn't overridden it -- the CSS itself already updates on its own via the media query.
+  useEffect(() => {
+    if (theme !== 'system') return;
+    const mql = window.matchMedia('(prefers-color-scheme: dark)');
+    const onChange = () => applyTheme('system');
+    mql.addEventListener('change', onChange);
+    return () => mql.removeEventListener('change', onChange);
+  }, [theme]);
+  function choose(value) {
+    setTheme(value); setOpen(false);
+    try { localStorage.setItem(THEME_KEY, value); } catch {}
+    applyTheme(value);
+  }
+  const Current = THEME_OPTIONS.find(o => o.value === theme)?.Icon || Monitor;
+  return <div className="notif-wrap" ref={wrap}>
+    <button className="icon-button" aria-label={`Theme: ${theme}`} title="Theme" onClick={() => setOpen(o => !o)}>
+      <Current size={18}/>
+    </button>
+    {open && <div className="notif-panel theme-panel" role="menu">
+      {THEME_OPTIONS.map(({ value, label, Icon }) => <button key={value} type="button" className="notif-row" role="menuitemradio" aria-checked={theme === value} onClick={() => choose(value)}>
+        <Icon size={16}/><span>{label}</span>{theme === value && <Check size={14} className="theme-check"/>}
+      </button>)}
     </div>}
   </div>;
 }
@@ -719,7 +773,7 @@ export default function App() {
     <header className="topbar">
       <button className="brand" onClick={() => switchWorkspace('collector')} aria-label="Credabilia home"><Brand/></button>
       <nav aria-label="Main navigation"><button className={workspace === 'collector' ? 'nav-current' : ''} onClick={() => switchWorkspace('collector')}>Discover</button><button className={workspace === 'auditor' ? 'nav-current' : ''} onClick={() => switchWorkspace('auditor')}>Community audits</button></nav>
-      <div className="account-actions"><button className="text-button sell-top" onClick={openCreate}><Plus size={16}/>List an item</button>{session && <button className="icon-button" aria-label="Ask King Credion" title="Ask King Credion" onClick={() => setModal('support')} style={{width:64,height:64}}><img src="/brand/king-credion-chat-icon-ai.png" alt="" width={54} height={54} style={{objectFit:'contain'}}/></button>}{session && <NotificationBell notifications={notifications} onNavigate={focusNotification}/>}{session ? <><button className="avatar" aria-label="Profile and settings" title={profile?.display_name} onClick={() => setModal('profile')}>{profile?.display_name?.slice(0,1) || 'C'}</button><button className="icon-button" aria-label="Sign out" title="Sign out" onClick={signOut}><LogOut size={18}/></button></> : <button className="primary compact" onClick={() => setModal('login')} disabled={!authReady}>Sign in <ArrowUpRight size={16}/></button>}</div>
+      <div className="account-actions"><button className="text-button sell-top" onClick={openCreate}><Plus size={16}/>List an item</button><ThemeToggle/>{session && <button className="icon-button" aria-label="Ask King Credion" title="Ask King Credion" onClick={() => setModal('support')} style={{width:64,height:64}}><img src="/brand/king-credion-chat-icon-ai.png" alt="" width={54} height={54} style={{objectFit:'contain'}}/></button>}{session && <NotificationBell notifications={notifications} onNavigate={focusNotification}/>}{session ? <><button className="avatar" aria-label="Profile and settings" title={profile?.display_name} onClick={() => setModal('profile')}>{profile?.display_name?.slice(0,1) || 'C'}</button><button className="icon-button" aria-label="Sign out" title="Sign out" onClick={signOut}><LogOut size={18}/></button></> : <button className="primary compact" onClick={() => setModal('login')} disabled={!authReady}>Sign in <ArrowUpRight size={16}/></button>}</div>
     </header>
     <div className="page-layout">
       <aside className="sidebar">
