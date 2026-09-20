@@ -3,6 +3,7 @@ import { editableFields } from './listingEdits.js';
 import { createClient } from '@supabase/supabase-js';
 import { createDemoService } from './demo.js';
 import { listingInput, auditInput } from './domain.js';
+import { pushSupported, currentPushSubscription, enablePush, disablePush } from './push.js';
 
 const url = import.meta.env.VITE_SUPABASE_URL?.trim();
 const key = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY?.trim();
@@ -83,6 +84,21 @@ export function makeService() {
       const {data,error}=await client.functions.invoke('draft-listing',{body:{notes,photo_path:photoPath}});
       if(error) { let detail; try {detail=await error.context?.json();} catch {} throw new Error(detail?.error || 'AI listing drafts are not available yet. Fill in the details manually.'); }
       return data;
+    },
+    async pushSubscriptionStatus() {
+      const subscription=await currentPushSubscription();
+      return {supported:pushSupported(),subscribed:!!subscription};
+    },
+    async enableNotifications() {
+      const vapidKey=import.meta.env.VITE_VAPID_PUBLIC_KEY;
+      if(!vapidKey) throw new Error('Push notifications are not connected yet.');
+      const subscription=await enablePush(vapidKey);
+      const json=subscription.toJSON();
+      unwrap(await client.rpc('save_push_subscription',{p_endpoint:json.endpoint,p_p256dh:json.keys.p256dh,p_auth:json.keys.auth}));
+    },
+    async disableNotifications() {
+      const subscription=await disablePush();
+      if(subscription) await client.rpc('remove_push_subscription',{p_endpoint:subscription.endpoint}).catch(()=>{});
     },
     async myAudits() { return unwrap(await client.from('audits').select('id,listing_id,verdict,explanation,created_at,listing_version').order('created_at', { ascending: false })); },
     async getTrivia(listingId) { return unwrap(await client.rpc('get_listing_trivia', { p_listing_id: listingId })); },

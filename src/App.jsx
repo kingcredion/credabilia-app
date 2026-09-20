@@ -585,6 +585,24 @@ function SoldItemCard({ sale, session, onShipped, onRefundChanged, focusPurchase
   </div>;
 }
 
+function NotificationSettings() {
+  const [status, setStatus] = useState(null), [busy, setBusy] = useState(false), [error, setError] = useState('');
+  useEffect(() => { service.pushSubscriptionStatus().then(setStatus).catch(() => setStatus({ supported: false, subscribed: false })); }, []);
+  async function toggle() {
+    setBusy(true); setError('');
+    try {
+      if (status.subscribed) { await service.disableNotifications(); setStatus({ ...status, subscribed: false }); }
+      else { await service.enableNotifications(); setStatus({ ...status, subscribed: true }); }
+    } catch (err) { setError(err.message); } finally { setBusy(false); }
+  }
+  if (!status || !status.supported) return null;
+  return <div className="evidence-box"><h3>Notifications</h3>
+    <p className="field-note">{status.subscribed ? 'You’ll get a push notification here for new messages and refund updates.' : 'Turn on push notifications for new messages and refund updates on this device.'}</p>
+    {error && <p role="alert" className="error">{error}</p>}
+    <button type="button" className="text-button" onClick={toggle} disabled={busy}>{busy ? 'Working…' : status.subscribed ? 'Turn off notifications' : 'Enable notifications'}</button>
+  </div>;
+}
+
 function ProfileSettings({ profile, session, onSaved, onSignOut }) {
   // A seller who hasn't connected payouts yet needs to see that prompt first, not a wall of zeros.
   const needsPayoutSetup = service.mode === 'live' && !profile?.stripe_charges_enabled && !profile?.stripe_details_submitted;
@@ -622,6 +640,7 @@ function ProfileSettings({ profile, session, onSaved, onSignOut }) {
       </form>
       <StorefrontSettings profile={profile}/>
       <ShippingSettings profile={profile}/>
+      <NotificationSettings/>
       <div className="evidence-box"><h3>Payouts</h3>
         {service.mode !== 'live' ? <p className="field-note">Coming soon. You'll be able to add bank details here before real checkout launches — nothing is collected yet.</p>
           : profile?.stripe_charges_enabled ? <><p className="field-note">Payments are connected. Your sales pay out to your own Stripe account.</p><button type="button" className="text-button" onClick={openDashboard} disabled={stripeBusy}>{stripeBusy ? 'Opening…' : 'Open your Stripe dashboard'}</button></>

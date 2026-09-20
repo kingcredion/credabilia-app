@@ -12,13 +12,14 @@ export default defineConfig({
       registerType: 'autoUpdate',
       injectRegister: 'auto',
       devOptions: { enabled: false },
-      workbox: {
-        // Deliberately no runtimeCaching rules: every Supabase call (listings, purchases,
-        // refunds, balances) must always hit the network, never a cached response -- this is a
-        // live marketplace, not content that's safe to serve stale. Precaching only covers the
-        // built JS/CSS/HTML app shell, so the UI itself still loads instantly offline; the
-        // app's own existing error states handle the "no network" case for data.
-        navigateFallback: '/index.html',
+      // injectManifest (a custom src/sw.js), not generateSW: push notifications need a real
+      // `push`/`notificationclick` handler, which a fully auto-generated service worker has no
+      // room for. src/sw.js still precaches the same app-shell-only, no-runtime-caching build.
+      strategies: 'injectManifest',
+      srcDir: 'src',
+      filename: 'sw.js',
+      injectManifest: {
+        globPatterns: ['**/*.{js,css,html}'],
       },
     }),
   ],

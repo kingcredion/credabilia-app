@@ -34,6 +34,9 @@ export function createDemoService(storage = window.localStorage) {
       delete state.uploads[path];save();
     },
     async removeBackground() {throw new Error('Background removal requires the connected app and an AI service. Not available in this practice preview.');},
+    async pushSubscriptionStatus() {return {supported:false,subscribed:false};},
+    async enableNotifications() {throw new Error('Push notifications require the connected app. Not available in this practice preview.');},
+    async disableNotifications() {},
     async extractCertificate() {throw new Error('AI reading requires the connected app and an AI service. Enter certificate details manually in this practice preview.');},
     async draftListing() {throw new Error('AI drafts require the connected app and an AI service. Fill in the details manually in this practice preview.');},
     async getTrivia() {return null;},
