@@ -21,11 +21,20 @@ export function MediaPicker({service,media,onChange,busy,onBusy,onError}) {
     try {await service.removeImage(asset.path);onChange(media.filter(x=>x.path!==asset.path));}
     catch(error){onError(error.message);}finally{onBusy(false);}
   }
+  async function removeBackground(asset) {
+    onBusy(true);onError('');
+    try {
+      const replaced=await service.removeBackground(asset.path);
+      onChange(media.map(x=>x.path===asset.path?replaced:x));
+    } catch(error){onError(error.message);}finally{onBusy(false);}
+  }
   return <fieldset className="form-stack"><legend>Photos and certificate images</legend>
     <p className="field-note">JPEG, PNG or WebP · up to 5 MB each. Photos become visible to buyers when you publish.</p>
     {Object.entries(MEDIA_LIMITS).map(([kind,limit])=><div key={kind}>
       <label>{kind==='item'?'Item photos':'Certificate photos'} · up to {limit}<input aria-label={kind==='item'?'Add item photos':'Add certificate photos'} type="file" accept="image/jpeg,image/png,image/webp" multiple disabled={busy} onChange={event=>add(event,kind)}/></label>
-      <div className="photo-thumbnails">{media.filter(asset=>asset.kind===kind).map((asset,index)=><div key={asset.path}><img src={asset.url} alt={`${kind} photo ${index+1}`}/><button type="button" className="text-button" disabled={busy} onClick={()=>remove(asset)} aria-label={`Remove ${kind} photo ${index+1}`}>Remove</button></div>)}</div>
+      <div className="photo-thumbnails">{media.filter(asset=>asset.kind===kind).map((asset,index)=><div key={asset.path}><img src={asset.url} alt={`${kind} photo ${index+1}`}/>
+        {kind==='item' && index===0 && <button type="button" className="text-button" disabled={busy} onClick={()=>removeBackground(asset)}>Remove background</button>}
+        <button type="button" className="text-button" disabled={busy} onClick={()=>remove(asset)} aria-label={`Remove ${kind} photo ${index+1}`}>Remove</button></div>)}</div>
     </div>)}
     {busy && <p role="status">Preparing photos…</p>}
   </fieldset>;

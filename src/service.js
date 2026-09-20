@@ -59,6 +59,17 @@ export function makeService() {
       // edit_listing() still detaches it from the listing server-side when the seller updates their photos.
       await client.storage.from('listing-media').remove([path]);
     },
+    async removeBackground(path) {
+      const {data,error}=await client.functions.invoke('remove-background',{body:{path}});
+      if(error) { let detail; try {detail=await error.context?.json();} catch {} throw new Error(detail?.error || 'Could not remove the background right now.'); }
+      const user=unwrap(await client.auth.getUser()).user;
+      if(!user) throw new Error('Sign in to add photos.');
+      const newPath=user.id+'/'+crypto.randomUUID()+'.png';
+      unwrap(await client.storage.from('listing-media').upload(newPath,data,{contentType:'image/png',upsert:false}));
+      const signed=unwrap(await client.storage.from('listing-media').createSignedUrl(newPath,3600));
+      await client.storage.from('listing-media').remove([path]).catch(()=>{});
+      return {path:newPath,kind:'item',url:signed.signedUrl};
+    },
     async extractCertificate(path) {
       const {data,error}=await client.functions.invoke('extract-certificate',{body:{path}});
       if(error) { let detail; try {detail=await error.context?.json();} catch {} throw new Error(detail?.error || 'Certificate reading is not available yet. Enter the details manually.'); }

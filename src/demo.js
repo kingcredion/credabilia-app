@@ -33,6 +33,7 @@ export function createDemoService(storage = window.localStorage) {
       if(!path.startsWith(state.userId+'/') || state.listings.some(item=>(item.media || []).some(asset=>asset.path===path))) throw new Error('This photo cannot be removed.');
       delete state.uploads[path];save();
     },
+    async removeBackground() {throw new Error('Background removal requires the connected app and an AI service. Not available in this practice preview.');},
     async extractCertificate() {throw new Error('AI reading requires the connected app and an AI service. Enter certificate details manually in this practice preview.');},
     async draftListing() {throw new Error('AI drafts require the connected app and an AI service. Fill in the details manually in this practice preview.');},
     async getTrivia() {return null;},
