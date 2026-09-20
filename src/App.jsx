@@ -2,6 +2,7 @@ import { Brand } from './Brand.jsx';
 import { ListingDetailFields, ListingDetailSummary } from './ListingDetails.jsx';
 import { listingMatches, DETAIL_FIELDS } from './listingDetails.js';
 import { MediaPicker, PhotoGallery } from './ListingMedia.jsx';
+import { mainPhotoBackgroundRemoved } from './media.js';
 import { certificateSuggestion } from './certificates.js';
 import CredibilityDetails, { CredibilityMeter } from './CredibilityDetails.jsx';
 import { TriviaPanel } from './Trivia.jsx';
@@ -173,6 +174,8 @@ function CreateListing({ onClose, onCreated, relistFrom }) {
     try {
       if(certificates.length && !certificate.certificate_issuer) throw new Error('Choose the issuer for your certificate photos.');
       if(certificate.certificate_issuer && !confirmed) throw new Error('Confirm the certificate details before publishing.');
+      if(!media.some(asset=>asset.kind==='item')) throw new Error('Add at least one item photo.');
+      if(!mainPhotoBackgroundRemoved(media)) throw new Error('Remove the background from your main photo before publishing.');
       const form = Object.fromEntries(new FormData(event.currentTarget));
       const attributes = Object.fromEntries(Object.entries(form).filter(([key])=>key.startsWith('attribute:')).map(([key,value])=>[key.slice(10),value]));
       const id = await service.createListing({ ...form, attributes, ...certificate, media, price_cents: priceInCents(form.price) });
@@ -239,6 +242,10 @@ function EditListing({item:currentItem,onClose,onSaved}) {
     setSaving(true);setError('');
     try{
       if(certificate.certificate_issuer && certificateChanged && !confirmed) throw new Error('Confirm the certificate details before saving.');
+      if(mediaTouched) {
+        if(!media.some(asset=>asset.kind==='item')) throw new Error('Add at least one item photo.');
+        if(!mainPhotoBackgroundRemoved(media)) throw new Error('Remove the background from your main photo before saving.');
+      }
       await service.editListing(item,{...form,...certificate,media,price_cents:priceInCents(form.price)},mediaTouched);
       onSaved();
     }

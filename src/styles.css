@@ -15,3 +15,4 @@
 @media(max-width:600px){.notif-panel{position:fixed;left:16px;right:16px;top:62px;width:auto;max-height:min(380px,calc(100vh - 90px))}}
 .theme-panel{width:160px}.theme-panel .notif-row{justify-content:flex-start}.theme-check{margin-left:auto;color:var(--green)}
 @media(max-width:600px){.theme-panel{position:absolute;left:auto;right:0;top:calc(100% + 10px);width:160px}}
+.bg-removed-ok{color:var(--success-text)}

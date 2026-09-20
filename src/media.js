@@ -18,6 +18,13 @@ export async function prepareImage(file) {
     return blob;
   } finally { bitmap.close(); }
 }
+// The main/first item photo must have its background removed before a listing can publish --
+// the only uploads that are ever .png are background-removal results (everything else is
+// re-encoded to .jpg by prepareImage above), so the extension alone is a reliable signal.
+export function mainPhotoBackgroundRemoved(media=[]) {
+  const first = media.find(asset=>asset.kind==='item');
+  return !!first && /[.]png$/.test(first.path);
+}
 export function mediaInput(media=[]) {
   if (!Array.isArray(media) || media.length>9) throw new Error('Choose up to six item photos and three certificate photos.');
   for(const kind of Object.keys(MEDIA_LIMITS)) if(media.filter(x=>x.kind===kind).length>MEDIA_LIMITS[kind]) throw new Error(`Too many ${kind} photos.`);
