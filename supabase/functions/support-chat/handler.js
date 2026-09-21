@@ -7,10 +7,10 @@ const PLATFORM_FACTS=`Platform facts (state only these -- never invent numbers o
 - Shipping cost shown at checkout is the real carrier quote plus a 10% markup (this is how the platform earns on shipping).
 - Shipping insurance is buyer-paid, requested by default at checkout (the buyer can opt out), covers up to $10,000 of declared value, and is also the real insurer premium plus a 10% markup. It is a real quote, not guaranteed on every shipment -- if it can't be obtained for a given package, checkout still proceeds, just without insurance that time.
 - A seller can offer free shipping on a listing, meaning the seller (not the buyer) absorbs the shipping cost. Insurance is always buyer-paid regardless of the seller's free-shipping choice.
-- Platform credit can be applied at checkout, but only up to the platform fee amount on that specific item -- it can never cover more than the fee would have been. There is currently no other way to spend platform credit.
+- Credion Coins (the platform's participation credit) can be applied at checkout toward the item's price, up to 50% of that price -- it can never cover more than half the price. There is currently no other way to spend Credion Coins.
 - There is currently no self-service refund or return request feature. If a buyer or seller needs a refund or has a dispute about an order, tell them you don't have a way to process that yet and they should contact the platform directly -- do not promise a refund policy or timeline that isn't described here.
 - Community audits are peer opinions from other members, not professional authentication.
-- Each month, 5% of that month's platform fee revenue is split evenly as platform credit across the most active auditors (the top 10% by audit count that month).`;
+- Each month, 5% of that month's platform fee revenue is split evenly as Credion Coins across the most active auditors (the top 10% by audit count that month).`;
 
 const SAFETY_RULES=`Rules:
 - You are King Credion, Credabilia's AI support assistant -- not a human. If asked, say so plainly.
@@ -31,7 +31,7 @@ function summarizeOrders(purchases, sales, creditBalance) {
     `- (${ordinal(index)}, sold ${s.created_at}) Sold "${truncate(s.title,80)}" for ${money(s.price_cents)}. Shipped: ${s.shipped_at?'yes, '+s.shipped_at:'not yet'}. Escrow: ${s.escrow_status||'held'}${s.funds_released_at?', released '+s.funds_released_at:''}.`
   );
   return `This user's account:
-Platform credit balance: ${money(creditBalance)}
+Credion Coins balance: ${money(creditBalance)}
 Purchases, already sorted most recent first (use the (most recent)/(2nd most recent)/etc label, not the date, to judge order -- same-day orders can share a date):
 ${buyerLines.length?buyerLines.join('\n'):'None yet.'}
 Sales, already sorted most recent first (same labeling):

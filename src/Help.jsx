@@ -41,8 +41,8 @@ export function HelpPage() {
     <h3>What do community audits and credibility scores mean?</h3>
     <p>Community assessments are opinions from other members based on photos and descriptions — not professional authentication. A credibility score reflects certificate information and community assessments together; it's a starting point, not a guarantee. For valuable purchases, we recommend seeking qualified authentication.</p>
 
-    <h3>Can I apply platform credit?</h3>
-    <p>Yes, at checkout, up to the platform fee amount on that item.</p>
+    <h3>What are Credion Coins?</h3>
+    <p>Credion Coins are credit Credabilia awards for participation — like being a top auditor in a given month. At checkout, you can apply them toward the item's price, up to 50% of that price.</p>
 
     <p className="field-note">Didn't find your answer? Call, email, or ask King Credion above — a real question always gets a real answer.</p>
   </div>;

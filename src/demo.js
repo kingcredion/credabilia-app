@@ -131,7 +131,9 @@ export function createDemoService(storage = window.localStorage) {
       if(applyCreditCents>0) {
         const balance=state.credits.filter(c=>c.user_id===state.userId).reduce((sum,c)=>sum+c.amount_cents,0);
         if(applyCreditCents>balance) throw new Error('You do not have that much credit available.');
-        creditToApply=Math.min(applyCreditCents,platformFeeCents);
+        // Credion Coins apply toward the item's price, up to 50% of it -- matches
+        // reserve_listing_checkout()'s live cap, not the platform fee.
+        creditToApply=Math.min(applyCreditCents,Math.round(item.price_cents*0.5));
       }
       // Fakes a marked-up quote using the listing's own stored dimensions, matching the live
       // "real Shippo quote at checkout" flow without a real carrier call in this local preview.

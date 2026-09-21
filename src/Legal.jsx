@@ -65,8 +65,8 @@ export function TermsPage() {
     <h2>10. Refunds, returns, and disputes</h2>
     <p>If a buyer requests a refund, the seller can accept it in full, offer a partial refund, require the item be shipped back before issuing a refund, or contest the request. Required returns ship on a prepaid label at Credabilia's cost; a refund is issued automatically once tracking confirms the item was delivered back to the seller. If a seller contests a request, Credabilia reviews the case and decides the outcome. We may reverse a payment to a seller's Stripe account to fund a refund. This section describes how the feature works — it is not a warranty or guarantee about any particular item, and does not limit whatever other rights you may have under applicable law.</p>
 
-    <h2>11. Platform credit</h2>
-    <p>Credabilia may award platform credit (for example, through community participation rewards) that can be applied toward a future purchase's fees, up to the limits shown at checkout. Platform credit has no cash value, is non-transferable, and may expire or be forfeited if your account is closed or terminated.</p>
+    <h2>11. Credion Coins</h2>
+    <p>Credabilia may award Credion Coins (for example, through community participation rewards) that can be applied toward a future purchase's price, up to the limits shown at checkout. Credion Coins have no cash value, are non-transferable, and may expire or be forfeited if your account is closed or terminated.</p>
 
     <h2>12. Prohibited conduct</h2>
     <p>You agree not to: list stolen, counterfeit, or illegal items; submit false certificate information or fraudulent community assessments; harass, threaten, or impersonate another user; attempt to complete a transaction outside the Service to avoid fees; interfere with or attempt to circumvent the Service's security; or use the Service in a way that violates any applicable law.</p>

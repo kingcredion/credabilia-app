@@ -293,7 +293,7 @@ function DashboardStats() {
     ['Items sold', stats.items_sold], ['Revenue earned', money(stats.revenue_cents)],
     ['Items bought', stats.items_bought], ['Items relisted', stats.items_relisted],
     ['Audits given', stats.audits_given], ['Audits received', stats.audits_received],
-    ['Platform credit', money(credit || 0)],
+    ['Credion Coins', money(credit || 0)],
   ];
   // Only ever non-null for the platform operator's own account -- operator_open_dispute_count()
   // self-gates server-side, so this tile is real access control, not just hidden in the UI.
@@ -412,10 +412,10 @@ function CheckoutAddress({ item, profile, busy, onClose, onConfirm }) {
   const [wantInsurance, setWantInsurance] = useState(true);
   const [verified, setVerified] = useState(false);
   useEffect(() => { service.myCreditBalance().then(setBalance).catch(() => {}); }, []);
-  // Mirrors platform_fee_cents() -- the server re-validates and clamps this regardless, this is
-  // just so the buyer sees an accurate number before submitting, not a real cap enforcement.
-  const feeCap = Math.round(item.price_cents * 0.136) + (item.price_cents <= 1000 ? 30 : 40);
-  const creditToApply = applyCredit && balance ? Math.min(balance, feeCap) : 0;
+  // Mirrors reserve_listing_checkout()'s own cap -- the server re-validates and clamps this
+  // regardless, this is just so the buyer sees an accurate number before submitting.
+  const coinCap = Math.round(item.price_cents * 0.5);
+  const creditToApply = applyCredit && balance ? Math.min(balance, coinCap) : 0;
   function submit(event) {
     event.preventDefault();
     const required = ['name', 'street1', 'city', 'state', 'zip', 'country'];
@@ -427,7 +427,7 @@ function CheckoutAddress({ item, profile, busy, onClose, onConfirm }) {
     <p className="muted">Where should "{item.title}" be shipped? This is for this order only — your saved default lives in Profile settings.</p>
     <form className="form-stack" onSubmit={submit}>
       <ShippingAddressFields value={address} onChange={setAddress} disabled={busy} onVerifiedChange={setVerified}/>
-      {!!balance && <label className="certificate-confirm"><input type="checkbox" checked={applyCredit} onChange={event => setApplyCredit(event.target.checked)} disabled={busy}/>Apply {money(Math.min(balance, feeCap))} credit to this order (you have {money(balance)} available)</label>}
+      {!!balance && <label className="certificate-confirm"><input type="checkbox" checked={applyCredit} onChange={event => setApplyCredit(event.target.checked)} disabled={busy}/>Apply {money(Math.min(balance, coinCap))} in Credion Coins to this order (you have {money(balance)} available)</label>}
       <label className="certificate-confirm"><input type="checkbox" checked={wantInsurance} onChange={event => setWantInsurance(event.target.checked)} disabled={busy}/>Insure this item for shipping (covers loss or damage in transit — exact cost shown at payment)</label>
       {error && <p role="alert" className="error">{error}</p>}
       <button className="primary" disabled={busy || !verified}>{busy ? 'Processing…' : 'Continue to payment'}<ArrowRight size={16}/></button>
