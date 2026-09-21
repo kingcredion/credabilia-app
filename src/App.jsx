@@ -326,20 +326,28 @@ function StorefrontSettings({ profile }) {
 
 const REQUIRED_ADDRESS_FIELDS = ['street1', 'city', 'state', 'zip', 'country'];
 
-function ShippingAddressFields({ value, onChange, disabled }) {
-  const set = key => event => { onChange({ ...value, [key]: event.target.value }); setVerification(null); };
+function ShippingAddressFields({ value, onChange, disabled, onVerifiedChange }) {
   const [verifying, setVerifying] = useState(false);
   const [verifyError, setVerifyError] = useState('');
   const [verification, setVerification] = useState(null);
+  const [resolved, setResolved] = useState(false);
+  useEffect(() => { onVerifiedChange?.(resolved); }, [resolved]);
+  const set = key => event => { onChange({ ...value, [key]: event.target.value }); setVerification(null); setResolved(false); };
   const canVerify = REQUIRED_ADDRESS_FIELDS.every(key => value[key]?.trim());
   const differs = verification && REQUIRED_ADDRESS_FIELDS.concat('street2').some(key => (verification.suggested[key] || '').trim().toLowerCase() !== (value[key] || '').trim().toLowerCase());
   async function verify() {
-    setVerifying(true); setVerifyError(''); setVerification(null);
-    try { setVerification(await service.validateAddress(value)); }
+    setVerifying(true); setVerifyError(''); setVerification(null); setResolved(false);
+    try {
+      const result = await service.validateAddress(value);
+      setVerification(result);
+      const stillDiffers = REQUIRED_ADDRESS_FIELDS.concat('street2').some(key => (result.suggested[key] || '').trim().toLowerCase() !== (value[key] || '').trim().toLowerCase());
+      if (!stillDiffers) setResolved(true);
+    }
     catch (err) { setVerifyError(err.message); }
     finally { setVerifying(false); }
   }
-  function useSuggested() { onChange({ ...value, ...verification.suggested }); setVerification(null); }
+  function useSuggested() { onChange({ ...value, ...verification.suggested }); setVerification(null); setResolved(true); }
+  function keepAsEntered() { setVerification(null); setResolved(true); }
   return <>
     <label>Full name<input value={value.name || ''} onChange={set('name')} maxLength={100} required disabled={disabled}/></label>
     <div className="form-row">
@@ -358,22 +366,25 @@ function ShippingAddressFields({ value, onChange, disabled }) {
     <button type="button" className="text-button" onClick={verify} disabled={disabled || verifying || !canVerify}><ShieldCheck size={16}/>{verifying ? 'Checking…' : 'Verify address'}</button>
     {verifyError && <p role="alert" className="error">{verifyError}</p>}
     {verification && !differs && <p className="field-note bg-removed-ok">{verification.is_valid ? '✓ Address verified.' : 'Checked — no standardized match found. Double-check for typos, or continue if you\'re sure it\'s correct.'}</p>}
+    {resolved && !verification && <p className="field-note bg-removed-ok">✓ Ready to continue.</p>}
     {verification && differs && <div className="evidence-box">
       <p className="field-note">{verification.is_valid ? 'We found a standardized match:' : 'Closest match found (unconfirmed) — double-check before using it:'}</p>
       <p>{verification.suggested.street1}{verification.suggested.street2 ? `, ${verification.suggested.street2}` : ''}<br/>{verification.suggested.city}, {verification.suggested.state} {verification.suggested.zip}</p>
       <div className="form-row">
         <button type="button" className="primary" disabled={disabled} onClick={useSuggested}>Use this address</button>
-        <button type="button" className="text-button" disabled={disabled} onClick={() => setVerification(null)}>Keep as entered</button>
+        <button type="button" className="text-button" disabled={disabled} onClick={keepAsEntered}>Keep as entered</button>
       </div>
     </div>}
+    {!resolved && !verifying && <p className="field-note">Verify your address above before continuing.</p>}
   </>;
 }
 
 function ShippingSettings({ profile }) {
   const [address, setAddress] = useState(profile?.shipping_address || {});
   const [saving, setSaving] = useState(false), [error, setError] = useState(''), [saved, setSaved] = useState(false);
+  const [verified, setVerified] = useState(false);
   async function submit(event) {
-    event.preventDefault(); if (saving) return;
+    event.preventDefault(); if (saving || !verified) return;
     setSaving(true); setError(''); setSaved(false);
     try { await service.saveShippingAddress(address); setSaved(true); }
     catch (err) { setError(err.message); } finally { setSaving(false); }
@@ -381,9 +392,9 @@ function ShippingSettings({ profile }) {
   return <div className="evidence-box"><h3>Shipping address</h3>
     <p className="field-note">Used as your return address when you sell, and to pre-fill checkout when you buy. You can still edit it for any specific order.</p>
     <form className="form-stack" onSubmit={submit}>
-      <ShippingAddressFields value={address} onChange={value => { setAddress(value); setSaved(false); }} disabled={saving}/>
+      <ShippingAddressFields value={address} onChange={value => { setAddress(value); setSaved(false); }} disabled={saving} onVerifiedChange={setVerified}/>
       {error && <p role="alert" className="error">{error}</p>}
-      <button className="primary" disabled={saving}>{saving ? 'Saving…' : saved ? 'Saved' : 'Save address'}</button>
+      <button className="primary" disabled={saving || !verified}>{saving ? 'Saving…' : saved ? 'Saved' : 'Save address'}</button>
     </form>
   </div>;
 }
@@ -394,6 +405,7 @@ function CheckoutAddress({ item, profile, busy, onClose, onConfirm }) {
   const [balance, setBalance] = useState(null);
   const [applyCredit, setApplyCredit] = useState(false);
   const [wantInsurance, setWantInsurance] = useState(true);
+  const [verified, setVerified] = useState(false);
   useEffect(() => { service.myCreditBalance().then(setBalance).catch(() => {}); }, []);
   // Mirrors platform_fee_cents() -- the server re-validates and clamps this regardless, this is
   // just so the buyer sees an accurate number before submitting, not a real cap enforcement.
@@ -403,16 +415,17 @@ function CheckoutAddress({ item, profile, busy, onClose, onConfirm }) {
     event.preventDefault();
     const required = ['name', 'street1', 'city', 'state', 'zip', 'country'];
     if (required.some(key => !address[key]?.trim())) { setError('Fill in all required address fields.'); return; }
+    if (!verified) { setError('Verify your address before continuing.'); return; }
     onConfirm(address, creditToApply, wantInsurance);
   }
   return <Modal title="Confirm shipping address" onClose={onClose}>
     <p className="muted">Where should "{item.title}" be shipped? This is for this order only — your saved default lives in Profile settings.</p>
     <form className="form-stack" onSubmit={submit}>
-      <ShippingAddressFields value={address} onChange={setAddress} disabled={busy}/>
+      <ShippingAddressFields value={address} onChange={setAddress} disabled={busy} onVerifiedChange={setVerified}/>
       {!!balance && <label className="certificate-confirm"><input type="checkbox" checked={applyCredit} onChange={event => setApplyCredit(event.target.checked)} disabled={busy}/>Apply {money(Math.min(balance, feeCap))} credit to this order (you have {money(balance)} available)</label>}
       <label className="certificate-confirm"><input type="checkbox" checked={wantInsurance} onChange={event => setWantInsurance(event.target.checked)} disabled={busy}/>Insure this item for shipping (covers loss or damage in transit — exact cost shown at payment)</label>
       {error && <p role="alert" className="error">{error}</p>}
-      <button className="primary" disabled={busy}>{busy ? 'Processing…' : 'Continue to payment'}<ArrowRight size={16}/></button>
+      <button className="primary" disabled={busy || !verified}>{busy ? 'Processing…' : 'Continue to payment'}<ArrowRight size={16}/></button>
     </form>
   </Modal>;
 }
