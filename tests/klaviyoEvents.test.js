@@ -26,9 +26,18 @@ test('Klaviyo events fire at each lifecycle moment with the right payload shape,
       -- inspect the exact payload notify_klaviyo builds, instead of only checking "did it not crash".
       create schema net;
       create table net._http_calls(id serial primary key,url text,body jsonb,headers jsonb,called_at timestamptz default now());
+      -- Mirrors a real, sharp-edged constraint of Supabase's actual pg_net extension: its own
+      -- net.http_post() raises an exception for any Content-Type other than literally
+      -- 'application/json', which silently broke notify_klaviyo() in production until caught by
+      -- a live smoke test (it was built sending Klaviyo's documented 'application/vnd.api+json').
+      -- Enforcing the same check here means a future regression fails this test, not a live call.
       create function net.http_post(url text,body jsonb default null,headers jsonb default null,timeout_milliseconds integer default null) returns bigint
-        language plpgsql as $$ declare new_id bigint; begin insert into net._http_calls(url,body,headers) values(url,body,headers) returning id into new_id; return new_id; end; $$;`);
-    for(const file of ['202609100001_foundation.sql','202609100002_certificates.sql','202609100003_credibility.sql','202609100004_media.sql','202609110006_listing_edits.sql','202609150007_listing_details.sql','202609180010_collection_and_settings.sql','202609190011_listing_history.sql','202609200012_stripe_connect_payments.sql','202609210013_storefronts_and_dashboard.sql','202609220014_shipping.sql','202609230015_messaging.sql','202609240016_fees_shipping_rewards.sql','202609250018_escrow_and_insurance.sql','202609270022_refund_requests.sql','202609280024_refund_partial_and_return.sql','202609290025_notifications.sql','202609300032_push_notifications.sql','202609300033_buy_availability_confirmation.sql','202609300034_seller_ratings.sql','202609300035_auctions.sql','202609300038_klaviyo_events.sql'])
+        language plpgsql as $$ declare new_id bigint; begin
+          if coalesce(headers->>'Content-Type','application/json')<>'application/json' then
+            raise exception 'Content-Type header must be "application/json"';
+          end if;
+          insert into net._http_calls(url,body,headers) values(url,body,headers) returning id into new_id; return new_id; end; $$;`);
+    for(const file of ['202609100001_foundation.sql','202609100002_certificates.sql','202609100003_credibility.sql','202609100004_media.sql','202609110006_listing_edits.sql','202609150007_listing_details.sql','202609180010_collection_and_settings.sql','202609190011_listing_history.sql','202609200012_stripe_connect_payments.sql','202609210013_storefronts_and_dashboard.sql','202609220014_shipping.sql','202609230015_messaging.sql','202609240016_fees_shipping_rewards.sql','202609250018_escrow_and_insurance.sql','202609270022_refund_requests.sql','202609280024_refund_partial_and_return.sql','202609290025_notifications.sql','202609300032_push_notifications.sql','202609300033_buy_availability_confirmation.sql','202609300034_seller_ratings.sql','202609300035_auctions.sql','202609300038_klaviyo_events.sql','202609300039_klaviyo_content_type_fix.sql'])
       await db.exec(await readFile(new URL('../supabase/migrations/'+file,import.meta.url),'utf8'));
     async function as(actor,role='authenticated'){await db.exec('reset role');await db.query("select set_config('request.jwt.claim.sub',$1,false)",[actor]);await db.exec('set role '+role);}
     async function raw(sql,params){await db.exec('reset role');return db.query(sql,params);}
@@ -64,7 +73,7 @@ test('Klaviyo events fire at each lifecycle moment with the right payload shape,
     assert.equal(calls.length,1); // Signed Up
     assert.equal(calls[0].url,'https://a.klaviyo.com/api/events');
     assert.equal(calls[0].headers.Authorization,'Klaviyo-API-Key test-klaviyo-key');
-    assert.equal(calls[0].headers['Content-Type'],'application/vnd.api+json');
+    assert.equal(calls[0].headers['Content-Type'],'application/json');
     assert.equal(calls[0].body.data.type,'event');
     assert.equal(calls[0].body.data.attributes.metric.data.attributes.name,'Signed Up');
     assert.equal(calls[0].body.data.attributes.profile.data.attributes.email,'other@example.test');
