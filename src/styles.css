@@ -19,3 +19,4 @@
 .bg-removed-ok{color:var(--success-text)}
 .rating-stars{display:inline-flex;align-items:center;gap:2px;color:var(--brand-gold);vertical-align:middle}.rating-count{font-size:10px;color:var(--text-muted);margin-left:3px}
 .star-picker{display:flex;gap:4px}.star-picker button{padding:2px;color:var(--brand-gold)}
+@media(max-width:600px){footer{flex-direction:column;gap:10px}.footer-legal{flex-wrap:wrap;row-gap:8px}}
