@@ -9,7 +9,7 @@ import { TriviaPanel } from './Trivia.jsx';
 import { ItemHistory } from './ItemHistory.jsx';
 import CertificateDetails, { CertificateFields } from './CertificateDetails.jsx';
 import React, { useEffect, useRef, useState } from 'react';
-import { ArrowUpRight, ArrowRight, Search, ShieldCheck, Plus, Store, Compass, ClipboardCheck, LogOut, X, Check, BookOpen, Sparkles, Layers, ArrowLeft, AlertCircle, Heart, Settings, RefreshCw, Package, Bell, MessageCircle, Sun, Moon, Monitor } from 'lucide-react';
+import { ArrowUpRight, ArrowRight, Search, ShieldCheck, Plus, Store, Compass, ClipboardCheck, LogOut, X, Check, BookOpen, Sparkles, Layers, ArrowLeft, AlertCircle, Heart, Settings, RefreshCw, Package, Bell, MessageCircle, Sun, Moon, Monitor, Mic } from 'lucide-react';
 import { DEMO_ACCOUNTS } from './demo.js';
 import { makeService } from './service.js';
 import { Storefront } from './Storefront.jsx';
@@ -17,6 +17,7 @@ import { TermsPage, PrivacyPage } from './Legal.jsx';
 import { ItemArt, money } from './ItemArt.jsx';
 import { MessageThread } from './MessageThread.jsx';
 import { SupportChat } from './SupportChat.jsx';
+import { VoiceAssistant, voiceAssistantAvailable } from './VoiceAssistant.jsx';
 import { CATEGORIES, WORKSPACES, priceInCents } from './domain.js';
 
 const service = makeService();
@@ -840,7 +841,7 @@ export default function App() {
     <header className="topbar">
       <button className="brand" onClick={() => switchWorkspace('collector')} aria-label="Credabilia home"><Brand/></button>
       <nav aria-label="Main navigation"><button className={workspace === 'collector' ? 'nav-current' : ''} onClick={() => switchWorkspace('collector')}>Discover</button><button className={workspace === 'auditor' ? 'nav-current' : ''} onClick={() => switchWorkspace('auditor')}>Community audits</button></nav>
-      <div className="account-actions"><button className="text-button sell-top" onClick={openCreate}><Plus size={16}/>List an item</button><ThemeToggle/>{session && <button className="icon-button king-credion-button" aria-label="Ask King Credion" title="Ask King Credion" onClick={() => setModal('support')}><img src="/brand/king-credion-chat-icon-ai.png" alt="" style={{objectFit:'contain'}}/></button>}{session && <NotificationBell notifications={notifications} onNavigate={focusNotification}/>}{session ? <><button className="avatar" aria-label="Profile and settings" title={profile?.display_name} onClick={() => setModal('profile')}>{profile?.display_name?.slice(0,1) || 'C'}</button><button className="icon-button" aria-label="Sign out" title="Sign out" onClick={signOut}><LogOut size={18}/></button></> : <button className="primary compact" onClick={() => setModal('login')} disabled={!authReady}>Sign in <ArrowUpRight size={16}/></button>}</div>
+      <div className="account-actions"><button className="text-button sell-top" onClick={openCreate}><Plus size={16}/>List an item</button><ThemeToggle/>{voiceAssistantAvailable && <button className="icon-button" aria-label="Talk to King Credion" title="Talk to King Credion" onClick={() => setModal('voice')}><Mic size={18}/></button>}{session && <button className="icon-button king-credion-button" aria-label="Ask King Credion" title="Ask King Credion" onClick={() => setModal('support')}><img src="/brand/king-credion-chat-icon-ai.png" alt="" style={{objectFit:'contain'}}/></button>}{session && <NotificationBell notifications={notifications} onNavigate={focusNotification}/>}{session ? <><button className="avatar" aria-label="Profile and settings" title={profile?.display_name} onClick={() => setModal('profile')}>{profile?.display_name?.slice(0,1) || 'C'}</button><button className="icon-button" aria-label="Sign out" title="Sign out" onClick={signOut}><LogOut size={18}/></button></> : <button className="primary compact" onClick={() => setModal('login')} disabled={!authReady}>Sign in <ArrowUpRight size={16}/></button>}</div>
     </header>
     <div className="page-layout">
       <aside className="sidebar">
@@ -900,6 +901,7 @@ export default function App() {
     {modal === 'edit' && selected && own && <EditListing key={selected.id} item={selected} onClose={()=>setModal(null)} onSaved={()=>{setModal(null);setNotice('Your listing changes are saved.');refresh();}}/>}
     {modal === 'profile' && <Modal title="Profile and settings" onClose={() => setModal(null)}><ProfileSettings profile={profile} session={session} onSaved={() => { setModal(null); setNotice('Your profile is saved.'); refresh(); }} onSignOut={() => { setModal(null); signOut(); }}/></Modal>}
     {modal === 'support' && <Modal title="Ask King Credion" onClose={() => setModal(null)}><SupportChat service={service}/></Modal>}
+    {modal === 'voice' && <Modal title="Talk to King Credion" onClose={() => setModal(null)}><VoiceAssistant/></Modal>}
     {modal === 'learn' && <Modal title="Start with the evidence" onClose={() => setModal(null)}><ol className="guide"><li><strong>Observe before deciding.</strong><p>Look at condition, markings, materials, and the description. Record what you can actually see.</p></li><li><strong>Check the story.</strong><p>Provenance and certificates need verification. A familiar name alone does not prove authenticity.</p></li><li><strong>Say what is missing.</strong><p>Ask for clearer photos or documentation. Uncertainty is more useful than unsupported confidence.</p></li></ol><p className="field-note">Educational trivia will build on these skills in a later phase. Participation XP does not certify expertise.</p></Modal>}
   </div>;
 }
