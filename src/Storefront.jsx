@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { ShieldCheck, ArrowUpRight, Layers } from 'lucide-react';
-import { ItemArt, money } from './ItemArt.jsx';
+import { ItemArt, money, RatingStars } from './ItemArt.jsx';
 
 export function Storefront({ slug, service, onBack }) {
   const [store, setStore] = useState(undefined);
@@ -22,11 +22,14 @@ export function Storefront({ slug, service, onBack }) {
           : store === undefined ? <p role="status" className="empty-state">Loading this storefront…</p>
           : store === null ? <div className="empty-state"><Layers size={34}/><h3>Store not found.</h3><p>This storefront link isn't in use.</p></div>
           : <>
-            <section className="hero"><div className="hero-copy"><p className="eyebrow"><span className="small-line"/>SELLER STOREFRONT</p><h1>{store.display_name}</h1><p>Member since {new Date(store.member_since).toLocaleDateString()} · {store.sales_count} {store.sales_count === 1 ? 'sale' : 'sales'} on Credabilia.</p></div></section>
+            <section className="hero"><div className="hero-copy"><p className="eyebrow"><span className="small-line"/>SELLER STOREFRONT</p><h1>{store.display_name}</h1><p>{store.rating_count > 0 && <><RatingStars value={store.rating_avg} count={store.rating_count} size={16}/> · </>}Member since {new Date(store.member_since).toLocaleDateString()} · {store.sales_count} {store.sales_count === 1 ? 'sale' : 'sales'} on Credabilia.</p></div></section>
             <section className="listings-section"><div className="section-heading"><div><p className="eyebrow">THE COLLECTION</p><h2>Active listings</h2></div><span className="item-count">{store.listings.length} {store.listings.length === 1 ? 'item' : 'items'}</span></div>
               {!store.listings.length ? <div className="empty-state"><Layers size={34}/><h3>Nothing listed right now.</h3><p>Check back later for new finds.</p></div>
                 : <div className="items-grid">{store.listings.map(item => <a className="item-card" key={item.id} href={`/?item=${item.id}`} aria-label={`View ${item.title}`}><ItemArt category={item.category} photo={item.media?.[0]?.url}/><div className="item-card-content"><div className="card-meta"><span>{item.category}</span></div><h3>{item.title}</h3><div className="card-bottom"><strong>{money(item.price_cents)}</strong></div></div></a>)}</div>}
             </section>
+            {store.reviews?.length > 0 && <section className="listings-section"><div className="section-heading"><div><p className="eyebrow">FEEDBACK</p><h2>What buyers say</h2></div></div>
+              <div className="form-stack">{store.reviews.map((review, index) => <div key={index} className="evidence-box"><RatingStars value={review.rating} size={16}/><p>{review.comment || <em>No comment left.</em>}</p><p className="field-note">{review.buyer_name} · {new Date(review.created_at).toLocaleDateString()}</p></div>)}</div>
+            </section>}
           </>}
         <footer><span>© {new Date().getFullYear()} Credabilia</span><span>Made for the love of the find.</span></footer>
       </main>

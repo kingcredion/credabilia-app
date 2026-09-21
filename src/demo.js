@@ -8,10 +8,15 @@ export const DEMO_ACCOUNTS = [DEMO_USER, { ...DEMO_USER, id: '22222222-2222-4222
 export function createDemoService(storage = window.localStorage) {
   const key = 'credabilia-next-demo-v2';
   let listeners = new Set();
-  const fresh = () => ({ userId: null, listings: sampleListings(), audits: [], uploads: {}, xp: {}, names: {}, favorites: {}, purchases: [], revisions: [], slugs: {}, shippingAddresses: {}, messages: [], credits: [], supportMessages: [], refundRequests: [], buyRequests: [] });
+  const fresh = () => ({ userId: null, listings: sampleListings(), audits: [], uploads: {}, xp: {}, names: {}, favorites: {}, purchases: [], revisions: [], slugs: {}, shippingAddresses: {}, messages: [], credits: [], supportMessages: [], refundRequests: [], buyRequests: [], sellerRatings: [] });
   let state;
   try { const saved = JSON.parse(storage.getItem(key)); state = saved && Array.isArray(saved.listings) && Array.isArray(saved.audits) ? saved : fresh(); } catch { state = fresh(); }
-  state.uploads ||= {}; state.names ||= {}; state.favorites ||= {}; state.purchases ||= []; state.revisions ||= []; state.slugs ||= {}; state.shippingAddresses ||= {}; state.messages ||= []; state.credits ||= []; state.supportMessages ||= []; state.refundRequests ||= []; state.buyRequests ||= [];
+  state.uploads ||= {}; state.names ||= {}; state.favorites ||= {}; state.purchases ||= []; state.revisions ||= []; state.slugs ||= {}; state.shippingAddresses ||= {}; state.messages ||= []; state.credits ||= []; state.supportMessages ||= []; state.refundRequests ||= []; state.buyRequests ||= []; state.sellerRatings ||= [];
+  function sellerRatingStats(sellerId) {
+    const ratings=state.sellerRatings.filter(r=>r.seller_id===sellerId);
+    if(!ratings.length) return {avg:null,count:0};
+    return {avg:Math.round(ratings.reduce((sum,r)=>sum+r.rating,0)/ratings.length*100)/100,count:ratings.length};
+  }
   const REQUIRED_ADDRESS_FIELDS = ['name', 'street1', 'city', 'state', 'zip', 'country'];
   function validAddress(address) { return REQUIRED_ADDRESS_FIELDS.every(key => String(address?.[key] || '').trim()); }
   function save() { storage.setItem(key, JSON.stringify(state)); }
@@ -147,8 +152,23 @@ export function createDemoService(storage = window.localStorage) {
       return state.purchases.filter(p=>p.buyer_id===state.userId).map(p=>{
         const item=state.listings.find(x=>x.id===p.listing_id) || {};
         const refund=state.refundRequests.find(r=>r.purchase_id===p.id);
-        return {id:item.id,purchase_id:p.id,title:item.title,description:item.description,category:item.category,evidence:item.evidence,price_cents:item.price_cents,attributes:item.attributes,tags:item.tags,certificate_issuer:item.certificate_issuer,certificate_number:item.certificate_number,certificate_company:item.certificate_company,media:item.media || [],purchased_at:p.created_at,shipping_cost_cents:p.shipping_cost_cents || 0,tracking_number:p.tracking_number || null,tracking_url:p.tracking_url || null,tracking_status:p.tracking_status || 'UNKNOWN',shipped_at:p.shipped_at || null,escrow_status:p.escrow_status || 'held',insured:!!p.insured,insurance_cost_cents:p.insurance_cost_cents || 0,refund_status:refund?.status || null,refund_reason:refund?.reason || null,refund_seller_response:refund?.seller_response || null,refund_request_id:refund?.id || null,offered_amount_cents:refund?.offered_amount_cents ?? null,return_tracking_number:refund?.return_tracking_number || null,return_tracking_url:refund?.return_tracking_url || null,return_label_url:refund?.return_label_url || null,return_shipped_at:refund?.return_shipped_at || null,return_tracking_status:refund?.return_tracking_status || 'UNKNOWN',message_count:state.messages.filter(m=>m.purchase_id===p.id).length};
+        const rating=state.sellerRatings.find(r=>r.purchase_id===p.id);
+        return {id:item.id,purchase_id:p.id,title:item.title,description:item.description,category:item.category,evidence:item.evidence,price_cents:item.price_cents,attributes:item.attributes,tags:item.tags,certificate_issuer:item.certificate_issuer,certificate_number:item.certificate_number,certificate_company:item.certificate_company,media:item.media || [],purchased_at:p.created_at,shipping_cost_cents:p.shipping_cost_cents || 0,tracking_number:p.tracking_number || null,tracking_url:p.tracking_url || null,tracking_status:p.tracking_status || 'UNKNOWN',shipped_at:p.shipped_at || null,escrow_status:p.escrow_status || 'held',insured:!!p.insured,insurance_cost_cents:p.insurance_cost_cents || 0,refund_status:refund?.status || null,refund_reason:refund?.reason || null,refund_seller_response:refund?.seller_response || null,refund_request_id:refund?.id || null,offered_amount_cents:refund?.offered_amount_cents ?? null,return_tracking_number:refund?.return_tracking_number || null,return_tracking_url:refund?.return_tracking_url || null,return_label_url:refund?.return_label_url || null,return_shipped_at:refund?.return_shipped_at || null,return_tracking_status:refund?.return_tracking_status || 'UNKNOWN',message_count:state.messages.filter(m=>m.purchase_id===p.id).length,my_rating:rating?.rating ?? null,my_rating_comment:rating?.comment ?? null};
       });
+    },
+    async rateSeller(purchaseId, rating, comment) {
+      requireUser();
+      const purchase=state.purchases.find(p=>p.id===purchaseId && p.buyer_id===state.userId);
+      if(!purchase) throw new Error('Purchase not found.');
+      const value=Number(rating);
+      if(!Number.isInteger(value) || value<1 || value>5) throw new Error('Choose a rating between 1 and 5 stars.');
+      const cleanComment=String(comment || '').trim() || null;
+      if(cleanComment && cleanComment.length>500) throw new Error('Keep your comment under 500 characters.');
+      let existing=state.sellerRatings.find(r=>r.purchase_id===purchaseId);
+      if(existing) { existing.rating=value; existing.comment=cleanComment; existing.updated_at=new Date().toISOString(); }
+      else { existing={id:crypto.randomUUID(),purchase_id:purchaseId,seller_id:purchase.seller_id,buyer_id:state.userId,rating:value,comment:cleanComment,created_at:new Date().toISOString()}; state.sellerRatings.push(existing); }
+      save();
+      return {...existing};
     },
     async mySales() {
       requireUser();
@@ -364,11 +384,15 @@ export function createDemoService(storage = window.localStorage) {
       if(!userId) return null;
       const account=DEMO_ACCOUNTS.find(user=>user.id===userId);
       const sellerListings=state.listings.filter(item=>item.seller_id===userId && item.status==='active');
+      const {avg,count}=sellerRatingStats(userId);
       return {
         display_name:state.names[userId] || account?.display_name || 'Collector',
         slug:clean,
         member_since:new Date().toISOString(),
         sales_count:state.purchases.filter(p=>p.seller_id===userId).length,
+        rating_avg:avg,rating_count:count,
+        reviews:state.sellerRatings.filter(r=>r.seller_id===userId).sort((a,b)=>new Date(b.created_at)-new Date(a.created_at)).slice(0,20)
+          .map(r=>({rating:r.rating,comment:r.comment,created_at:r.created_at,buyer_name:state.names[r.buyer_id] || DEMO_ACCOUNTS.find(u=>u.id===r.buyer_id)?.display_name || 'A collector'})),
         listings:sellerListings.map(item=>({id:item.id,title:item.title,category:item.category,price_cents:item.price_cents,
           media:(item.media||[]).filter(asset=>asset.kind==='item')})),
       };
@@ -385,7 +409,7 @@ export function createDemoService(storage = window.localStorage) {
         audits_received:state.audits.filter(a=>state.listings.find(item=>item.id===a.listing_id)?.seller_id===state.userId).length,
       };
     },
-    async listings() { return state.listings.filter(item => item.status === 'active').map(item => { const current=state.audits.filter(a => a.listing_id === item.id && (a.listing_version||1) === (item.version||1)); return { ...item, ...credibilityScore(item,current), audit_count: current.length }; }); },
+    async listings() { return state.listings.filter(item => item.status === 'active').map(item => { const current=state.audits.filter(a => a.listing_id === item.id && (a.listing_version||1) === (item.version||1)); const {avg,count}=sellerRatingStats(item.seller_id); return { ...item, ...credibilityScore(item,current), audit_count: current.length, seller_member_since:new Date().toISOString(), seller_sales_count:state.purchases.filter(p=>p.seller_id===item.seller_id).length, seller_rating_avg:avg, seller_rating_count:count }; }); },
     async myAudits() { requireUser(); return state.audits.filter(a => a.auditor_id === state.userId); },
     async getListingHistory(listingId) {
       return state.revisions.filter(r=>r.listing_id===listingId).map(r=>({...r,

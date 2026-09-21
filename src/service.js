@@ -130,6 +130,7 @@ export function makeService() {
     async toggleFavorite(listingId) { return unwrap(await client.rpc('toggle_favorite', { p_listing_id: listingId })); },
     async myFavoriteIds() { return unwrap(await client.rpc('my_favorite_ids')); },
     async myPurchases() { return signMedia(unwrap(await client.rpc('my_purchases'))); },
+    async rateSeller(purchaseId, rating, comment) { return unwrap(await client.rpc('rate_seller', { p_purchase_id: purchaseId, p_rating: rating, p_comment: comment || null })); },
     async startStripeOnboarding() {
       const {data,error}=await client.functions.invoke('stripe-connect-onboarding',{body:{}});
       if(error) { let detail; try {detail=await error.context?.json();} catch {} throw new Error(detail?.error || 'Stripe onboarding is not available right now.'); }

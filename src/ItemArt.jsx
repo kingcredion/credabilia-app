@@ -1,7 +1,16 @@
 import React from 'react';
-import { Layers } from 'lucide-react';
+import { Layers, Star } from 'lucide-react';
 
 export const money = cents => new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: cents % 100 ? 2 : 0 }).format(cents / 100);
+
+export function RatingStars({ value, count, size = 14 }) {
+  if (value == null) return null;
+  const rounded = Math.round(value);
+  return <span className="rating-stars" aria-label={`${value} out of 5 stars${count != null ? `, ${count} rating${count === 1 ? '' : 's'}` : ''}`}>
+    {[1, 2, 3, 4, 5].map(n => <Star key={n} size={size} fill={n <= rounded ? 'currentColor' : 'none'}/>)}
+    {count != null && <span className="rating-count">({count})</span>}
+  </span>;
+}
 
 export function ItemArt({ kind = 'generic', category, large = false, photo }) {
   if(photo) return <img className="listing-cover" src={photo} alt={`${category} item photo`}/>;

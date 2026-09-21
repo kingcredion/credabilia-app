@@ -9,13 +9,13 @@ import { TriviaPanel } from './Trivia.jsx';
 import { ItemHistory } from './ItemHistory.jsx';
 import CertificateDetails, { CertificateFields } from './CertificateDetails.jsx';
 import React, { useEffect, useRef, useState } from 'react';
-import { ArrowUpRight, ArrowRight, Search, ShieldCheck, Plus, Store, Compass, ClipboardCheck, LogOut, X, Check, BookOpen, Sparkles, Layers, ArrowLeft, AlertCircle, Heart, Settings, RefreshCw, Package, Bell, MessageCircle, Sun, Moon, Monitor, Mic } from 'lucide-react';
+import { ArrowUpRight, ArrowRight, Search, ShieldCheck, Plus, Store, Compass, ClipboardCheck, LogOut, X, Check, BookOpen, Sparkles, Layers, ArrowLeft, AlertCircle, Heart, Settings, RefreshCw, Package, Bell, MessageCircle, Sun, Moon, Monitor, Mic, Star } from 'lucide-react';
 import { DEMO_ACCOUNTS } from './demo.js';
 import { makeService } from './service.js';
 import { Storefront } from './Storefront.jsx';
 import { TermsPage, PrivacyPage } from './Legal.jsx';
 import { HelpPage } from './Help.jsx';
-import { ItemArt, money } from './ItemArt.jsx';
+import { ItemArt, money, RatingStars } from './ItemArt.jsx';
 import { MessageThread } from './MessageThread.jsx';
 import { SupportChat } from './SupportChat.jsx';
 import { VoiceAssistant, voiceAssistantAvailable } from './VoiceAssistant.jsx';
@@ -525,6 +525,42 @@ function BuyerRefundPanel({ item, onRequested }) {
   </form>;
 }
 
+function SellerRatingForm({ item, onRated }) {
+  const [rating, setRating] = useState(item.my_rating || 0);
+  const [hover, setHover] = useState(0);
+  const [comment, setComment] = useState(item.my_rating_comment || '');
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState('');
+  const [editing, setEditing] = useState(!item.my_rating);
+  async function submit(event) {
+    event.preventDefault(); if (busy || !rating) return;
+    setBusy(true); setError('');
+    try { await service.rateSeller(item.purchase_id, rating, comment); setEditing(false); onRated(); }
+    catch (err) { setError(err.message); } finally { setBusy(false); }
+  }
+  if (!editing) return <div className="evidence-box">
+    <h3><Star size={18}/>Your rating</h3>
+    <RatingStars value={item.my_rating} size={18}/>
+    {item.my_rating_comment && <p>{item.my_rating_comment}</p>}
+    <button type="button" className="text-button" onClick={() => setEditing(true)}>Edit your rating</button>
+  </div>;
+  return <form className="form-stack evidence-box" onSubmit={submit}>
+    <h3><Star size={18}/>Rate this seller</h3>
+    <div className="star-picker" role="radiogroup" aria-label="Rating">
+      {[1, 2, 3, 4, 5].map(n => <button type="button" key={n} aria-label={`${n} star${n > 1 ? 's' : ''}`} aria-pressed={rating === n}
+        onMouseEnter={() => setHover(n)} onMouseLeave={() => setHover(0)} onClick={() => setRating(n)}>
+        <Star size={22} fill={n <= (hover || rating) ? 'currentColor' : 'none'}/>
+      </button>)}
+    </div>
+    <label>Comment (optional)<textarea value={comment} onChange={e => setComment(e.target.value)} rows={2} maxLength={500} placeholder="How was your experience with this seller?" disabled={busy}/></label>
+    {error && <p role="alert" className="error">{error}</p>}
+    <div className="form-row">
+      <button className="primary" disabled={busy || !rating}>{busy ? 'Saving…' : 'Submit rating'}</button>
+      {item.my_rating ? <button type="button" className="text-button" onClick={() => setEditing(false)}>Cancel</button> : null}
+    </div>
+  </form>;
+}
+
 function BuyRequestCard({ request, onResolved }) {
   const [busy, setBusy] = useState(false), [error, setError] = useState('');
   async function respond(available) {
@@ -862,7 +898,7 @@ export default function App() {
           <button className="back-button" onClick={() => setSelectedId(null)}><ArrowLeft size={17}/>Back to {workspace === 'auditor' ? 'audit queue' : 'listings'}</button>
           {own && profile?.can_sell && <button className="text-button" onClick={()=>setModal('edit')}>Edit listing</button>}
           {session && !own && <button className="text-button" onClick={()=>toggleFavorite(selected.id)}><Heart size={16} fill={favoriteIds.includes(selected.id) ? 'currentColor' : 'none'}/>{favoriteIds.includes(selected.id) ? 'Saved' : 'Save to collection'}</button>}
-          <div className="detail-grid"><div>{selected.media?.some(asset=>asset.kind==='item') ? <PhotoGallery key={selected.id} media={selected.media} title={selected.title}/> : <ItemArt kind={selected.artwork} category={selected.category} large/>}<PhotoGallery key={selected.id+'cert'} media={selected.media} kind="certificate" title={selected.title}/></div><section className="item-info"><span className="pill">{selected.category}</span><h1>{selected.title}</h1><p className="seller-name">Shared by {selected.seller_name}</p><p className="detail-price">{money(selected.price_cents)}</p>{session && !own && <>{service.mode==='live' && !selected.seller_charges_enabled && <p className="field-note">This seller hasn't finished payment setup yet.</p>}{myRequest?.status==='confirmed' ? <><p className="field-note">The seller confirmed this is still available.</p><button className="primary" disabled={busy} onClick={()=>setModal('checkout-address')}>Continue to checkout<ArrowRight size={16}/></button></> : myRequest?.status==='pending' ? <p role="status" className="field-note">Waiting for the seller to confirm this item is still available…</p> : <button className="primary" disabled={busy || (service.mode==='live' && !selected.seller_charges_enabled)} onClick={()=>requestToBuy(selected.id)}>{busy ? 'Processing…' : 'Ask to buy'}<ArrowRight size={16}/></button>}</>}<p>{selected.description}</p><ListingDetailSummary item={selected}/><div className="evidence-box"><h3><ShieldCheck size={18}/>Evidence notes</h3><p>{selected.evidence || 'No evidence has been provided yet. Ask for more information before reaching a conclusion.'}</p></div><CertificateDetails key={selected.id} item={selected}/><CredibilityDetails item={selected}/><ItemHistory key={selected.id+selected.version} item={selected} service={service}/><TriviaPanel key={selected.id} item={selected} service={service} signedIn={!!session}/><p className="field-note">Community assessments are opinions, not professional authentication.</p></section></div>
+          <div className="detail-grid"><div>{selected.media?.some(asset=>asset.kind==='item') ? <PhotoGallery key={selected.id} media={selected.media} title={selected.title}/> : <ItemArt kind={selected.artwork} category={selected.category} large/>}<PhotoGallery key={selected.id+'cert'} media={selected.media} kind="certificate" title={selected.title}/></div><section className="item-info"><span className="pill">{selected.category}</span><h1>{selected.title}</h1><p className="seller-name">Shared by {selected.seller_name}{selected.seller_rating_count > 0 && <> · <RatingStars value={selected.seller_rating_avg} count={selected.seller_rating_count}/></>} · Member since {new Date(selected.seller_member_since).getFullYear()}{selected.seller_sales_count > 0 && <> · {selected.seller_sales_count} {selected.seller_sales_count === 1 ? 'sale' : 'sales'}</>}</p><p className="detail-price">{money(selected.price_cents)}</p>{session && !own && <>{service.mode==='live' && !selected.seller_charges_enabled && <p className="field-note">This seller hasn't finished payment setup yet.</p>}{myRequest?.status==='confirmed' ? <><p className="field-note">The seller confirmed this is still available.</p><button className="primary" disabled={busy} onClick={()=>setModal('checkout-address')}>Continue to checkout<ArrowRight size={16}/></button></> : myRequest?.status==='pending' ? <p role="status" className="field-note">Waiting for the seller to confirm this item is still available…</p> : <button className="primary" disabled={busy || (service.mode==='live' && !selected.seller_charges_enabled)} onClick={()=>requestToBuy(selected.id)}>{busy ? 'Processing…' : 'Ask to buy'}<ArrowRight size={16}/></button>}</>}<p>{selected.description}</p><ListingDetailSummary item={selected}/><div className="evidence-box"><h3><ShieldCheck size={18}/>Evidence notes</h3><p>{selected.evidence || 'No evidence has been provided yet. Ask for more information before reaching a conclusion.'}</p></div><CertificateDetails key={selected.id} item={selected}/><CredibilityDetails item={selected}/><ItemHistory key={selected.id+selected.version} item={selected} service={service}/><TriviaPanel key={selected.id} item={selected} service={service} signedIn={!!session}/><p className="field-note">Community assessments are opinions, not professional authentication.</p></section></div>
           <section className="audit-panel"><div><p className="eyebrow">LOOK CLOSER</p><h2>What does the evidence tell you?</h2><p className="muted">Explain what you observed. “Need more evidence” is a useful answer.</p></div>
             {!session ? <button className="primary" onClick={() => setModal('login')}>Sign in to audit <ArrowRight size={16}/></button>
               : own ? <p className="empty-inline">This is your listing. Other members can submit assessments.</p>
@@ -873,7 +909,7 @@ export default function App() {
           </section>
         </> : ownedItem ? <>
           <button className="back-button" onClick={() => setSelectedId(null)}><ArrowLeft size={17}/>Back to listings</button>
-          <div className="detail-grid"><div>{ownedItem.media?.some(asset=>asset.kind==='item') ? <PhotoGallery key={ownedItem.id} media={ownedItem.media} title={ownedItem.title}/> : <ItemArt category={ownedItem.category} large/>}<PhotoGallery key={ownedItem.id+'cert'} media={ownedItem.media} kind="certificate" title={ownedItem.title}/></div><section className="item-info"><span className="pill">{ownedItem.category}</span><h1>{ownedItem.title}</h1><p className="seller-name">Purchased {new Date(ownedItem.purchased_at).toLocaleDateString()}</p><p className="detail-price">{money(ownedItem.price_cents)}</p><p>{ownedItem.description}</p><ListingDetailSummary item={ownedItem}/><div className="evidence-box"><h3><Package size={18}/>Shipping</h3>{ownedItem.shipped_at ? <><p>Shipped {new Date(ownedItem.shipped_at).toLocaleDateString()}</p>{ownedItem.tracking_number && <p><a href={ownedItem.tracking_url} target="_blank" rel="noreferrer">Track: {ownedItem.tracking_number}</a></p>}{ownedItem.tracking_status && ownedItem.tracking_status !== 'UNKNOWN' && <p className="field-note">Status: {ownedItem.tracking_status}</p>}</> : <p className="field-note">The seller hasn't shipped this yet.</p>}<p className="field-note">{ownedItem.escrow_status === 'released' ? 'Payment released to the seller' : 'We hold your payment until delivery is confirmed'}{ownedItem.insured ? ' · Insured' : ''}</p></div><BuyerRefundPanel item={ownedItem} onRequested={refresh}/><MessageThread purchaseId={ownedItem.purchase_id} service={service} session={session} counterpartyLabel="seller" messageCount={ownedItem.message_count} autoOpen={focusPurchaseId === ownedItem.purchase_id} onFocused={() => setFocusPurchaseId(null)} onRead={refresh}/><CertificateDetails item={ownedItem}/><button className="primary" onClick={()=>setModal('relist')}><RefreshCw size={16}/>Relist this item</button></section></div>
+          <div className="detail-grid"><div>{ownedItem.media?.some(asset=>asset.kind==='item') ? <PhotoGallery key={ownedItem.id} media={ownedItem.media} title={ownedItem.title}/> : <ItemArt category={ownedItem.category} large/>}<PhotoGallery key={ownedItem.id+'cert'} media={ownedItem.media} kind="certificate" title={ownedItem.title}/></div><section className="item-info"><span className="pill">{ownedItem.category}</span><h1>{ownedItem.title}</h1><p className="seller-name">Purchased {new Date(ownedItem.purchased_at).toLocaleDateString()}</p><p className="detail-price">{money(ownedItem.price_cents)}</p><p>{ownedItem.description}</p><ListingDetailSummary item={ownedItem}/><div className="evidence-box"><h3><Package size={18}/>Shipping</h3>{ownedItem.shipped_at ? <><p>Shipped {new Date(ownedItem.shipped_at).toLocaleDateString()}</p>{ownedItem.tracking_number && <p><a href={ownedItem.tracking_url} target="_blank" rel="noreferrer">Track: {ownedItem.tracking_number}</a></p>}{ownedItem.tracking_status && ownedItem.tracking_status !== 'UNKNOWN' && <p className="field-note">Status: {ownedItem.tracking_status}</p>}</> : <p className="field-note">The seller hasn't shipped this yet.</p>}<p className="field-note">{ownedItem.escrow_status === 'released' ? 'Payment released to the seller' : 'We hold your payment until delivery is confirmed'}{ownedItem.insured ? ' · Insured' : ''}</p></div><BuyerRefundPanel item={ownedItem} onRequested={refresh}/><SellerRatingForm item={ownedItem} onRated={refresh}/><MessageThread purchaseId={ownedItem.purchase_id} service={service} session={session} counterpartyLabel="seller" messageCount={ownedItem.message_count} autoOpen={focusPurchaseId === ownedItem.purchase_id} onFocused={() => setFocusPurchaseId(null)} onRead={refresh}/><CertificateDetails item={ownedItem}/><button className="primary" onClick={()=>setModal('relist')}><RefreshCw size={16}/>Relist this item</button></section></div>
         </> : pendingBuy ? <>
           <button className="back-button" onClick={() => setSelectedId(null)}><ArrowLeft size={17}/>Back to listings</button>
           <div className="detail-grid"><div>{pendingBuy.media?.some(asset=>asset.kind==='item') ? <PhotoGallery key={pendingBuy.listing_id} media={pendingBuy.media} title={pendingBuy.title}/> : <ItemArt category={pendingBuy.category} large/>}</div><section className="item-info"><span className="pill">{pendingBuy.category}</span><h1>{pendingBuy.title}</h1><p className="detail-price">{money(pendingBuy.price_cents)}</p>{pendingBuy.status === 'confirmed' ? <><p className="field-note">The seller confirmed this is still available.</p><button className="primary" disabled={busy} onClick={()=>setModal('checkout-address')}>Continue to checkout<ArrowRight size={16}/></button></> : <p role="status" className="field-note">Waiting for the seller to confirm this item is still available…</p>}</section></div>

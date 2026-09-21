@@ -17,3 +17,5 @@
 .theme-panel{width:160px}.theme-panel .notif-row{justify-content:flex-start}.theme-check{margin-left:auto;color:var(--green)}
 @media(max-width:600px){.theme-panel{position:absolute;left:auto;right:0;top:calc(100% + 10px);width:160px}}
 .bg-removed-ok{color:var(--success-text)}
+.rating-stars{display:inline-flex;align-items:center;gap:2px;color:var(--brand-gold);vertical-align:middle}.rating-count{font-size:10px;color:var(--text-muted);margin-left:3px}
+.star-picker{display:flex;gap:4px}.star-picker button{padding:2px;color:var(--brand-gold)}
