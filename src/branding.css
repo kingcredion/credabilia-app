@@ -14,20 +14,30 @@
   min-width: 0;
   padding: 18px 22px 12px 10px;
 }
+/* Fixed box, not max-width/max-height with height:auto -- the three workspace mascot images have
+   different intrinsic aspect ratios (Collect is portrait, Sell/Audit are square), so letting the
+   box size follow each image's own ratio would visibly resize/jump every time the workspace
+   switches. object-fit:contain fits each image fully inside this constant box -- never cropped,
+   crown and props always fully visible -- only the letterboxing changes, not the box itself. */
 .hero-mascot img {
   display: block;
-  width: 100%;
-  max-width: 320px;
-  height: auto;
-  max-height: 360px;
+  width: 320px;
+  height: 360px;
   object-fit: contain;
+}
+@media (prefers-reduced-motion: no-preference) {
+  .hero-mascot img { animation: hero-mascot-fade .35s ease both; }
+}
+@keyframes hero-mascot-fade {
+  from { opacity: 0; }
+  to { opacity: 1; }
 }
 @media (max-width: 600px) {
   .brand .brand-logo { width: 145px; height: 47px; }
   .brand .brand-tagline { font-size: 9px; letter-spacing: .2px; }
   .topbar { gap: 12px; }
   .hero-mascot { padding: 0 24px 18px; }
-  .hero-mascot img { max-width: 225px; max-height: 260px; }
+  .hero-mascot img { width: 225px; height: 260px; }
 }
 /* Narrow phones (e.g. 360-390px Android widths) -- the 600px sizing above still overflows once
    the header's icon row (theme/King Credion/notifications/avatar/sign-out) is added back in. */
