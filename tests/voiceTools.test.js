@@ -31,6 +31,12 @@ test('voice-tools validates the shared secret and answers check_item_availabilit
   assert.match(body.results[0].result,/\$200\.00/);
   assert.match(body.results[0].result,/30 out of 100/);
 
+  // A real caller says the player's actual name ("Barry Bonds"), which doesn't literally appear in
+  // the listing title ("Barry Bond signed baseball") -- word-level stemmed matching must still find it.
+  const plural=await handler(request(toolCallMessage('check_item_availability',{query:'Barry Bonds'})));
+  body=await plural.json();
+  assert.match(body.results[0].result,/Barry Bond signed baseball/);
+
   // A query broad enough to match both fixtures is capped, not a runaway list.
   const broad=await handler(request(toolCallMessage('check_item_availability',{query:'sports'})));
   body=await broad.json();

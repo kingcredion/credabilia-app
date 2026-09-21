@@ -39,13 +39,28 @@ export function createHandler({createClient,env}) {
   };
 }
 
+// Callers say names the way people actually say them ("Barry Bonds"), which won't substring-match
+// a listing titled slightly differently ("Barry Bond signed baseball"). Word-level matching with
+// light stemming tolerates plural/singular mismatches without needing an exact phrase.
+const STOPWORDS=new Set(['the','and','for','are','was','were','has','have','had','with','that','this','please','anything','something','uh','um','item','items','look','looking','want','wanted','get','got','find','about','any','there','here','also','just','you','your','can','could','would','should','know','tell','see']);
+function normalizeWords(s){return String(s||'').toLowerCase().replace(/[^a-z0-9]+/g,' ').trim().split(' ').filter(Boolean);}
+function stem(w){return w.length>3 && w.endsWith('s') ? w.slice(0,-1) : w;}
+
 async function checkItemAvailability(client,query) {
   const clean=String(query||'').trim().slice(0,200);
   if(!clean) return 'No item description was given.';
   const {data,error}=await client.rpc('browse_listings_with_certificates');
   if(error || !Array.isArray(data)) return 'The listings could not be checked right now.';
+  const queryWords=normalizeWords(clean).filter(w=>w.length>=3 && !STOPWORDS.has(w)).map(stem);
   const needle=clean.toLowerCase();
-  const matches=data.filter(item=>item.title?.toLowerCase().includes(needle) || item.category?.toLowerCase().includes(needle)).slice(0,3);
+  const scored=data.map(item=>{
+    const haystack=`${item.title||''} ${item.category||''}`;
+    if(!queryWords.length) return {item,score:haystack.toLowerCase().includes(needle)?1:0};
+    const haystackWords=normalizeWords(haystack).map(stem);
+    return {item,score:queryWords.filter(w=>haystackWords.includes(w)).length};
+  });
+  const threshold=queryWords.length ? Math.max(1,Math.ceil(queryWords.length/2)) : 1;
+  const matches=scored.filter(s=>s.score>=threshold).sort((a,b)=>b.score-a.score).map(s=>s.item).slice(0,3);
   if(!matches.length) return `No active listing matching "${clean}" was found on Credabilia right now.`;
   return matches.map(item=>`"${item.title}" (${item.category}) is available for $${(item.price_cents/100).toFixed(2)}, credibility score ${item.credibility_score} out of 100.`).join(' ');
 }
