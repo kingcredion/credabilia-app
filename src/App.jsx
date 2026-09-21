@@ -298,7 +298,7 @@ function DashboardStats() {
   // Only ever non-null for the platform operator's own account -- operator_open_dispute_count()
   // self-gates server-side, so this tile is real access control, not just hidden in the UI.
   if (openDisputes !== null) rows.push(['Open disputes', openDisputes]);
-  return <div className="stat-grid">{rows.map(([label, value]) => <div key={label} className="evidence-box"><span className="field-note">{label === 'Credion Coins' && <img src="/brand/credion-coin-simple-v1.png" alt="" className="coin-icon"/>}{label}</span><strong>{value}</strong></div>)}</div>;
+  return <div className="stat-grid">{rows.map(([label, value]) => <div key={label} className={label === 'Credion Coins' ? 'evidence-box coin-tile' : 'evidence-box'}><span className="field-note">{label}</span><strong>{value}</strong></div>)}</div>;
 }
 
 function StorefrontSettings({ profile }) {

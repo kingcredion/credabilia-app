@@ -20,6 +20,9 @@
 .rating-stars{display:inline-flex;align-items:center;gap:2px;color:var(--brand-gold);vertical-align:middle}.rating-count{font-size:10px;color:var(--text-muted);margin-left:3px}
 .star-picker{display:flex;gap:4px}.star-picker button{padding:2px;color:var(--brand-gold)}
 .coin-icon{width:16px;height:16px;vertical-align:-3px;margin-right:4px}
+.coin-tile{position:relative;overflow:hidden}
+.coin-tile::after{content:'';position:absolute;right:-14px;bottom:-14px;width:84px;height:84px;background:url(/brand/credion-coin-detailed-v1.png) center/contain no-repeat;pointer-events:none}
+.coin-tile span,.coin-tile strong{position:relative;z-index:1;max-width:64%}
 .coin-faq{display:flex;align-items:center;gap:18px}.coin-detailed{width:88px;height:88px;flex-shrink:0}
 @media(max-width:500px){.coin-faq{flex-direction:column;align-items:flex-start;gap:10px}.coin-detailed{width:64px;height:64px}}
 @media(max-width:600px){footer{flex-direction:column;gap:10px}.footer-legal{flex-wrap:wrap;row-gap:8px}}
