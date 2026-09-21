@@ -11,7 +11,10 @@ export function createHandler({createClient,env}) {
     try {
       if(!env('VAPI_TOOL_SECRET') || request.headers.get('x-vapi-secret')!==env('VAPI_TOOL_SECRET')) return reply({error:'Unauthorized.'},401);
 
-      const text=await request.text(); if(text.length>8192) return reply({error:'Invalid request.'},400);
+      // Vapi's real tool-calls payload embeds the whole call so far -- full transcript with
+      // word-level timestamps, the assistant's entire config and system prompt, etc -- which grows
+      // every turn. This is a sanity ceiling against outright abuse, not a real expected size.
+      const text=await request.text(); if(text.length>2_000_000) return reply({error:'Invalid request.'},400);
       let body;try{body=JSON.parse(text);}catch{return reply({error:'Invalid request.'},400);}
       const toolCalls=body?.message?.toolCallList;
       if(!Array.isArray(toolCalls)) return reply({results:[]});
@@ -21,9 +24,12 @@ export function createHandler({createClient,env}) {
       const client=createClient(env('SUPABASE_URL'),env('SUPABASE_ANON_KEY'));
       const results=[];
       for(const call of toolCalls) {
+        const name=call.name ?? call.function?.name;
+        let args=call.arguments ?? call.function?.arguments;
+        if(typeof args==='string'){try{args=JSON.parse(args);}catch{args={};}}
         let result;
         try {
-          if(call.name==='check_item_availability') result=await checkItemAvailability(client,call.arguments?.query);
+          if(name==='check_item_availability') result=await checkItemAvailability(client,args?.query);
           else result='That tool is not available.';
         } catch { result='Sorry, that lookup failed. Please try again.'; }
         results.push({toolCallId:call.id,result});
