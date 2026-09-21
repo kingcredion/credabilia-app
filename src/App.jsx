@@ -298,7 +298,7 @@ function DashboardStats() {
   // Only ever non-null for the platform operator's own account -- operator_open_dispute_count()
   // self-gates server-side, so this tile is real access control, not just hidden in the UI.
   if (openDisputes !== null) rows.push(['Open disputes', openDisputes]);
-  return <div className="stat-grid">{rows.map(([label, value]) => <div key={label} className="evidence-box"><span className="field-note">{label}</span><strong>{value}</strong></div>)}</div>;
+  return <div className="stat-grid">{rows.map(([label, value]) => <div key={label} className="evidence-box"><span className="field-note">{label === 'Credion Coins' && <img src="/brand/credion-coin-simple-v1.png" alt="" className="coin-icon"/>}{label}</span><strong>{value}</strong></div>)}</div>;
 }
 
 function StorefrontSettings({ profile }) {
@@ -427,7 +427,7 @@ function CheckoutAddress({ item, profile, busy, onClose, onConfirm }) {
     <p className="muted">Where should "{item.title}" be shipped? This is for this order only — your saved default lives in Profile settings.</p>
     <form className="form-stack" onSubmit={submit}>
       <ShippingAddressFields value={address} onChange={setAddress} disabled={busy} onVerifiedChange={setVerified}/>
-      {!!balance && <label className="certificate-confirm"><input type="checkbox" checked={applyCredit} onChange={event => setApplyCredit(event.target.checked)} disabled={busy}/>Apply {money(Math.min(balance, coinCap))} in Credion Coins to this order (you have {money(balance)} available)</label>}
+      {!!balance && <label className="certificate-confirm"><input type="checkbox" checked={applyCredit} onChange={event => setApplyCredit(event.target.checked)} disabled={busy}/><img src="/brand/credion-coin-simple-v1.png" alt="" className="coin-icon"/>Apply {money(Math.min(balance, coinCap))} in Credion Coins to this order (you have {money(balance)} available)</label>}
       <label className="certificate-confirm"><input type="checkbox" checked={wantInsurance} onChange={event => setWantInsurance(event.target.checked)} disabled={busy}/>Insure this item for shipping (covers loss or damage in transit — exact cost shown at payment)</label>
       {error && <p role="alert" className="error">{error}</p>}
       <button className="primary" disabled={busy || !verified}>{busy ? 'Processing…' : 'Continue to payment'}<ArrowRight size={16}/></button>
