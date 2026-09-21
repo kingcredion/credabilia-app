@@ -110,6 +110,7 @@ function ThemeToggle() {
 
 function CreateListing({ onClose, onCreated, relistFrom }) {
   const [listingCategory, setListingCategory] = useState(relistFrom?.category || CATEGORIES[0]);
+  const [listingType, setListingType] = useState('fixed');
   const [busy, setBusy] = useState(false), [error, setError] = useState('');
   const [media,setMedia]=useState([]), [uploading,setUploading]=useState(false), [analyzing,setAnalyzing]=useState(false);
   const [certificate,setCertificate]=useState({}),[suggestion,setSuggestion]=useState(null),[confirmed,setConfirmed]=useState(false);
@@ -180,7 +181,7 @@ function CreateListing({ onClose, onCreated, relistFrom }) {
       if(!mainPhotoBackgroundRemoved(media)) throw new Error('Remove the background from your main photo before publishing.');
       const form = Object.fromEntries(new FormData(event.currentTarget));
       const attributes = Object.fromEntries(Object.entries(form).filter(([key])=>key.startsWith('attribute:')).map(([key,value])=>[key.slice(10),value]));
-      const id = await service.createListing({ ...form, attributes, ...certificate, media, price_cents: priceInCents(form.price) });
+      const id = await service.createListing({ ...form, attributes, ...certificate, media, price_cents: priceInCents(form.price), listing_type: listingType, auction_days: form.auction_days });
       // Best-effort: the listing is already published, so a failure here shouldn't block the seller — but it should be visible for debugging.
       if (relistFrom?.purchase_id) service.markListingRelisted(id, relistFrom.purchase_id).catch(err => console.warn('Could not record relist provenance:', err.message));
       onCreated(id);
@@ -191,7 +192,12 @@ function CreateListing({ onClose, onCreated, relistFrom }) {
     {copyingPhotos && <p role="status" className="field-note">Copying photos to your own listing…</p>}
     <form ref={formRef} onSubmit={submit} className="form-stack">
       <label>Item title<input name="title" placeholder="What are you sharing?" minLength={4} maxLength={120} required autoFocus/></label>
-      <div className="form-row"><label>Category<select name="category" value={listingCategory} onChange={event=>setListingCategory(event.target.value)}>{CATEGORIES.map(c => <option key={c}>{c}</option>)}</select></label><label>Price (USD)<input name="price" type="number" min="1" max="1000000" step="0.01" placeholder="125.00" required/></label></div>
+      {!relistFrom && <div className="categories" aria-label="Listing type"><button type="button" aria-pressed={listingType==='fixed'} className={listingType==='fixed' ? 'active' : ''} onClick={()=>setListingType('fixed')}>Fixed price</button><button type="button" aria-pressed={listingType==='auction'} className={listingType==='auction' ? 'active' : ''} onClick={()=>setListingType('auction')}>Auction</button></div>}
+      <div className="form-row">
+        <label>Category<select name="category" value={listingCategory} onChange={event=>setListingCategory(event.target.value)}>{CATEGORIES.map(c => <option key={c}>{c}</option>)}</select></label>
+        <label>{listingType==='auction' ? 'Starting bid (USD)' : 'Price (USD)'}<input name="price" type="number" min="1" max="1000000" step="0.01" placeholder="125.00" required/></label>
+      </div>
+      {listingType==='auction' && <label>Auction length<select name="auction_days" defaultValue="5"><option value="3">3 days</option><option value="5">5 days</option><option value="7">7 days</option></select></label>}
       <label>Description<textarea name="description" minLength={20} maxLength={4000} rows={3} placeholder="Condition, history, and the details a collector should know…" required/></label>
       {service.detailsEnabled && <ListingDetailFields key={listingCategory} category={listingCategory}/>}
       <p className="field-note">Package weight and size, once packed — this lets buyers see a real shipping cost at checkout instead of guessing.</p>
@@ -318,8 +324,22 @@ function StorefrontSettings({ profile }) {
   </div>;
 }
 
+const REQUIRED_ADDRESS_FIELDS = ['street1', 'city', 'state', 'zip', 'country'];
+
 function ShippingAddressFields({ value, onChange, disabled }) {
-  const set = key => event => onChange({ ...value, [key]: event.target.value });
+  const set = key => event => { onChange({ ...value, [key]: event.target.value }); setVerification(null); };
+  const [verifying, setVerifying] = useState(false);
+  const [verifyError, setVerifyError] = useState('');
+  const [verification, setVerification] = useState(null);
+  const canVerify = REQUIRED_ADDRESS_FIELDS.every(key => value[key]?.trim());
+  const differs = verification && REQUIRED_ADDRESS_FIELDS.concat('street2').some(key => (verification.suggested[key] || '').trim().toLowerCase() !== (value[key] || '').trim().toLowerCase());
+  async function verify() {
+    setVerifying(true); setVerifyError(''); setVerification(null);
+    try { setVerification(await service.validateAddress(value)); }
+    catch (err) { setVerifyError(err.message); }
+    finally { setVerifying(false); }
+  }
+  function useSuggested() { onChange({ ...value, ...verification.suggested }); setVerification(null); }
   return <>
     <label>Full name<input value={value.name || ''} onChange={set('name')} maxLength={100} required disabled={disabled}/></label>
     <div className="form-row">
@@ -335,6 +355,17 @@ function ShippingAddressFields({ value, onChange, disabled }) {
       <label>Country<input value={value.country || ''} onChange={set('country')} maxLength={2} placeholder="US" required disabled={disabled}/></label>
       <label>Phone <span className="optional">optional</span><input value={value.phone || ''} onChange={set('phone')} maxLength={30} disabled={disabled}/></label>
     </div>
+    <button type="button" className="text-button" onClick={verify} disabled={disabled || verifying || !canVerify}><ShieldCheck size={16}/>{verifying ? 'Checking…' : 'Verify address'}</button>
+    {verifyError && <p role="alert" className="error">{verifyError}</p>}
+    {verification && !differs && <p className="field-note bg-removed-ok">{verification.is_valid ? '✓ Address verified.' : 'Checked — no standardized match found. Double-check for typos, or continue if you\'re sure it\'s correct.'}</p>}
+    {verification && differs && <div className="evidence-box">
+      <p className="field-note">{verification.is_valid ? 'We found a standardized match:' : 'Closest match found (unconfirmed) — double-check before using it:'}</p>
+      <p>{verification.suggested.street1}{verification.suggested.street2 ? `, ${verification.suggested.street2}` : ''}<br/>{verification.suggested.city}, {verification.suggested.state} {verification.suggested.zip}</p>
+      <div className="form-row">
+        <button type="button" className="primary" disabled={disabled} onClick={useSuggested}>Use this address</button>
+        <button type="button" className="text-button" disabled={disabled} onClick={() => setVerification(null)}>Keep as entered</button>
+      </div>
+    </div>}
   </>;
 }
 
@@ -522,6 +553,38 @@ function BuyerRefundPanel({ item, onRequested }) {
     {error && <p role="alert" className="error">{error}</p>}
     <button className="primary" disabled={busy || !reason.trim()}>{busy ? 'Sending…' : 'Submit request'}</button>
     <button type="button" className="text-button" onClick={() => setOpen(false)}>Cancel</button>
+  </form>;
+}
+
+function auctionTimeLeft(endsAt) {
+  const ms = new Date(endsAt) - new Date();
+  if (ms <= 0) return 'Auction ended';
+  const days = Math.floor(ms / 86400000), hours = Math.floor((ms % 86400000) / 3600000);
+  if (days > 0) return `${days}d ${hours}h left`;
+  const minutes = Math.floor((ms % 3600000) / 60000);
+  if (hours > 0) return `${hours}h ${minutes}m left`;
+  return `${minutes}m left`;
+}
+
+function AuctionBidBox({ item, onBid }) {
+  const [amount, setAmount] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState('');
+  const ended = new Date(item.auction_ends_at) <= new Date();
+  const minimum = item.bid_count === 0 ? item.price_cents : item.price_cents + 100;
+  async function submit(event) {
+    event.preventDefault(); if (busy) return;
+    setBusy(true); setError('');
+    try { await service.placeBid(item.id, priceInCents(amount)); setAmount(''); onBid(); }
+    catch (err) { setError(err.message); } finally { setBusy(false); }
+  }
+  if (ended) return <p role="status" className="field-note">This auction has ended and is being settled — check back shortly.</p>;
+  return <form className="form-stack" onSubmit={submit}>
+    <div className="form-row">
+      <label>Your bid <span className="optional">min {money(minimum)}</span><input type="number" min={(minimum/100).toFixed(2)} step="0.01" value={amount} onChange={event=>setAmount(event.target.value)} required disabled={busy}/></label>
+      <button className="primary" disabled={busy}>{busy ? 'Placing…' : 'Place bid'}<ArrowRight size={16}/></button>
+    </div>
+    {error && <p role="alert" className="error">{error}</p>}
   </form>;
 }
 
@@ -898,7 +961,7 @@ export default function App() {
           <button className="back-button" onClick={() => setSelectedId(null)}><ArrowLeft size={17}/>Back to {workspace === 'auditor' ? 'audit queue' : 'listings'}</button>
           {own && profile?.can_sell && <button className="text-button" onClick={()=>setModal('edit')}>Edit listing</button>}
           {session && !own && <button className="text-button" onClick={()=>toggleFavorite(selected.id)}><Heart size={16} fill={favoriteIds.includes(selected.id) ? 'currentColor' : 'none'}/>{favoriteIds.includes(selected.id) ? 'Saved' : 'Save to collection'}</button>}
-          <div className="detail-grid"><div>{selected.media?.some(asset=>asset.kind==='item') ? <PhotoGallery key={selected.id} media={selected.media} title={selected.title}/> : <ItemArt kind={selected.artwork} category={selected.category} large/>}<PhotoGallery key={selected.id+'cert'} media={selected.media} kind="certificate" title={selected.title}/></div><section className="item-info"><span className="pill">{selected.category}</span><h1>{selected.title}</h1><p className="seller-name">Shared by {selected.seller_name}{selected.seller_rating_count > 0 && <> · <RatingStars value={selected.seller_rating_avg} count={selected.seller_rating_count}/></>} · Member since {new Date(selected.seller_member_since).getFullYear()}{selected.seller_sales_count > 0 && <> · {selected.seller_sales_count} {selected.seller_sales_count === 1 ? 'sale' : 'sales'}</>}</p><p className="detail-price">{money(selected.price_cents)}</p>{session && !own && <>{service.mode==='live' && !selected.seller_charges_enabled && <p className="field-note">This seller hasn't finished payment setup yet.</p>}{myRequest?.status==='confirmed' ? <><p className="field-note">The seller confirmed this is still available.</p><button className="primary" disabled={busy} onClick={()=>setModal('checkout-address')}>Continue to checkout<ArrowRight size={16}/></button></> : myRequest?.status==='pending' ? <p role="status" className="field-note">Waiting for the seller to confirm this item is still available…</p> : <button className="primary" disabled={busy || (service.mode==='live' && !selected.seller_charges_enabled)} onClick={()=>requestToBuy(selected.id)}>{busy ? 'Processing…' : 'Ask to buy'}<ArrowRight size={16}/></button>}</>}<p>{selected.description}</p><ListingDetailSummary item={selected}/><div className="evidence-box"><h3><ShieldCheck size={18}/>Evidence notes</h3><p>{selected.evidence || 'No evidence has been provided yet. Ask for more information before reaching a conclusion.'}</p></div><CertificateDetails key={selected.id} item={selected}/><CredibilityDetails item={selected}/><ItemHistory key={selected.id+selected.version} item={selected} service={service}/><TriviaPanel key={selected.id} item={selected} service={service} signedIn={!!session}/><p className="field-note">Community assessments are opinions, not professional authentication.</p></section></div>
+          <div className="detail-grid"><div>{selected.media?.some(asset=>asset.kind==='item') ? <PhotoGallery key={selected.id} media={selected.media} title={selected.title}/> : <ItemArt kind={selected.artwork} category={selected.category} large/>}<PhotoGallery key={selected.id+'cert'} media={selected.media} kind="certificate" title={selected.title}/></div><section className="item-info"><span className="pill">{selected.category}</span><h1>{selected.title}</h1><p className="seller-name">Shared by {selected.seller_name}{selected.seller_rating_count > 0 && <> · <RatingStars value={selected.seller_rating_avg} count={selected.seller_rating_count}/></>} · Member since {new Date(selected.seller_member_since).getFullYear()}{selected.seller_sales_count > 0 && <> · {selected.seller_sales_count} {selected.seller_sales_count === 1 ? 'sale' : 'sales'}</>}</p><p className="detail-price">{money(selected.price_cents)}</p>{selected.listing_type==='auction' && <p className="field-note">{selected.bid_count} {selected.bid_count===1?'bid':'bids'} · {auctionTimeLeft(selected.auction_ends_at)}</p>}{session && !own && <>{service.mode==='live' && !selected.seller_charges_enabled && <p className="field-note">This seller hasn't finished payment setup yet.</p>}{myRequest?.status==='confirmed' ? <><p className="field-note">{selected.listing_type==='auction' ? 'You won this auction!' : 'The seller confirmed this is still available.'}</p><button className="primary" disabled={busy} onClick={()=>setModal('checkout-address')}>Continue to checkout<ArrowRight size={16}/></button></> : myRequest?.status==='pending' ? <p role="status" className="field-note">Waiting for the seller to confirm this item is still available…</p> : selected.listing_type==='auction' ? <AuctionBidBox item={selected} onBid={refresh}/> : <button className="primary" disabled={busy || (service.mode==='live' && !selected.seller_charges_enabled)} onClick={()=>requestToBuy(selected.id)}>{busy ? 'Processing…' : 'Ask to buy'}<ArrowRight size={16}/></button>}</>}<p>{selected.description}</p><ListingDetailSummary item={selected}/><div className="evidence-box"><h3><ShieldCheck size={18}/>Evidence notes</h3><p>{selected.evidence || 'No evidence has been provided yet. Ask for more information before reaching a conclusion.'}</p></div><CertificateDetails key={selected.id} item={selected}/><CredibilityDetails item={selected}/><ItemHistory key={selected.id+selected.version} item={selected} service={service}/><TriviaPanel key={selected.id} item={selected} service={service} signedIn={!!session}/><p className="field-note">Community assessments are opinions, not professional authentication.</p></section></div>
           <section className="audit-panel"><div><p className="eyebrow">LOOK CLOSER</p><h2>What does the evidence tell you?</h2><p className="muted">Explain what you observed. “Need more evidence” is a useful answer.</p></div>
             {!session ? <button className="primary" onClick={() => setModal('login')}>Sign in to audit <ArrowRight size={16}/></button>
               : own ? <p className="empty-inline">This is your listing. Other members can submit assessments.</p>
@@ -925,7 +988,7 @@ export default function App() {
               : <div className="items-grid">{sellerBuyRequests.map(request => <BuyRequestCard key={request.id} request={request} onResolved={id => setSellerBuyRequests(list => list.filter(r => r.id !== id))}/>)}</div>) : <>
             {collectionFilter !== 'owned' && <div className="filters"><div className="categories" aria-label="Filter by category">{['All items', ...CATEGORIES].map(c => <button key={c} aria-pressed={category === c} className={category === c ? 'active' : ''} onClick={() => setCategory(c)}>{c}</button>)}</div><label className="search"><Search size={17}/><input aria-label="Search listings" value={query} onChange={e => setQuery(e.target.value)} placeholder="Find your next discovery"/></label></div>}
             {loading ? <p role="status" className="empty-state">Loading the collection…</p> : !collectionItems.length ? <div className="empty-state"><Layers size={34}/><h3>{workspace === 'seller' ? 'Your first listing starts here.' : collectionFilter === 'owned' ? 'Nothing purchased yet.' : collectionFilter === 'saved' ? 'Nothing saved yet.' : 'No items here yet.'}</h3><p>{workspace === 'seller' ? 'Add a piece and tell its story.' : collectionFilter === 'owned' ? 'Items you buy will show up here.' : collectionFilter === 'saved' ? 'Tap the heart on an item to save it here.' : 'Try a different category or search.'}</p>{workspace === 'seller' && <button className="primary" onClick={openCreate}>Create a listing <Plus size={17}/></button>}</div>
-              : <div className="items-grid">{collectionItems.map(item => <button className="item-card" key={item.id} onClick={() => { setSelectedId(item.id); window.scrollTo({ top: 0 }); }} aria-label={`View ${item.title}`}><ItemArt kind={item.artwork} category={item.category} photo={item.media?.find(asset=>asset.kind==='item')?.url}/><div className="item-card-content"><div className="card-meta"><span>{item.category}</span>{collectionFilter === 'owned' ? <span>OWNED</span> : <><span>{item.sample ? 'SAMPLE' : 'NEW LISTING'}</span>{session && item.seller_id !== session.user.id && <span role="button" tabIndex={0} className="icon-button" aria-label={favoriteIds.includes(item.id) ? 'Remove from saved' : 'Save to collection'} onClick={event => { event.stopPropagation(); toggleFavorite(item.id); }}><Heart size={14} fill={favoriteIds.includes(item.id) ? 'currentColor' : 'none'}/></span>}</>}</div><h3>{item.title}</h3><p>{collectionFilter === 'owned' ? `Purchased ${new Date(item.purchased_at).toLocaleDateString()}` : item.seller_name}</p>{collectionFilter !== 'owned' && <CredibilityMeter score={item.credibility_score} compact/>}<div className="card-bottom"><strong>{money(item.price_cents)}</strong>{collectionFilter !== 'owned' && <span><ClipboardCheck size={14}/>{item.audit_count || 0} audits</span>}</div></div></button>)}</div>}
+              : <div className="items-grid">{collectionItems.map(item => <button className="item-card" key={item.id} onClick={() => { setSelectedId(item.id); window.scrollTo({ top: 0 }); }} aria-label={`View ${item.title}`}><ItemArt kind={item.artwork} category={item.category} photo={item.media?.find(asset=>asset.kind==='item')?.url}/><div className="item-card-content"><div className="card-meta"><span>{item.category}</span>{collectionFilter === 'owned' ? <span>OWNED</span> : <><span>{item.listing_type==='auction' ? 'AUCTION' : item.sample ? 'SAMPLE' : 'NEW LISTING'}</span>{session && item.seller_id !== session.user.id && <span role="button" tabIndex={0} className="icon-button" aria-label={favoriteIds.includes(item.id) ? 'Remove from saved' : 'Save to collection'} onClick={event => { event.stopPropagation(); toggleFavorite(item.id); }}><Heart size={14} fill={favoriteIds.includes(item.id) ? 'currentColor' : 'none'}/></span>}</>}</div><h3>{item.title}</h3><p>{collectionFilter === 'owned' ? `Purchased ${new Date(item.purchased_at).toLocaleDateString()}` : item.seller_name}</p>{collectionFilter !== 'owned' && <CredibilityMeter score={item.credibility_score} compact/>}<div className="card-bottom"><strong>{money(item.price_cents)}</strong>{collectionFilter !== 'owned' && (item.listing_type==='auction' ? <span>{item.bid_count} {item.bid_count===1?'bid':'bids'} · {auctionTimeLeft(item.auction_ends_at)}</span> : <span><ClipboardCheck size={14}/>{item.audit_count || 0} audits</span>)}</div></div></button>)}</div>}
             </>}
           </section><section className="community-note"><div className="note-icon"><ShieldCheck size={25}/></div><div><h3>Confidence grows with evidence.</h3><p>A community opinion is a starting point. For valuable purchases, seek qualified authentication.</p></div><button className="icon-button" aria-label="Read the auditing guide" onClick={() => setModal('learn')}><ArrowUpRight size={24}/></button></section>
         </>}

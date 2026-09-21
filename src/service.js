@@ -113,8 +113,9 @@ export function makeService() {
     async createListing(input) {
       const value = listingInput(input);
       const detailsEnabled = import.meta.env.VITE_LISTING_DETAILS_ENABLED === 'true';
-      return unwrap(await client.rpc(detailsEnabled ? 'create_listing_with_details' : 'create_listing_with_media', { ...(detailsEnabled ? {p_attributes:value.attributes,p_tags:value.tags,p_weight_oz:value.weight_oz,p_length_in:value.length_in,p_width_in:value.width_in,p_height_in:value.height_in,p_free_shipping:value.free_shipping} : {}), p_title: value.title, p_description: value.description, p_category: value.category, p_price_cents: value.price_cents, p_evidence: value.evidence, p_issuer: value.certificate_issuer, p_number: value.certificate_number, p_company: value.certificate_company, p_media: mediaInput(input.media) }));
+      return unwrap(await client.rpc(detailsEnabled ? 'create_listing_with_details' : 'create_listing_with_media', { ...(detailsEnabled ? {p_attributes:value.attributes,p_tags:value.tags,p_weight_oz:value.weight_oz,p_length_in:value.length_in,p_width_in:value.width_in,p_height_in:value.height_in,p_free_shipping:value.free_shipping,p_listing_type:input.listing_type==='auction'?'auction':'fixed',p_auction_days:input.listing_type==='auction'?Number(input.auction_days):null} : {}), p_title: value.title, p_description: value.description, p_category: value.category, p_price_cents: value.price_cents, p_evidence: value.evidence, p_issuer: value.certificate_issuer, p_number: value.certificate_number, p_company: value.certificate_company, p_media: mediaInput(input.media) }));
     },
+    async placeBid(listingId, amountCents) { return unwrap(await client.rpc('place_bid', { p_listing_id: listingId, p_amount_cents: amountCents })); },
     async editListing(item,input,mediaTouched) {
       const v=listingInput(input);
       unwrap(await client.rpc('edit_listing',{p_id:item.id,p_title:v.title,p_description:v.description,p_category:v.category,p_price_cents:v.price_cents,p_evidence:v.evidence,
@@ -171,6 +172,11 @@ export function makeService() {
     async updateStoreSlug(slug) { unwrap(await client.rpc('update_store_slug', { p_slug: slug })); },
     async myDashboardStats() { return unwrap(await client.rpc('my_dashboard_stats')); },
     async saveShippingAddress(address) { unwrap(await client.rpc('save_shipping_address', { p_address: address })); },
+    async validateAddress(address) {
+      const {data,error}=await client.functions.invoke('validate-address',{body:{address}});
+      if(error) { let detail; try {detail=await error.context?.json();} catch {} throw new Error(detail?.error || 'Could not verify this address right now.'); }
+      return data;
+    },
     async mySales() { return signMedia(unwrap(await client.rpc('my_sales'))); },
     async getShippingRates(purchaseId, parcel) {
       const {data,error}=await client.functions.invoke('shippo-get-rates',{body:{purchase_id:purchaseId,parcel}});

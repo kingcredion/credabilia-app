@@ -8,10 +8,10 @@ export const DEMO_ACCOUNTS = [DEMO_USER, { ...DEMO_USER, id: '22222222-2222-4222
 export function createDemoService(storage = window.localStorage) {
   const key = 'credabilia-next-demo-v2';
   let listeners = new Set();
-  const fresh = () => ({ userId: null, listings: sampleListings(), audits: [], uploads: {}, xp: {}, names: {}, favorites: {}, purchases: [], revisions: [], slugs: {}, shippingAddresses: {}, messages: [], credits: [], supportMessages: [], refundRequests: [], buyRequests: [], sellerRatings: [] });
+  const fresh = () => ({ userId: null, listings: sampleListings(), audits: [], uploads: {}, xp: {}, names: {}, favorites: {}, purchases: [], revisions: [], slugs: {}, shippingAddresses: {}, messages: [], credits: [], supportMessages: [], refundRequests: [], buyRequests: [], sellerRatings: [], bids: [] });
   let state;
   try { const saved = JSON.parse(storage.getItem(key)); state = saved && Array.isArray(saved.listings) && Array.isArray(saved.audits) ? saved : fresh(); } catch { state = fresh(); }
-  state.uploads ||= {}; state.names ||= {}; state.favorites ||= {}; state.purchases ||= []; state.revisions ||= []; state.slugs ||= {}; state.shippingAddresses ||= {}; state.messages ||= []; state.credits ||= []; state.supportMessages ||= []; state.refundRequests ||= []; state.buyRequests ||= []; state.sellerRatings ||= [];
+  state.uploads ||= {}; state.names ||= {}; state.favorites ||= {}; state.purchases ||= []; state.revisions ||= []; state.slugs ||= {}; state.shippingAddresses ||= {}; state.messages ||= []; state.credits ||= []; state.supportMessages ||= []; state.refundRequests ||= []; state.buyRequests ||= []; state.sellerRatings ||= []; state.bids ||= [];
   function sellerRatingStats(sellerId) {
     const ratings=state.sellerRatings.filter(r=>r.seller_id===sellerId);
     if(!ratings.length) return {avg:null,count:0};
@@ -56,6 +56,13 @@ export function createDemoService(storage = window.localStorage) {
       requireUser();
       if (!validAddress(address)) throw new Error('Fill in all required address fields.');
       state.shippingAddresses[state.userId] = address; save();
+    },
+    async validateAddress(address) {
+      requireUser();
+      if (!validAddress(address)) throw new Error('Fill in street, city, state, ZIP, and country first.');
+      const titleCase=s=>String(s||'').trim().replace(/\w\S*/g,w=>w[0].toUpperCase()+w.slice(1).toLowerCase());
+      const suggested={name:address.name||'',street1:titleCase(address.street1),street2:titleCase(address.street2||''),city:titleCase(address.city),state:String(address.state).trim().toUpperCase().slice(0,2),zip:String(address.zip).trim(),country:String(address.country).trim().toUpperCase(),phone:address.phone||''};
+      return {is_valid:true,messages:['This is a simulated check in the local preview, not a real USPS lookup.'],suggested};
     },
     async updateProfile(displayName) {
       requireUser();
@@ -420,8 +427,24 @@ export function createDemoService(storage = window.localStorage) {
       requireUser();
       const value = listingInput(input);
       const media=mediaInput(input.media).map(asset=>{if(!asset.path.startsWith(state.userId+'/') || !state.uploads[asset.path]) throw new Error('Photo upload is missing.');return {...asset,url:state.uploads[asset.path].url};});
-      const item = { ...value, media, id: crypto.randomUUID(), seller_id: state.userId, seller_name: currentUser().display_name, status: 'active', created_at: new Date().toISOString(), artwork: 'generic', audit_count: 0 };
+      const isAuction=input.listing_type==='auction';
+      if(isAuction && ![3,5,7].includes(Number(input.auction_days))) throw new Error('Choose a 3, 5, or 7 day auction.');
+      const item = { ...value, media, id: crypto.randomUUID(), seller_id: state.userId, seller_name: currentUser().display_name, status: 'active', created_at: new Date().toISOString(), artwork: 'generic', audit_count: 0,
+        listing_type: isAuction ? 'auction' : 'fixed', bid_count: 0, auction_ends_at: isAuction ? new Date(Date.now()+Number(input.auction_days)*24*60*60*1000).toISOString() : null };
       state.listings.unshift(item); try {save();} catch(error) {state.listings.shift();throw error;} return item.id;
+    },
+    async placeBid(listingId, amountCents) {
+      requireUser();
+      const item=state.listings.find(x=>x.id===listingId);
+      if(!item || item.status!=='active' || item.listing_type!=='auction') throw new Error('This auction is not available for bidding.');
+      if(new Date(item.auction_ends_at)<=new Date()) throw new Error('This auction has ended.');
+      if(item.seller_id===state.userId) throw new Error('You cannot bid on your own listing.');
+      const minimum=item.bid_count===0 ? item.price_cents : item.price_cents+100;
+      if(amountCents<minimum) throw new Error('Enter a higher bid.');
+      item.price_cents=amountCents; item.bid_count+=1;
+      (state.bids ||= []).push({id:crypto.randomUUID(),listing_id:listingId,bidder_id:state.userId,amount_cents:amountCents,created_at:new Date().toISOString()});
+      save();
+      return {id:item.id,amount_cents:amountCents,bid_count:item.bid_count};
     },
     async editListing(original,input,mediaTouched) {
       requireUser();
