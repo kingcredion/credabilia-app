@@ -1,14 +1,11 @@
 import React from 'react';
 import { Brand } from './Brand.jsx';
 
-const LAST_UPDATED = 'September 30, 2026';
+const LAST_UPDATED = 'September 21, 2026';
 
 function LegalShell({ title, children }) {
   return <div className="legal-page">
     <a className="legal-back" href="/"><Brand/></a>
-    <div className="legal-draft-banner">
-      <strong>Draft — pending legal review.</strong> This page is a working draft and has not yet been reviewed by an attorney. Do not rely on it as final. It is published now only so its URL can be used for account sign-in and account creation, as required by our sign-in provider.
-    </div>
     <h1>{title}</h1>
     <p className="legal-updated">Last updated: {LAST_UPDATED}</p>
     {children}
@@ -75,7 +72,9 @@ export function TermsPage() {
     <p>You keep ownership of the photos, descriptions, messages, and other content you submit. By submitting it, you grant Credabilia a non-exclusive, worldwide, royalty-free license to host, display, reproduce, and distribute that content as needed to operate and promote the Service (for example, showing your listing photos to potential buyers). You are solely responsible for content you submit and for having the rights to submit it.</p>
 
     <h2>14. Copyright complaints (DMCA)</h2>
-    <p>If you believe content on Credabilia infringes your copyright, contact us at <a href="mailto:kingcredion@credabilia.com">kingcredion@credabilia.com</a> with enough detail for us to identify the material and your claim. <em>[Credabilia intends to designate a formal DMCA agent with the U.S. Copyright Office; until that registration is complete, this section is incomplete and should not be relied on for safe-harbor purposes.]</em></p>
+    <p>If you believe content on Credabilia infringes your copyright, send a notice to our designated agent, registered with the U.S. Copyright Office:</p>
+    <p>King Credion<br/>Credabilia LLC<br/>732 S 6th St, Ste 7531<br/>Las Vegas, NV 89101<br/>Email: <a href="mailto:kingcredion@credabilia.com">kingcredion@credabilia.com</a><br/>U.S. Copyright Office Registration No. DMCA-1080845</p>
+    <p>Your notice must include enough detail for us to identify the material and your claim.</p>
 
     <h2>15. Termination</h2>
     <p>You may stop using the Service and close your account at any time. We may suspend or terminate your account if we believe you've violated these Terms, the law, or put the Service or other users at risk. Sections of these Terms that by their nature should survive termination (including Sections 5, 10 through 14, and 16 through 20) will survive.</p>
@@ -84,20 +83,19 @@ export function TermsPage() {
     <p>THE SERVICE IS PROVIDED "AS IS" AND "AS AVAILABLE," WITHOUT WARRANTIES OF ANY KIND, WHETHER EXPRESS OR IMPLIED, INCLUDING WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE, OR NON-INFRINGEMENT. WE DO NOT WARRANT THAT AN ITEM LISTED ON CREDABILIA IS AUTHENTIC, ACCURATELY DESCRIBED, OR OF ANY PARTICULAR CONDITION OR VALUE, OR THAT THE SERVICE WILL BE UNINTERRUPTED OR ERROR-FREE.</p>
 
     <h2>17. Limitation of liability</h2>
-    <p><em>[Placeholder — liability caps and carve-outs are jurisdiction-sensitive and need attorney drafting before publication.]</em> To the maximum extent permitted by law, Credabilia will not be liable for indirect, incidental, special, consequential, or punitive damages, or for any loss of profits or data, arising from your use of the Service.</p>
+    <p>To the maximum extent permitted by law, Credabilia will not be liable for indirect, incidental, special, consequential, or punitive damages, or for any loss of profits or data, arising from your use of the Service.</p>
 
     <h2>18. Indemnification</h2>
     <p>You agree to defend and indemnify Credabilia against any claim, loss, or expense (including reasonable attorneys' fees) arising from your use of the Service, your content, your listings, or your violation of these Terms.</p>
 
     <h2>19. Dispute resolution and arbitration</h2>
-    <p><strong>You and Credabilia agree to resolve disputes through binding individual arbitration, not in court, and each waive the right to a jury trial and to participate in a class action.</strong> <em>[Placeholder — the arbitration provider, rules, and procedure (e.g., AAA), and the exact arbitration/small-claims carve-outs, need attorney drafting before publication.]</em> These Terms are governed by the laws of the State of Nevada, without regard to conflict-of-law rules. <em>[Nevada is inferred from the business address on file and should be confirmed.]</em></p>
+    <p><strong>You and Credabilia agree to resolve disputes through binding individual arbitration, not in court, and each waive the right to a jury trial and to participate in a class action.</strong> Arbitration will be administered by the American Arbitration Association (AAA) under its Consumer Arbitration Rules. Either party may instead bring an individual claim in small claims court if it qualifies. These Terms are governed by the laws of the State of Nevada, without regard to conflict-of-law rules.</p>
 
     <h2>20. Changes to these Terms</h2>
     <p>We may update these Terms from time to time. If we make material changes, we'll update the "Last updated" date above and, where appropriate, notify you. Continuing to use the Service after changes take effect means you accept the updated Terms.</p>
 
     <h2>21. Contact</h2>
-    <p>Credabilia LLC<br/>3651 S Arville St, Apt 145<br/>Las Vegas, NV 89103<br/>Email: <a href="mailto:kingcredion@credabilia.com">kingcredion@credabilia.com</a></p>
-    <p className="field-note"><em>[The address above is a placeholder pending a dedicated business address (e.g. a PO box).]</em></p>
+    <p>Credabilia LLC<br/>732 S 6th St, Ste 7531<br/>Las Vegas, NV 89101<br/>Email: <a href="mailto:kingcredion@credabilia.com">kingcredion@credabilia.com</a></p>
   </LegalShell>;
 }
 
@@ -146,7 +144,7 @@ export function PrivacyPage() {
     <p>We do not currently use advertising or analytics cookies or trackers. We use your browser's local storage to keep you signed in between visits. If this changes, we'll update this policy.</p>
 
     <h2>6. Data retention</h2>
-    <p><em>[Placeholder — we have not yet defined specific retention periods.]</em> We retain your information for as long as your account is active and as needed to provide the Service, resolve disputes, and comply with our legal obligations. If you close your account, we may retain records related to completed transactions as required for legal, tax, or accounting purposes.</p>
+    <p>We retain your information for as long as your account is active and as needed to provide the Service, resolve disputes, and comply with our legal obligations. If you close your account, we delete your profile and listing data within 90 days, except that we retain transaction records (purchases, sales, and payout history) for 7 years as required for tax and accounting purposes.</p>
 
     <h2>7. Your choices</h2>
     <p>You can update your display name, shipping address, and other profile information at any time in Settings. To request access to or deletion of your account and associated data, contact us at <a href="mailto:kingcredion@credabilia.com">kingcredion@credabilia.com</a>. We may need to retain certain records (for example, transaction history) even after a deletion request, as described in Section 6.</p>
@@ -164,7 +162,6 @@ export function PrivacyPage() {
     <p>We may update this Privacy Policy from time to time. If we make material changes, we'll update the "Last updated" date above and, where appropriate, notify you.</p>
 
     <h2>12. Contact us</h2>
-    <p>Credabilia LLC<br/>3651 S Arville St, Apt 145<br/>Las Vegas, NV 89103<br/>Email: <a href="mailto:kingcredion@credabilia.com">kingcredion@credabilia.com</a></p>
-    <p className="field-note"><em>[The address above is a placeholder pending a dedicated business address (e.g. a PO box).]</em></p>
+    <p>Credabilia LLC<br/>732 S 6th St, Ste 7531<br/>Las Vegas, NV 89101<br/>Email: <a href="mailto:kingcredion@credabilia.com">kingcredion@credabilia.com</a></p>
   </LegalShell>;
 }
