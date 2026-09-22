@@ -1273,7 +1273,10 @@ export default function App() {
       <main>
         {error && <div className="message error" role="alert"><AlertCircle size={18}/><span>{error}</span><button onClick={() => setError('')} aria-label="Dismiss error"><X size={16}/></button></div>}
         {notice && <div className="message success" role="status"><Check size={18}/><span>{notice}</span><button onClick={() => setNotice('')} aria-label="Dismiss notification"><X size={16}/></button></div>}
-        {workspace === 'auditor' ? <AuditQueue key={session?.user?.id || 'anon'} items={filtered} session={session} profile={profile} onNeedLogin={() => setModal('login')} onAudited={result => { setNotice(result.xp_earned ? 'Audit recorded. +5 participation XP.' : 'Your audit is already recorded.'); refresh(); }}/> : selected ? <>
+        {workspace === 'auditor' ? <>
+          <section className="hero"><div className="hero-copy"><p className="eyebrow"><span className="small-line"/>OBSERVATION OVER ASSUMPTION</p><h1>Look closer.<br/><em>Share what you see.</em></h1><p>Help collectors make informed decisions. Review evidence, explain your reasoning, and keep learning.</p></div><div className="hero-mascot"><img src={HERO_IMAGES.auditor.src} width={HERO_IMAGES.auditor.width} height={HERO_IMAGES.auditor.height} alt={HERO_IMAGES.auditor.alt}/></div></section>
+          <AuditQueue key={session?.user?.id || 'anon'} items={filtered} session={session} profile={profile} onNeedLogin={() => setModal('login')} onAudited={result => { setNotice(result.xp_earned ? 'Audit recorded. +5 participation XP.' : 'Your audit is already recorded.'); refresh(); }}/>
+        </> : selected ? <>
           <button className="back-button" onClick={() => setSelectedId(null)}><ArrowLeft size={17}/>Back to listings</button>
           {own && profile?.can_sell && <button className="text-button" onClick={()=>setModal('edit')}>Edit listing</button>}
           {session && !own && <button className="text-button" onClick={()=>toggleFavorite(selected.id)}><Heart size={16} fill={favoriteIds.includes(selected.id) ? 'currentColor' : 'none'}/>{favoriteIds.includes(selected.id) ? 'Saved' : 'Save to collection'}</button>}
