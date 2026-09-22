@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { MEDIA_LIMITS, prepareImage } from './media.js';
 
 const backgroundRemoved = asset => /[.]png$/.test(asset.path);
+const KIND_LABELS = { item:'Item photos', certificate:'Certificate photos', signature:'Signature close-up' };
 
 export function MediaPicker({service,media,onChange,busy,onBusy,onError}) {
   async function add(event,kind) {
@@ -33,7 +34,7 @@ export function MediaPicker({service,media,onChange,busy,onBusy,onError}) {
   return <fieldset className="form-stack"><legend>Photos and certificate images</legend>
     <p className="field-note">JPEG, PNG or WebP · up to 5 MB each. Photos become visible to buyers when you publish. Your main item photo (shown first) needs its background removed before you can publish.</p>
     {Object.entries(MEDIA_LIMITS).map(([kind,limit])=><div key={kind}>
-      <label>{kind==='item'?'Item photos':'Certificate photos'} · up to {limit}<input aria-label={kind==='item'?'Add item photos':'Add certificate photos'} type="file" accept="image/jpeg,image/png,image/webp" multiple disabled={busy} onChange={event=>add(event,kind)}/></label>
+      <label>{KIND_LABELS[kind]} · up to {limit}<input aria-label={`Add ${KIND_LABELS[kind].toLowerCase()}`} type="file" accept="image/jpeg,image/png,image/webp" multiple disabled={busy} onChange={event=>add(event,kind)}/></label>
       <div className="photo-thumbnails">{media.filter(asset=>asset.kind===kind).map((asset,index)=><div key={asset.path}><img src={asset.url} alt={`${kind} photo ${index+1}`}/>
         {kind==='item' && index===0 && (backgroundRemoved(asset)
           ? <p className="field-note bg-removed-ok">Background removed ✓</p>
@@ -49,8 +50,8 @@ export function PhotoGallery({media=[],kind='item',title}) {
   const photos=media.filter(x=>x.kind===kind);
   if(!photos.length) return null;
   const current=photos[Math.min(index,photos.length-1)];
-  return <section className="photo-gallery" aria-label={kind==='item'?'Item photos':'Certificate photos'}>
-    {kind==='certificate' && <h3>Certificate photos</h3>}
+  return <section className="photo-gallery" aria-label={KIND_LABELS[kind] || 'Item photos'}>
+    {kind!=='item' && <h3>{KIND_LABELS[kind]}</h3>}
     {current.url ? <a href={current.url} target="_blank" rel="noopener noreferrer"><img className="gallery-main" src={current.url} alt={`${title} · ${kind} photo ${index+1}`}/></a> : <p>Photo unavailable. Refresh to try again.</p>}
     <div className="photo-thumbnails">{photos.map((asset,i)=><button key={asset.path} type="button" onClick={()=>setIndex(i)} aria-pressed={i===index} aria-label={`Show ${kind} photo ${i+1}`}>{asset.url && <img src={asset.url} alt=""/>}</button>)}</div>
   </section>;

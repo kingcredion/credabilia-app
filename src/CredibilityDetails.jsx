@@ -25,6 +25,7 @@ export default function CredibilityDetails({ item }) {
       <p>Credabilia combines the listed certificate issuer's rating with community assessments. Company ratings are Credabilia's product settings. Seller-provided certificate details have not been checked with the issuer by Credabilia.</p>
       <p>Community assessments start with five neutral baseline votes so one opinion has limited influence. Each assessment currently has equal weight. “Looks consistent” contributes 100, “Need more evidence” 50, and “I see concerns” 0.</p>
       <p>Certificate/community weighting is 80/20 for fewer than 10 audits, 65/35 for 10–24, 50/50 for 25–99, and 35/65 for 100 or more. A missing certificate scores 25 out of 100 on the certificate side — a real reflection of no evidence provided, not a neutral placeholder.</p>
+      <p>When a seller gets an AI opinion on a signature close-up, it adjusts the certificate side by a small, capped amount — +5 if the opinion is "consistent," −15 if it flags "concerns," no change if "inconclusive" or not submitted. This is a plain-language opinion, not a forensic or certain authentication, and it improves as Credabilia's own signature library grows over time.</p>
       <p>This is an evidence and opinion score, not a probability of authenticity. Participation XP does not change an audit's weight.</p>
     </details>
   </section>;

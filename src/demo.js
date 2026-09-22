@@ -8,10 +8,10 @@ export const DEMO_ACCOUNTS = [DEMO_USER, { ...DEMO_USER, id: '22222222-2222-4222
 export function createDemoService(storage = window.localStorage) {
   const key = 'credabilia-next-demo-v2';
   let listeners = new Set();
-  const fresh = () => ({ userId: null, listings: sampleListings(), audits: [], uploads: {}, xp: {}, names: {}, favorites: {}, purchases: [], revisions: [], slugs: {}, shippingAddresses: {}, messages: [], credits: [], supportMessages: [], refundRequests: [], buyRequests: [], sellerRatings: [], bids: [] });
+  const fresh = () => ({ userId: null, listings: sampleListings(), audits: [], uploads: {}, xp: {}, names: {}, favorites: {}, purchases: [], revisions: [], slugs: {}, shippingAddresses: {}, messages: [], credits: [], supportMessages: [], refundRequests: [], buyRequests: [], sellerRatings: [], bids: [], reports: [], blocks: [] });
   let state;
   try { const saved = JSON.parse(storage.getItem(key)); state = saved && Array.isArray(saved.listings) && Array.isArray(saved.audits) ? saved : fresh(); } catch { state = fresh(); }
-  state.uploads ||= {}; state.names ||= {}; state.favorites ||= {}; state.purchases ||= []; state.revisions ||= []; state.slugs ||= {}; state.shippingAddresses ||= {}; state.messages ||= []; state.credits ||= []; state.supportMessages ||= []; state.refundRequests ||= []; state.buyRequests ||= []; state.sellerRatings ||= []; state.bids ||= [];
+  state.uploads ||= {}; state.names ||= {}; state.favorites ||= {}; state.purchases ||= []; state.revisions ||= []; state.slugs ||= {}; state.shippingAddresses ||= {}; state.messages ||= []; state.credits ||= []; state.supportMessages ||= []; state.refundRequests ||= []; state.buyRequests ||= []; state.sellerRatings ||= []; state.bids ||= []; state.reports ||= []; state.blocks ||= [];
   function sellerRatingStats(sellerId) {
     const ratings=state.sellerRatings.filter(r=>r.seller_id===sellerId);
     if(!ratings.length) return {avg:null,count:0};
@@ -39,6 +39,7 @@ export function createDemoService(storage = window.localStorage) {
       delete state.uploads[path];save();
     },
     async removeBackground() {throw new Error('Background removal requires the connected app and an AI service. Not available in this practice preview.');},
+    async analyzeSignature() {throw new Error('AI signature review requires the connected app and an AI service. Not available in this practice preview.');},
     async pushSubscriptionStatus() {return {supported:false,subscribed:false};},
     async enableNotifications() {throw new Error('Push notifications require the connected app. Not available in this practice preview.');},
     async disableNotifications() {},
@@ -228,6 +229,8 @@ export function createDemoService(storage = window.localStorage) {
       requireUser();
       const purchase=state.purchases.find(p=>p.id===purchaseId && (p.buyer_id===state.userId || p.seller_id===state.userId));
       if(!purchase) throw new Error('Purchase not found.');
+      const other=purchase.buyer_id===state.userId ? purchase.seller_id : purchase.buyer_id;
+      if((state.blocks || []).some(b=>(b.blocker_id===state.userId && b.blocked_id===other) || (b.blocker_id===other && b.blocked_id===state.userId))) throw new Error('You cannot message this user.');
       const clean=String(body || '').trim();
       if(!clean || clean.length>2000) throw new Error('Write a message between 1 and 2000 characters.');
       const message={id:crypto.randomUUID(),purchase_id:purchaseId,sender_id:state.userId,body:clean,created_at:new Date().toISOString()};
@@ -372,6 +375,46 @@ export function createDemoService(storage = window.localStorage) {
       return {label_url:request.return_label_url,tracking_number:request.return_tracking_number,tracking_url:request.return_tracking_url,shipped_at:shippedAt};
     },
     async operatorOpenDisputeCount() { requireUser(); return null; },
+    async isOperator() { requireUser(); return false; },
+    async adminListRefundRequests() { requireUser(); return []; },
+    async adminResolveRefundRequest() { throw new Error('The admin dashboard requires the connected app. Not available in this practice preview.'); },
+    async adminListReports() { requireUser(); return []; },
+    async adminResolveReport() { throw new Error('The admin dashboard requires the connected app. Not available in this practice preview.'); },
+    async adminListSupportConversations() { requireUser(); return []; },
+    async adminGetSupportThread() { requireUser(); return []; },
+    async adminReplyToSupport() { throw new Error('The admin dashboard requires the connected app. Not available in this practice preview.'); },
+    async adminListUsers() { requireUser(); return []; },
+    async reportContent(targetType, targetId, reason, details) {
+      requireUser();
+      const clean=String(reason || '').trim();
+      if(!clean) throw new Error('Choose a reason.');
+      (state.reports ||= []).push({id:crypto.randomUUID(),reporter_id:state.userId,target_type:targetType,target_id:targetId,reason:clean,details:details||null,status:'open',created_at:new Date().toISOString()});
+      save();
+      return {id:state.reports[state.reports.length-1].id};
+    },
+    async blockUser(userId) {
+      requireUser();
+      if(userId===state.userId) throw new Error('You cannot block yourself.');
+      (state.blocks ||= []).push({blocker_id:state.userId,blocked_id:userId,created_at:new Date().toISOString()});
+      save();
+    },
+    async unblockUser(userId) {
+      requireUser();
+      state.blocks=(state.blocks || []).filter(b=>!(b.blocker_id===state.userId && b.blocked_id===userId));
+      save();
+    },
+    async myBlockedUsers() {
+      requireUser();
+      return (state.blocks || []).filter(b=>b.blocker_id===state.userId).map(b=>({user_id:b.blocked_id,display_name:state.names[b.blocked_id] || DEMO_ACCOUNTS.find(u=>u.id===b.blocked_id)?.display_name || 'Collector'}));
+    },
+    async deleteMyAccount() {
+      requireUser();
+      if(state.listings.some(item=>item.seller_id===state.userId && item.status==='active')) throw new Error('Please remove or sell your active listings before deleting your account.');
+      if(state.refundRequests.some(r=>(r.buyer_id===state.userId || r.seller_id===state.userId) && !['refunded','denied'].includes(r.status))) throw new Error('Please resolve your open refund requests before deleting your account.');
+      const deletedId=state.userId;
+      state.names[deletedId]='Deleted user'; delete state.shippingAddresses[deletedId];
+      state.userId=null; save(); listeners.forEach(fn=>fn(null));
+    },
     async markListingRelisted(listingId,purchaseId) {
       requireUser();
       const item=state.listings.find(x=>x.id===listingId);
@@ -432,7 +475,8 @@ export function createDemoService(storage = window.localStorage) {
       const isAuction=input.listing_type==='auction';
       if(isAuction && ![3,5,7].includes(Number(input.auction_days))) throw new Error('Choose a 3, 5, or 7 day auction.');
       const item = { ...value, media, id: crypto.randomUUID(), seller_id: state.userId, seller_name: currentUser().display_name, status: 'active', created_at: new Date().toISOString(), artwork: 'generic', audit_count: 0,
-        listing_type: isAuction ? 'auction' : 'fixed', bid_count: 0, auction_ends_at: isAuction ? new Date(Date.now()+Number(input.auction_days)*24*60*60*1000).toISOString() : null };
+        listing_type: isAuction ? 'auction' : 'fixed', bid_count: 0, auction_ends_at: isAuction ? new Date(Date.now()+Number(input.auction_days)*24*60*60*1000).toISOString() : null,
+        signature_ai_label: input.signature_ai_label || null, signature_ai_note: input.signature_ai_note || null };
       state.listings.unshift(item); try {save();} catch(error) {state.listings.shift();throw error;} return item.id;
     },
     async placeBid(listingId, amountCents) {
@@ -474,7 +518,7 @@ export function createDemoService(storage = window.localStorage) {
           attributes:item.attributes||{},tags:item.tags||[],media:item.media||[],archived_at:new Date().toISOString()});
         item.version=version+1;
       }
-      Object.assign(item,value,certificate,{media});
+      Object.assign(item,value,certificate,{media,signature_ai_label:input.signature_ai_label||null,signature_ai_note:input.signature_ai_note||null});
       try{save();}catch(error){Object.assign(item,before);state.revisions.pop();throw error;}
     },
     async submitAudit(listingId, input) {

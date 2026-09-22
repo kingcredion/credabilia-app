@@ -113,14 +113,20 @@ export function makeService() {
     async createListing(input) {
       const value = listingInput(input);
       const detailsEnabled = import.meta.env.VITE_LISTING_DETAILS_ENABLED === 'true';
-      return unwrap(await client.rpc(detailsEnabled ? 'create_listing_with_details' : 'create_listing_with_media', { ...(detailsEnabled ? {p_attributes:value.attributes,p_tags:value.tags,p_weight_oz:value.weight_oz,p_length_in:value.length_in,p_width_in:value.width_in,p_height_in:value.height_in,p_free_shipping:value.free_shipping,p_listing_type:input.listing_type==='auction'?'auction':'fixed',p_auction_days:input.listing_type==='auction'?Number(input.auction_days):null} : {}), p_title: value.title, p_description: value.description, p_category: value.category, p_price_cents: value.price_cents, p_evidence: value.evidence, p_issuer: value.certificate_issuer, p_number: value.certificate_number, p_company: value.certificate_company, p_media: mediaInput(input.media) }));
+      return unwrap(await client.rpc(detailsEnabled ? 'create_listing_with_details' : 'create_listing_with_media', { ...(detailsEnabled ? {p_attributes:value.attributes,p_tags:value.tags,p_weight_oz:value.weight_oz,p_length_in:value.length_in,p_width_in:value.width_in,p_height_in:value.height_in,p_free_shipping:value.free_shipping,p_listing_type:input.listing_type==='auction'?'auction':'fixed',p_auction_days:input.listing_type==='auction'?Number(input.auction_days):null,p_signature_ai_label:input.signature_ai_label||null,p_signature_ai_note:input.signature_ai_note||null} : {}), p_title: value.title, p_description: value.description, p_category: value.category, p_price_cents: value.price_cents, p_evidence: value.evidence, p_issuer: value.certificate_issuer, p_number: value.certificate_number, p_company: value.certificate_company, p_media: mediaInput(input.media) }));
+    },
+    async analyzeSignature(path) {
+      const {data,error}=await client.functions.invoke('analyze-signature',{body:{path}});
+      if(error) { let detail; try {detail=await error.context?.json();} catch {} throw new Error(detail?.error || 'AI signature review is not available yet.'); }
+      return data;
     },
     async placeBid(listingId, amountCents) { return unwrap(await client.rpc('place_bid', { p_listing_id: listingId, p_amount_cents: amountCents })); },
     async editListing(item,input,mediaTouched) {
       const v=listingInput(input);
       unwrap(await client.rpc('edit_listing',{p_id:item.id,p_title:v.title,p_description:v.description,p_category:v.category,p_price_cents:v.price_cents,p_evidence:v.evidence,
         p_issuer:v.certificate_issuer,p_number:v.certificate_number,p_company:v.certificate_company,
-        p_media:mediaTouched?mediaInput(input.media):null,p_expected:editableFields(item)}));
+        p_media:mediaTouched?mediaInput(input.media):null,p_expected:editableFields(item),
+        p_signature_ai_label:input.signature_ai_label||null,p_signature_ai_note:input.signature_ai_note||null}));
     },
     async getListingHistory(listingId) { return signMedia((unwrap(await client.rpc('get_listing_history',{p_listing_id:listingId}))).map(v=>({...v,media:v.media||[]}))); },
     async submitAudit(listingId, input) {
@@ -226,5 +232,23 @@ export function makeService() {
       return data;
     },
     async operatorOpenDisputeCount() { return unwrap(await client.rpc('operator_open_dispute_count')); },
+    async isOperator() { return unwrap(await client.rpc('is_operator')); },
+    async adminListRefundRequests(status) { return unwrap(await client.rpc('admin_list_refund_requests', { p_status: status || null })); },
+    async adminResolveRefundRequest(requestId, action, amountCents, note) { return unwrap(await client.rpc('admin_resolve_refund_request', { p_request_id: requestId, p_action: action, p_amount_cents: amountCents || null, p_note: note || null })); },
+    async adminListReports(status) { return unwrap(await client.rpc('admin_list_reports', { p_status: status || null })); },
+    async adminResolveReport(reportId, status, note, removeListing) { return unwrap(await client.rpc('admin_resolve_report', { p_report_id: reportId, p_status: status, p_note: note || null, p_remove_listing: !!removeListing })); },
+    async adminListSupportConversations() { return unwrap(await client.rpc('admin_list_support_conversations')); },
+    async adminGetSupportThread(userId) { return unwrap(await client.rpc('admin_get_support_thread', { p_user_id: userId })); },
+    async adminReplyToSupport(userId, body) { return unwrap(await client.rpc('admin_reply_to_support', { p_user_id: userId, p_body: body })); },
+    async adminListUsers(search) { return unwrap(await client.rpc('admin_list_users', { p_search: search || null })); },
+    async reportContent(targetType, targetId, reason, details) { return unwrap(await client.rpc('report_content', { p_target_type: targetType, p_target_id: targetId, p_reason: reason, p_details: details || null })); },
+    async blockUser(userId) { return unwrap(await client.rpc('block_user', { p_user_id: userId })); },
+    async unblockUser(userId) { return unwrap(await client.rpc('unblock_user', { p_user_id: userId })); },
+    async myBlockedUsers() { return unwrap(await client.rpc('my_blocked_users')); },
+    async deleteMyAccount() {
+      const {data,error}=await client.functions.invoke('delete-account',{body:{}});
+      if(error) { let detail; try {detail=await error.context?.json();} catch {} throw new Error(detail?.error || 'Could not delete your account right now.'); }
+      return data;
+    },
   };
 }

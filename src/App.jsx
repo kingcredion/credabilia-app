@@ -9,7 +9,7 @@ import { TriviaPanel } from './Trivia.jsx';
 import { ItemHistory } from './ItemHistory.jsx';
 import CertificateDetails, { CertificateFields } from './CertificateDetails.jsx';
 import React, { useEffect, useRef, useState } from 'react';
-import { ArrowUpRight, ArrowRight, Search, ShieldCheck, Plus, Store, Compass, ClipboardCheck, LogOut, X, Check, BookOpen, Sparkles, Layers, ArrowLeft, AlertCircle, Heart, Settings, RefreshCw, Package, Bell, MessageCircle, Sun, Moon, Monitor, Mic, Star } from 'lucide-react';
+import { ArrowUpRight, ArrowRight, Search, ShieldCheck, Plus, Store, Compass, ClipboardCheck, LogOut, X, Check, BookOpen, Sparkles, Layers, ArrowLeft, AlertCircle, Heart, Settings, RefreshCw, Package, Bell, MessageCircle, Sun, Moon, Monitor, Mic, Star, Flag } from 'lucide-react';
 import { DEMO_ACCOUNTS } from './demo.js';
 import { makeService } from './service.js';
 import { Storefront } from './Storefront.jsx';
@@ -121,13 +121,20 @@ function CreateListing({ onClose, onCreated, relistFrom }) {
   const [certificate,setCertificate]=useState({}),[suggestion,setSuggestion]=useState(null),[confirmed,setConfirmed]=useState(false);
   const [notes,setNotes]=useState(''),[drafting,setDrafting]=useState(false),[draft,setDraft]=useState(null),[pendingDraft,setPendingDraft]=useState(null);
   const [copyingPhotos,setCopyingPhotos]=useState(false);
+  const [signatureAi,setSignatureAi]=useState(null),[reviewingSignature,setReviewingSignature]=useState(false);
   const formRef=useRef(null);
-  const working=busy||uploading||analyzing||drafting||copyingPhotos;
+  const working=busy||uploading||analyzing||drafting||copyingPhotos||reviewingSignature;
   const certificates=media.filter(asset=>asset.kind==='certificate');
+  const signaturePhoto=media.find(asset=>asset.kind==='signature');
   async function analyze() {
     setAnalyzing(true);setError('');setSuggestion(null);
     try {const result=await service.extractCertificate(certificates[0].path);setSuggestion(certificateSuggestion(result));}
     catch(err){setError(err.message);}finally{setAnalyzing(false);}
+  }
+  async function reviewSignature() {
+    setReviewingSignature(true);setError('');
+    try {const result=await service.analyzeSignature(signaturePhoto.path);setSignatureAi(result);}
+    catch(err){setError(err.message);}finally{setReviewingSignature(false);}
   }
   async function draftListing() {
     setDrafting(true);setError('');setDraft(null);
@@ -186,7 +193,7 @@ function CreateListing({ onClose, onCreated, relistFrom }) {
       if(!mainPhotoBackgroundRemoved(media)) throw new Error('Remove the background from your main photo before publishing.');
       const form = Object.fromEntries(new FormData(event.currentTarget));
       const attributes = Object.fromEntries(Object.entries(form).filter(([key])=>key.startsWith('attribute:')).map(([key,value])=>[key.slice(10),value]));
-      const id = await service.createListing({ ...form, attributes, ...certificate, media, price_cents: priceInCents(form.price), listing_type: listingType, auction_days: form.auction_days });
+      const id = await service.createListing({ ...form, attributes, ...certificate, media, price_cents: priceInCents(form.price), listing_type: listingType, auction_days: form.auction_days, signature_ai_label: signatureAi?.label, signature_ai_note: signatureAi?.note });
       // Best-effort: the listing is already published, so a failure here shouldn't block the seller — but it should be visible for debugging.
       if (relistFrom?.purchase_id) service.markListingRelisted(id, relistFrom.purchase_id).catch(err => console.warn('Could not record relist provenance:', err.message));
       onCreated(id);
@@ -216,7 +223,11 @@ function CreateListing({ onClose, onCreated, relistFrom }) {
       </div>
       <label className="certificate-confirm"><input type="checkbox" name="free_shipping"/>Offer free shipping (you cover the cost)</label>
       <label>Evidence notes <span className="optional">optional</span><textarea name="evidence" rows={2} maxLength={2000} placeholder="Provenance, certificate details, or what is still unknown…"/></label>
-      <MediaPicker service={service} media={media} onChange={next=>{setMedia(next);setSuggestion(null);setConfirmed(false);}} busy={working} onBusy={setUploading} onError={setError}/>
+      <MediaPicker service={service} media={media} onChange={next=>{setMedia(next);setSuggestion(null);setConfirmed(false);setSignatureAi(null);}} busy={working} onBusy={setUploading} onError={setError}/>
+      {signaturePhoto && <div className="evidence-box"><h3>Signature AI opinion</h3>
+        {signatureAi ? <p className="field-note">{LABELS_AI[signatureAi.label]} — {signatureAi.note}</p> : <p className="field-note">Get a plain-language opinion on this signature — not a forensic authentication, and it improves as our signature library grows.</p>}
+        <button type="button" className="text-button" onClick={reviewSignature} disabled={working}>{reviewingSignature ? 'Reviewing…' : signatureAi ? 'Review again' : 'Get AI opinion'}</button>
+      </div>}
       <label>Notes for an AI draft <span className="optional">optional</span><textarea value={notes} onChange={event=>setNotes(event.target.value)} rows={3} maxLength={2000} placeholder="What is it, who made it, when, condition, anything you know…" disabled={working}/></label>
       <button type="button" className="text-button" onClick={draftListing} disabled={working || !notes.trim()}>{drafting ? 'Drafting…' : 'Draft with AI'}</button>
       <p className="field-note">Sends your notes{media.some(asset=>asset.kind==='item') ? ' and your first item photo' : ''} to our AI provider to suggest a title, description, category, item details and tags. Review everything below before publishing — nothing is filled in automatically.</p>
@@ -246,8 +257,15 @@ function EditListing({item:currentItem,onClose,onSaved}) {
   const [media,setMedia]=useState(item.media||[]),[mediaTouched,setMediaTouched]=useState(false);
   const [certificate,setCertificate]=useState({certificate_issuer:item.certificate_issuer||'',certificate_number:item.certificate_number||'',certificate_company:item.certificate_company||''});
   const [confirmed,setConfirmed]=useState(true);
+  const [signatureAi,setSignatureAi]=useState(item.signature_ai_label?{label:item.signature_ai_label,note:item.signature_ai_note}:null),[reviewingSignature,setReviewingSignature]=useState(false);
   const reviewed=item.audit_count>0;
-  const working=saving||uploading;
+  const working=saving||uploading||reviewingSignature;
+  const signaturePhoto=media.find(asset=>asset.kind==='signature');
+  async function reviewSignature() {
+    setReviewingSignature(true);setError('');
+    try {const result=await service.analyzeSignature(signaturePhoto.path);setSignatureAi(result);}
+    catch(err){setError(err.message);}finally{setReviewingSignature(false);}
+  }
   const certificateChanged=certificate.certificate_issuer!==(item.certificate_issuer||'')||certificate.certificate_number!==(item.certificate_number||'')||certificate.certificate_company!==(item.certificate_company||'');
   async function submit(event) {
     event.preventDefault();if(working)return;
@@ -259,7 +277,7 @@ function EditListing({item:currentItem,onClose,onSaved}) {
         if(!media.some(asset=>asset.kind==='item')) throw new Error('Add at least one item photo.');
         if(!mainPhotoBackgroundRemoved(media)) throw new Error('Remove the background from your main photo before saving.');
       }
-      await service.editListing(item,{...form,...certificate,media,price_cents:priceInCents(form.price)},mediaTouched);
+      await service.editListing(item,{...form,...certificate,media,price_cents:priceInCents(form.price),signature_ai_label:signatureAi?.label,signature_ai_note:signatureAi?.note},mediaTouched);
       onSaved();
     }
     catch(err){setError(err.message);setSaving(false);}
@@ -273,7 +291,11 @@ function EditListing({item:currentItem,onClose,onSaved}) {
       <label>Price (USD)<input name="price" type="number" min="1" max="1000000" step="0.01" defaultValue={(item.price_cents/100).toFixed(2)} required/></label>
       <label>Description<textarea name="description" defaultValue={item.description} required minLength={20} maxLength={4000}/></label>
       <label>Evidence notes<textarea name="evidence" defaultValue={item.evidence} maxLength={2000}/></label>
-      <MediaPicker service={service} media={media} onChange={next=>{setMedia(next);setMediaTouched(true);}} busy={working} onBusy={setUploading} onError={setError}/>
+      <MediaPicker service={service} media={media} onChange={next=>{setMedia(next);setMediaTouched(true);setSignatureAi(null);}} busy={working} onBusy={setUploading} onError={setError}/>
+      {signaturePhoto && <div className="evidence-box"><h3>Signature AI opinion</h3>
+        {signatureAi ? <p className="field-note">{LABELS_AI[signatureAi.label]} — {signatureAi.note}</p> : <p className="field-note">Get a plain-language opinion on this signature — not a forensic authentication, and it improves as our signature library grows.</p>}
+        <button type="button" className="text-button" onClick={reviewSignature} disabled={working}>{reviewingSignature ? 'Reviewing…' : signatureAi ? 'Review again' : 'Get AI opinion'}</button>
+      </div>}
       <CertificateFields value={certificate} onChange={value=>{setCertificate(value);setConfirmed(false);}} disabled={working}/>
       {certificate.certificate_issuer && certificateChanged && <label className="certificate-confirm"><input type="checkbox" checked={confirmed} onChange={event=>setConfirmed(event.target.checked)} required disabled={working}/>I checked the company and number against my certificate.</label>}
       {error&&<p role="alert" className="error">{error}</p>}
@@ -433,6 +455,51 @@ function CheckoutAddress({ item, profile, busy, onClose, onConfirm }) {
       <button className="primary" disabled={busy || !verified}>{busy ? 'Processing…' : 'Continue to payment'}<ArrowRight size={16}/></button>
     </form>
   </Modal>;
+}
+
+function ReportModal({ targetType, targetId, onClose }) {
+  const [reason, setReason] = useState('Prohibited or misleading item');
+  const [details, setDetails] = useState('');
+  const [busy, setBusy] = useState(false), [error, setError] = useState(''), [done, setDone] = useState(false);
+  async function submit(event) {
+    event.preventDefault(); if (busy) return;
+    setBusy(true); setError('');
+    try { await service.reportContent(targetType, targetId, reason, details); setDone(true); }
+    catch (err) { setError(err.message); } finally { setBusy(false); }
+  }
+  return <Modal title={targetType === 'listing' ? 'Report this listing' : 'Report this user'} onClose={onClose}>
+    {done ? <p role="status">Thanks — our team will review this.</p> : <form className="form-stack" onSubmit={submit}>
+      <label>Reason<select value={reason} onChange={event => setReason(event.target.value)} disabled={busy}>
+        <option>Prohibited or misleading item</option><option>Suspected counterfeit</option><option>Harassment or abuse</option><option>Spam</option><option>Something else</option>
+      </select></label>
+      <label>Details (optional)<textarea value={details} onChange={event => setDetails(event.target.value)} rows={3} maxLength={2000} disabled={busy}/></label>
+      {error && <p role="alert" className="error">{error}</p>}
+      <button className="primary" disabled={busy}>{busy ? 'Sending…' : 'Submit report'}</button>
+    </form>}
+  </Modal>;
+}
+
+function ReportButton({ targetType, targetId, label }) {
+  const [open, setOpen] = useState(false);
+  return <>
+    <button type="button" className="text-button" onClick={() => setOpen(true)}><Flag size={16}/>{label}</button>
+    {open && <ReportModal targetType={targetType} targetId={targetId} onClose={() => setOpen(false)}/>}
+  </>;
+}
+
+function BlockSellerButton({ sellerId }) {
+  const [blocked, setBlocked] = useState(null);
+  const [busy, setBusy] = useState(false), [error, setError] = useState('');
+  useEffect(() => { let alive = true; service.myBlockedUsers().then(list => { if (alive) setBlocked(list.some(b => b.user_id === sellerId)); }).catch(() => { if (alive) setBlocked(false); }); return () => { alive = false; }; }, [sellerId]);
+  async function toggle() {
+    setBusy(true); setError('');
+    try { if (blocked) { await service.unblockUser(sellerId); setBlocked(false); } else { await service.blockUser(sellerId); setBlocked(true); } }
+    catch (err) { setError(err.message); } finally { setBusy(false); }
+  }
+  return <span>
+    <button type="button" className="text-button" onClick={toggle} disabled={busy || blocked === null}>{blocked ? 'Unblock seller' : 'Block seller'}</button>
+    {error && <span role="alert" className="error">{error}</span>}
+  </span>;
 }
 
 function SellerRefundPanel({ sale, onResolved }) {
@@ -741,6 +808,157 @@ function NotificationSettings() {
   </div>;
 }
 
+function AdminDisputeRow({ request, onResolve }) {
+  const [amount, setAmount] = useState(''), [note, setNote] = useState(''), [busy, setBusy] = useState(false), [error, setError] = useState('');
+  async function act(action) {
+    setBusy(true); setError('');
+    const cents = action === 'partial' ? Math.round(parseFloat(amount) * 100) : undefined;
+    try { await onResolve(request.id, action === 'partial' ? 'approve' : action, cents, note); }
+    catch (err) { setError(err.message); } finally { setBusy(false); }
+  }
+  return <div className="evidence-box">
+    <div className="admin-row-head"><span>{request.title} · {money(request.price_cents)}</span><span>{request.status}</span></div>
+    <p><strong>{request.buyer_name}</strong> (buyer) vs <strong>{request.seller_name}</strong> (seller)</p>
+    <p>{request.reason}</p>
+    {request.seller_response && <p className="field-note">Seller said: {request.seller_response}</p>}
+    <label>Refund amount — leave blank for the full {money(request.price_cents)}<input type="number" min="0.01" step="0.01" value={amount} onChange={event => setAmount(event.target.value)} disabled={busy} placeholder="Full amount"/></label>
+    <label>Note (optional, kept on the record)<textarea value={note} onChange={event => setNote(event.target.value)} rows={2} maxLength={2000} disabled={busy}/></label>
+    {error && <p role="alert" className="error">{error}</p>}
+    <div className="form-row">
+      <button type="button" className="primary" disabled={busy} onClick={() => act(amount ? 'partial' : 'approve')}>{busy ? 'Working…' : 'Approve refund'}</button>
+      <button type="button" className="text-button danger-button" disabled={busy} onClick={() => act('deny')}>Deny</button>
+    </div>
+  </div>;
+}
+
+function AdminDisputes() {
+  const [list, setList] = useState(undefined), [error, setError] = useState('');
+  function load() { service.adminListRefundRequests().then(setList).catch(err => setError(err.message)); }
+  useEffect(() => { load(); }, []);
+  async function resolve(id, action, amountCents, note) { await service.adminResolveRefundRequest(id, action, amountCents, note); load(); }
+  if (error) return <p role="alert" className="error">{error}</p>;
+  if (list === undefined) return <p role="status">Loading disputes…</p>;
+  const open = list.filter(r => !['refunded', 'denied'].includes(r.status));
+  if (!open.length) return <p className="field-note">No open disputes.</p>;
+  return <div className="admin-list">{open.map(r => <AdminDisputeRow key={r.id} request={r} onResolve={resolve}/>)}</div>;
+}
+
+function AdminReportRow({ report, onResolve }) {
+  const [note, setNote] = useState(''), [busy, setBusy] = useState(false), [error, setError] = useState('');
+  async function act(status, removeListing) {
+    setBusy(true); setError('');
+    try { await onResolve(report.id, status, note, removeListing); }
+    catch (err) { setError(err.message); } finally { setBusy(false); }
+  }
+  return <div className="evidence-box">
+    <div className="admin-row-head"><span>{report.target_type} · reported by {report.reporter_name}</span><span>{report.status}</span></div>
+    <p><strong>{report.reason}</strong></p>
+    {report.details && <p className="field-note">{report.details}</p>}
+    <label>Note (optional)<textarea value={note} onChange={event => setNote(event.target.value)} rows={2} maxLength={2000} disabled={busy}/></label>
+    {error && <p role="alert" className="error">{error}</p>}
+    <div className="form-row">
+      <button type="button" className="text-button danger-button" disabled={busy} onClick={() => act('resolved', report.target_type === 'listing')}>{report.target_type === 'listing' ? 'Remove listing' : 'Resolve'}</button>
+      <button type="button" className="text-button" disabled={busy} onClick={() => act('dismissed', false)}>Dismiss</button>
+    </div>
+  </div>;
+}
+
+function AdminReports() {
+  const [list, setList] = useState(undefined), [error, setError] = useState('');
+  function load() { service.adminListReports('open').then(setList).catch(err => setError(err.message)); }
+  useEffect(() => { load(); }, []);
+  async function resolve(id, status, note, removeListing) { await service.adminResolveReport(id, status, note, removeListing); load(); }
+  if (error) return <p role="alert" className="error">{error}</p>;
+  if (list === undefined) return <p role="status">Loading reports…</p>;
+  if (!list.length) return <p className="field-note">No open reports.</p>;
+  return <div className="admin-list">{list.map(r => <AdminReportRow key={r.id} report={r} onResolve={resolve}/>)}</div>;
+}
+
+function AdminSupportThread({ userId, onClosed }) {
+  const [messages, setMessages] = useState(undefined), [body, setBody] = useState(''), [busy, setBusy] = useState(false), [error, setError] = useState('');
+  function load() { service.adminGetSupportThread(userId).then(setMessages).catch(err => setError(err.message)); }
+  useEffect(() => { load(); }, [userId]);
+  async function submit(event) {
+    event.preventDefault(); if (busy || !body.trim()) return;
+    setBusy(true); setError('');
+    try { await service.adminReplyToSupport(userId, body); setBody(''); load(); onClosed(); }
+    catch (err) { setError(err.message); } finally { setBusy(false); }
+  }
+  return <div className="evidence-box">
+    <div className="support-thread">
+      {messages === undefined ? <p role="status" className="field-note">Loading…</p>
+        : messages.map(message => <div key={message.id} className="support-message"><div className="recorded"><div><strong>{message.role === 'user' ? 'Member' : message.role === 'operator' ? 'Credabilia Team' : 'King Credion'}</strong><p>{message.body}</p></div></div></div>)}
+    </div>
+    {error && <p role="alert" className="error">{error}</p>}
+    <form className="form-row" onSubmit={submit}>
+      <label>Reply<textarea value={body} onChange={event => setBody(event.target.value)} rows={2} maxLength={4000} disabled={busy}/></label>
+      <button className="primary" disabled={busy || !body.trim()}>{busy ? 'Sending…' : 'Reply'}</button>
+    </form>
+  </div>;
+}
+
+function AdminSupport() {
+  const [list, setList] = useState(undefined), [error, setError] = useState(''), [openUserId, setOpenUserId] = useState(null);
+  function load() { service.adminListSupportConversations().then(setList).catch(err => setError(err.message)); }
+  useEffect(() => { load(); }, []);
+  if (error) return <p role="alert" className="error">{error}</p>;
+  if (list === undefined) return <p role="status">Loading conversations…</p>;
+  if (!list.length) return <p className="field-note">No support conversations yet.</p>;
+  return <div className="admin-list">{list.map(c => <div key={c.user_id} className="evidence-box">
+    <div className="admin-row-head"><span>{c.display_name}</span><span>{new Date(c.last_created_at).toLocaleString()}</span></div>
+    <p className="field-note">{c.last_body}</p>
+    <button type="button" className="text-button" onClick={() => setOpenUserId(openUserId === c.user_id ? null : c.user_id)}>{openUserId === c.user_id ? 'Hide thread' : 'Open thread'}</button>
+    {openUserId === c.user_id && <AdminSupportThread userId={c.user_id} onClosed={load}/>}
+  </div>)}</div>;
+}
+
+function AdminUsers() {
+  const [search, setSearch] = useState(''), [list, setList] = useState(undefined), [error, setError] = useState('');
+  useEffect(() => { const timer = setTimeout(() => { service.adminListUsers(search || null).then(setList).catch(err => setError(err.message)); }, 250); return () => clearTimeout(timer); }, [search]);
+  return <div className="form-stack">
+    <label>Search by name or email<input value={search} onChange={event => setSearch(event.target.value)} placeholder="Search members…"/></label>
+    {error && <p role="alert" className="error">{error}</p>}
+    {list === undefined ? <p role="status">Loading members…</p> : <div className="admin-list">{list.map(u => <div key={u.id} className="evidence-box">
+      <div className="admin-row-head"><span>{u.display_name}</span><span>Joined {new Date(u.created_at).toLocaleDateString()}</span></div>
+      <p className="field-note">{u.email}</p>
+      <p className="field-note">{u.listing_count} listings · {u.sales_count} sales · {u.purchase_count} purchases</p>
+    </div>)}</div>}
+  </div>;
+}
+
+function AdminDashboard() {
+  const [tab, setTab] = useState('disputes');
+  return <div className="form-stack">
+    <div className="categories" role="group" aria-label="Admin sections">
+      <button aria-pressed={tab === 'disputes'} className={tab === 'disputes' ? 'active' : ''} onClick={() => setTab('disputes')}>Disputes</button>
+      <button aria-pressed={tab === 'reports'} className={tab === 'reports' ? 'active' : ''} onClick={() => setTab('reports')}>Reports</button>
+      <button aria-pressed={tab === 'support'} className={tab === 'support' ? 'active' : ''} onClick={() => setTab('support')}>Support</button>
+      <button aria-pressed={tab === 'users'} className={tab === 'users' ? 'active' : ''} onClick={() => setTab('users')}>Users</button>
+    </div>
+    {tab === 'disputes' && <AdminDisputes/>}
+    {tab === 'reports' && <AdminReports/>}
+    {tab === 'support' && <AdminSupport/>}
+    {tab === 'users' && <AdminUsers/>}
+  </div>;
+}
+
+function DeleteAccount({ onDeleted }) {
+  const [confirming, setConfirming] = useState(false), [busy, setBusy] = useState(false), [error, setError] = useState('');
+  async function confirmDelete() {
+    setBusy(true); setError('');
+    try { await service.deleteMyAccount(); onDeleted(); }
+    catch (err) { setError(err.message); setBusy(false); }
+  }
+  return <div className="evidence-box">
+    <h3>Delete account</h3>
+    <p className="field-note">Permanently removes your profile and login. Purchase and sale records are kept for legal and tax purposes but are no longer linked to your name.</p>
+    {error && <p role="alert" className="error">{error}</p>}
+    {!confirming
+      ? <button type="button" className="text-button danger-button" onClick={() => setConfirming(true)}>Delete my account</button>
+      : <div className="form-row"><button type="button" className="primary danger" disabled={busy} onClick={confirmDelete}>{busy ? 'Deleting…' : 'Yes, delete my account'}</button><button type="button" className="text-button" disabled={busy} onClick={() => setConfirming(false)}>Cancel</button></div>}
+  </div>;
+}
+
 function ProfileSettings({ profile, session, onSaved, onSignOut }) {
   // A seller who hasn't connected payouts yet needs to see that prompt first, not a wall of zeros.
   const needsPayoutSetup = service.mode === 'live' && !profile?.stripe_charges_enabled && !profile?.stripe_details_submitted;
@@ -764,12 +982,14 @@ function ProfileSettings({ profile, session, onSaved, onSignOut }) {
     try { const { url } = await service.openStripeDashboard(); window.open(url, '_blank'); }
     catch (err) { setStripeError(err.message); } finally { setStripeBusy(false); }
   }
+  const isAdmin = session?.user?.email === 'kingcredion@credabilia.com';
   return <div className="form-stack">
     <div className="categories" role="group" aria-label="Profile sections">
       <button aria-pressed={tab === 'dashboard'} className={tab === 'dashboard' ? 'active' : ''} onClick={() => setTab('dashboard')}>Dashboard</button>
       <button aria-pressed={tab === 'settings'} className={tab === 'settings' ? 'active' : ''} onClick={() => setTab('settings')}>Settings</button>
+      {isAdmin && <button aria-pressed={tab === 'admin'} className={tab === 'admin' ? 'active' : ''} onClick={() => setTab('admin')}>Admin</button>}
     </div>
-    {tab === 'dashboard' ? <DashboardStats/> : <>
+    {tab === 'dashboard' ? <DashboardStats/> : tab === 'admin' ? <AdminDashboard/> : <>
       <form className="form-stack" onSubmit={submit}>
         <label>Display name<input value={name} onChange={event=>setName(event.target.value)} minLength={1} maxLength={100} required/></label>
         <label>Email<input value={session?.user?.email || ''} readOnly disabled/></label>
@@ -786,8 +1006,80 @@ function ProfileSettings({ profile, session, onSaved, onSignOut }) {
           : <><p className="field-note">Connect a Stripe account to receive payouts before buyers can purchase your listings.</p><button type="button" className="text-button" onClick={connectStripe} disabled={stripeBusy}>{stripeBusy ? 'Opening…' : 'Connect payouts with Stripe'}</button></>}
         {stripeError && <p role="alert" className="error">{stripeError}</p>}
       </div>
+      <DeleteAccount onDeleted={onSignOut}/>
     </>}
     <button type="button" className="text-button" onClick={onSignOut}><LogOut size={16}/>Sign out</button>
+  </div>;
+}
+
+const VERDICT_NOTES = {
+  authentic: 'Looks consistent with the description and evidence provided.',
+  uncertain: "There isn't enough evidence here to reach a confident conclusion.",
+  concerns: "Something here doesn't look right — see below.",
+};
+const LABELS_AI = { consistent: 'looks consistent', inconclusive: 'inconclusive', concerns: 'flagged a concern' };
+
+function AuditQueue({ items, session, profile, onNeedLogin, onAudited }) {
+  const [queue, setQueue] = useState(items);
+  const [total] = useState(items.length);
+  const [verdict, setVerdict] = useState(null);
+  const [explanation, setExplanation] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState('');
+  const current = queue[0];
+
+  function advance() { setQueue(list => list.slice(1)); setVerdict(null); setExplanation(''); setError(''); }
+  function pickChip(value) { setVerdict(value); setExplanation(VERDICT_NOTES[value]); setError(''); }
+
+  async function submit(event) {
+    event.preventDefault(); if (busy) return;
+    if (!session) { onNeedLogin(); return; }
+    if (!profile?.can_audit) { setError("Auditing isn't enabled for your account."); return; }
+    if (!verdict) { setError('Choose a quick take below.'); return; }
+    const clean = explanation.trim();
+    if (clean.length < 20 || clean.length > 2000) { setError('Explain your reasoning in 20–2,000 characters.'); return; }
+    setBusy(true); setError('');
+    try { const result = await service.submitAudit(current.id, { verdict, explanation: clean }); onAudited(result); advance(); }
+    catch (err) { setError(err.message); } finally { setBusy(false); }
+  }
+
+  if (!current) return <div className="empty-state"><Layers size={34}/><h3>You're all caught up.</h3><p>New items will show up here as sellers publish them.</p></div>;
+
+  const signaturePhoto = current.media?.find(asset => asset.kind === 'signature');
+  return <div className="form-stack audit-queue">
+    <div className="queue-progress"><span>Item {total - queue.length + 1} of {total}</span><div className="queue-progress-bar"><div style={{ width: `${((total - queue.length) / total) * 100}%` }}/></div></div>
+    <div className="evidence-box">
+      {current.media?.some(asset => asset.kind === 'item') ? <PhotoGallery key={current.id} media={current.media} title={current.title}/> : <ItemArt kind={current.artwork} category={current.category} large/>}
+      <span className="pill">{current.category}</span>
+      <h3>{current.title}</h3>
+      <p className="detail-price">{money(current.price_cents)}</p>
+      <p>{current.description}</p>
+      <p className="field-note">{current.evidence || 'No evidence notes provided.'}</p>
+    </div>
+    <div className="form-row">
+      <div className="evidence-box">
+        <p className="field-note">Signature close-up</p>
+        {signaturePhoto ? <>
+          <PhotoGallery media={current.media} kind="signature" title={current.title}/>
+          {current.signature_ai_label ? <p className="field-note">AI opinion: {LABELS_AI[current.signature_ai_label]} — not verified. {current.signature_ai_note} Gets better as Credabilia's signature library grows.</p> : <p className="field-note">No AI opinion recorded yet.</p>}
+        </> : <p className="field-note">No signature photo provided.</p>}
+      </div>
+      <CertificateDetails item={current}/>
+    </div>
+    {!session ? <button type="button" className="primary" onClick={onNeedLogin}>Sign in to audit <ArrowRight size={16}/></button>
+      : !profile ? <p role="status">Loading your account…</p>
+      : !profile.can_audit ? <p className="field-note">Auditing isn't enabled for your account.</p>
+      : <form onSubmit={submit} className="form-stack">
+          <fieldset><legend>Quick take</legend>
+            <div className="verdicts">{Object.entries(LABELS).map(([value, label]) => <label key={value}><input type="radio" name="verdict" checked={verdict === value} onChange={() => pickChip(value)} disabled={busy}/>{label}</label>)}</div>
+          </fieldset>
+          <label>Explain your reasoning<textarea value={explanation} onChange={event => setExplanation(event.target.value)} rows={3} maxLength={2000} placeholder="Point to a specific detail, explain your concern, or describe what evidence is missing…" disabled={busy}/></label>
+          {error && <p role="alert" className="error">{error}</p>}
+          <div className="submit-row">
+            <button type="button" className="text-button" disabled={busy} onClick={advance}>Pass</button>
+            <button className="primary" disabled={busy}>{busy ? 'Recording…' : 'Submit and next'}<ArrowRight size={16}/></button>
+          </div>
+        </form>}
   </div>;
 }
 
@@ -981,10 +1273,12 @@ export default function App() {
       <main>
         {error && <div className="message error" role="alert"><AlertCircle size={18}/><span>{error}</span><button onClick={() => setError('')} aria-label="Dismiss error"><X size={16}/></button></div>}
         {notice && <div className="message success" role="status"><Check size={18}/><span>{notice}</span><button onClick={() => setNotice('')} aria-label="Dismiss notification"><X size={16}/></button></div>}
-        {selected ? <>
-          <button className="back-button" onClick={() => setSelectedId(null)}><ArrowLeft size={17}/>Back to {workspace === 'auditor' ? 'audit queue' : 'listings'}</button>
+        {workspace === 'auditor' ? <AuditQueue key={session?.user?.id || 'anon'} items={filtered} session={session} profile={profile} onNeedLogin={() => setModal('login')} onAudited={result => { setNotice(result.xp_earned ? 'Audit recorded. +5 participation XP.' : 'Your audit is already recorded.'); refresh(); }}/> : selected ? <>
+          <button className="back-button" onClick={() => setSelectedId(null)}><ArrowLeft size={17}/>Back to listings</button>
           {own && profile?.can_sell && <button className="text-button" onClick={()=>setModal('edit')}>Edit listing</button>}
           {session && !own && <button className="text-button" onClick={()=>toggleFavorite(selected.id)}><Heart size={16} fill={favoriteIds.includes(selected.id) ? 'currentColor' : 'none'}/>{favoriteIds.includes(selected.id) ? 'Saved' : 'Save to collection'}</button>}
+          {session && !own && <ReportButton targetType="listing" targetId={selected.id} label="Report listing"/>}
+          {session && !own && <BlockSellerButton sellerId={selected.seller_id}/>}
           <div className="detail-grid"><div>{selected.media?.some(asset=>asset.kind==='item') ? <PhotoGallery key={selected.id} media={selected.media} title={selected.title}/> : <ItemArt kind={selected.artwork} category={selected.category} large/>}<PhotoGallery key={selected.id+'cert'} media={selected.media} kind="certificate" title={selected.title}/></div><section className="item-info"><span className="pill">{selected.category}</span><h1>{selected.title}</h1><p className="seller-name">Shared by {selected.seller_name}{selected.seller_rating_count > 0 && <> · <RatingStars value={selected.seller_rating_avg} count={selected.seller_rating_count}/></>} · Member since {new Date(selected.seller_member_since).getFullYear()}{selected.seller_sales_count > 0 && <> · {selected.seller_sales_count} {selected.seller_sales_count === 1 ? 'sale' : 'sales'}</>}</p><p className="detail-price">{money(selected.price_cents)}</p>{selected.listing_type==='auction' && <p className="field-note">{selected.bid_count} {selected.bid_count===1?'bid':'bids'} · {auctionTimeLeft(selected.auction_ends_at)}</p>}{session && !own && <>{service.mode==='live' && !selected.seller_charges_enabled && <p className="field-note">This seller hasn't finished payment setup yet.</p>}{myRequest?.status==='confirmed' ? <><p className="field-note">{selected.listing_type==='auction' ? 'You won this auction!' : 'The seller confirmed this is still available.'}</p><button className="primary" disabled={busy} onClick={()=>setModal('checkout-address')}>Continue to checkout<ArrowRight size={16}/></button></> : myRequest?.status==='pending' ? <p role="status" className="field-note">Waiting for the seller to confirm this item is still available…</p> : selected.listing_type==='auction' ? <AuctionBidBox item={selected} onBid={refresh}/> : <button className="primary" disabled={busy || (service.mode==='live' && !selected.seller_charges_enabled)} onClick={()=>requestToBuy(selected.id)}>{busy ? 'Processing…' : 'Ask to buy'}<ArrowRight size={16}/></button>}</>}<p>{selected.description}</p><ListingDetailSummary item={selected}/><div className="evidence-box"><h3><ShieldCheck size={18}/>Evidence notes</h3><p>{selected.evidence || 'No evidence has been provided yet. Ask for more information before reaching a conclusion.'}</p></div><CertificateDetails key={selected.id} item={selected}/><CredibilityDetails item={selected}/><ItemHistory key={selected.id+selected.version} item={selected} service={service}/><TriviaPanel key={selected.id} item={selected} service={service} signedIn={!!session}/><p className="field-note">Community assessments are opinions, not professional authentication.</p></section></div>
           <section className="audit-panel"><div><p className="eyebrow">LOOK CLOSER</p><h2>What does the evidence tell you?</h2><p className="muted">Explain what you observed. “Need more evidence” is a useful answer.</p></div>
             {!session ? <button className="primary" onClick={() => setModal('login')}>Sign in to audit <ArrowRight size={16}/></button>

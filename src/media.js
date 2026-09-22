@@ -1,4 +1,4 @@
-export const MEDIA_LIMITS = { item:6, certificate:3 };
+export const MEDIA_LIMITS = { item:6, certificate:3, signature:1 };
 export const MAX_IMAGE_BYTES = 5 * 1024 * 1024;
 export function validateImage(file) {
   if (!['image/jpeg','image/png','image/webp'].includes(file.type)) throw new Error('Choose a JPEG, PNG or WebP image.');
@@ -26,7 +26,7 @@ export function mainPhotoBackgroundRemoved(media=[]) {
   return !!first && /[.]png$/.test(first.path);
 }
 export function mediaInput(media=[]) {
-  if (!Array.isArray(media) || media.length>9) throw new Error('Choose up to six item photos and three certificate photos.');
+  if (!Array.isArray(media) || media.length>10) throw new Error('Choose up to six item photos, three certificate photos, and one signature close-up.');
   for(const kind of Object.keys(MEDIA_LIMITS)) if(media.filter(x=>x.kind===kind).length>MEDIA_LIMITS[kind]) throw new Error(`Too many ${kind} photos.`);
   return media.map(({path,kind})=>{
     if(!Object.hasOwn(MEDIA_LIMITS,kind) || typeof path!=='string' || !path.length || path.length>200) throw new Error('Invalid photo reference.');

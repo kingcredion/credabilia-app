@@ -26,3 +26,7 @@
 .coin-faq{display:flex;align-items:center;gap:18px}.coin-detailed{width:88px;height:88px;flex-shrink:0}
 @media(max-width:500px){.coin-faq{flex-direction:column;align-items:flex-start;gap:10px}.coin-detailed{width:64px;height:64px}}
 @media(max-width:600px){footer{flex-direction:column;gap:10px}.footer-legal{flex-wrap:wrap;row-gap:8px}}
+.admin-list{display:flex;flex-direction:column;gap:14px;margin-top:14px}.admin-row-head{display:flex;justify-content:space-between;align-items:center;gap:10px;font-size:11px;color:var(--text-muted);margin-bottom:6px}
+.danger-button{color:var(--error-text)}.primary.danger{background:var(--error-text)}.primary.danger:hover{opacity:.9}
+.support-thread{max-height:320px;overflow:auto;display:flex;flex-direction:column;gap:12px;margin-bottom:14px}
+.queue-progress{display:flex;flex-direction:column;gap:6px}.queue-progress span{font-size:11px;color:var(--text-muted)}.queue-progress-bar{height:4px;background:var(--border);border-radius:2px;overflow:hidden}.queue-progress-bar>div{height:100%;background:var(--green);transition:width .2s}
