@@ -147,7 +147,7 @@ export function PrivacyPage() {
     <p>We retain your information for as long as your account is active and as needed to provide the Service, resolve disputes, and comply with our legal obligations. If you close your account, we delete your profile and listing data within 90 days, except that we retain transaction records (purchases, sales, and payout history) for 7 years as required for tax and accounting purposes.</p>
 
     <h2>7. Your choices</h2>
-    <p>You can update your display name, shipping address, and other profile information at any time in Settings. To request access to or deletion of your account and associated data, contact us at <a href="mailto:kingcredion@credabilia.com">kingcredion@credabilia.com</a>. We may need to retain certain records (for example, transaction history) even after a deletion request, as described in Section 6.</p>
+    <p>You can update your display name, shipping address, and other profile information at any time in Settings. You can delete your account directly from Settings, or by contacting us at <a href="mailto:kingcredion@credabilia.com">kingcredion@credabilia.com</a> to request access to or deletion of your account and associated data. We may need to retain certain records (for example, transaction history) even after a deletion request, as described in Section 6.</p>
 
     <h2>8. Children's privacy</h2>
     <p>Credabilia is not directed at, and we do not knowingly collect information from, anyone under 18. If we learn we've collected information from someone under 18, we will delete it.</p>

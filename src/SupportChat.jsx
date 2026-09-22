@@ -33,7 +33,7 @@ export function SupportChat({ service }) {
     {messages === undefined ? <p role="status" className="field-note">Loading…</p>
       : messages.map(message => <div key={message.id} className="support-message">
           {message.role === 'assistant' && <img className="support-avatar" src="/brand/king-credion-chat-icon-ai.png" alt=""/>}
-          <div className="recorded"><div><strong>{message.role === 'assistant' ? 'King Credion' : 'You'}</strong><p>{message.body}</p></div></div>
+          <div className="recorded"><div><strong>{message.role === 'assistant' ? 'King Credion' : message.role === 'operator' ? 'Credabilia Team' : 'You'}</strong><p>{message.body}</p></div></div>
         </div>)}
     {error && <p role="alert" className="error">{error}</p>}
     <form className="form-row" onSubmit={submit}>
