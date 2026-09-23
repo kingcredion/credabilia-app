@@ -1,0 +1,13 @@
+-- listings_visible (202609??_shipping.sql-era policy) lets a buyer see a listing they purchased
+-- even after it's sold/archived, via `exists(select 1 from purchases where buyer_id=auth.uid())`.
+-- listing_media's own RLS policy checks listings' policy in turn, and Storage's signed-URL
+-- endpoint checks listing_media's policy -- so generating a signed photo URL for ANY listing,
+-- as an anonymous (signed-out) visitor, requires Postgres to be able to plan that purchases
+-- subquery. `authenticated` already has this grant; `anon` never did, so every anonymous visitor
+-- got a hard "permission denied for table purchases" error instead of a photo -- confirmed live,
+-- every listing card showed "Photo not added" when signed out.
+--
+-- Safe: purchases has no RLS policy at all for anon (only `purchases_participant`, authenticated-only),
+-- so this grant lets the query plan succeed without exposing any actual row to anonymous users --
+-- RLS still returns zero purchases rows for anon regardless.
+grant select on public.purchases to anon;

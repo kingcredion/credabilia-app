@@ -30,9 +30,10 @@ export function createHandler({createClient,env,fetcher=fetch}) {
       const text=await request.text(); if(text.length>3072) return reply({error:'Invalid request.'},400);
       let body;try{body=JSON.parse(text);}catch{return reply({error:'Invalid request.'},400);}
       const notes=clean(body?.notes,2000);
-      if(!notes) return reply({error:'Add a few notes about the item first.'},400);
       const photoPath=body?.photo_path;
-      const content=[{type:'input_text',text:'Seller notes:\n'+notes}];
+      if(!notes && (photoPath===undefined || photoPath===null)) return reply({error:'Add a photo or a few notes about the item first.'},400);
+      const content=[];
+      if(notes) content.push({type:'input_text',text:'Seller notes:\n'+notes});
       if(photoPath!==undefined && photoPath!==null) {
         if(typeof photoPath!=='string' || !new RegExp('^'+identity.user.id+'/[0-9a-f-]{36}[.]jpg$').test(photoPath)) return reply({error:'Choose one of your own uploaded item photos.'},403);
         const {data:blob,error:downloadError}=await client.storage.from('listing-media').download(photoPath);

@@ -34,6 +34,24 @@ test('draft handler validates identity, notes, ownership and quotas, and sanitiz
   assert.equal('price' in data,false);assert.equal('authenticity' in data,false);assert.equal('url' in data,false);
 });
 
+test('draft handler drafts from a photo alone with no notes, and rejects when neither is given',async()=>{
+  const id='11111111-1111-4111-8111-111111111111',path=id+'/aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa.jpg';
+  let calls=0;
+  const handler=createHandler({env:key=>key==='OPENAI_API_KEY'?'test-key':'test',
+    createClient:()=>({auth:{getUser:async()=>({data:{user:{id}}})},storage:{from:()=>({download:async()=>({data:new Blob([new Uint8Array([255,216,255,0])],{type:'image/jpeg'})})})},rpc:async()=>({error:null})}),
+    fetcher:async(url,options)=>{calls++;const body=JSON.parse(options.body);
+      assert.deepEqual(body.input[0].content.map(c=>c.type),['input_image']); // no notes -> no input_text block
+      return Response.json({status:'completed',output:[{type:'message',content:[{type:'output_text',text:JSON.stringify({
+        title:'Signed jersey',description:'A red jersey, number 10.',category:'Sports',
+        attributes:{item_type:null,subject:null,year:null,condition:null,sport:'Football',team:null,artist:null,medium:null,dimensions:null,publisher:null,issue:null,grading_company:null,grade:null},
+        tags:[],signature:{found:false,box:null}
+      })}]}]});}});
+  const request=body=>new Request('https://example.test',{method:'POST',headers:{Authorization:'Bearer test'},body:JSON.stringify(body)});
+  assert.equal((await handler(request({notes:'',photo_path:path}))).status,200);
+  assert.equal(calls,1);
+  assert.equal((await handler(request({notes:''}))).status,400); // neither notes nor photo
+});
+
 test('draft handler validates and clamps the signature detection box, and only returns one when a photo was sent',async()=>{
   const id='11111111-1111-4111-8111-111111111111',path=id+'/aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa.jpg';
   let signaturePayload={found:true,box:{x0:0.2,y0:0.3,x1:0.6,y1:0.5}};
