@@ -212,10 +212,10 @@ function CreateListing({ onClose, onCreated, relistFrom }) {
       const response=await fetch(photo.url);
       if(!response.ok) throw new Error('The item photo could not be read. Try uploading the signature close-up manually.');
       const bitmap=await createImageBitmap(await response.blob());
-      // Padded 15% per side -- the model's box is often tight enough to clip a stroke or two,
-      // and a slightly loose crop is a much smaller problem than a cut-off signature.
+      // Padded 22% per side (bumped up from 15%) -- the model's box is often tight enough to clip
+      // a stroke or two, and a slightly loose crop is a much smaller problem than a cut-off signature.
       const {x0,y0,x1,y1}=signatureSuggestion.box;
-      const padX=(x1-x0)*0.15, padY=(y1-y0)*0.15;
+      const padX=(x1-x0)*0.22, padY=(y1-y0)*0.22;
       const px0=Math.max(0,x0-padX), py0=Math.max(0,y0-padY), px1=Math.min(1,x1+padX), py1=Math.min(1,y1+padY);
       const sx=Math.round(px0*bitmap.width), sy=Math.round(py0*bitmap.height);
       const sw=Math.max(1,Math.round((px1-px0)*bitmap.width)), sh=Math.max(1,Math.round((py1-py0)*bitmap.height));
