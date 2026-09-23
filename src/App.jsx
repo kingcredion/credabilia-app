@@ -3,6 +3,7 @@ import { ListingDetailFields, ListingDetailSummary } from './ListingDetails.jsx'
 import { listingMatches } from './listingDetails.js';
 import { MediaPicker, PhotoGallery } from './ListingMedia.jsx';
 import { mainPhotoBackgroundRemoved, prepareImage } from './media.js';
+import { saveListingDraft, loadListingDraft, clearListingDraft, readFormValues } from './listingDraft.js';
 import { certificateSuggestion } from './certificates.js';
 import CredibilityDetails, { CredibilityMeter } from './CredibilityDetails.jsx';
 import { TriviaPanel } from './Trivia.jsx';
@@ -115,6 +116,9 @@ function ThemeToggle() {
 function CreateListing({ onClose, onCreated, relistFrom }) {
   const [step,setStep]=useState(relistFrom ? 'form' : 'photo');
   const [processingPhoto,setProcessingPhoto]=useState(false);
+  const [draftPrompt,setDraftPrompt]=useState(() => relistFrom ? null : loadListingDraft());
+  const [resuming,setResuming]=useState(false);
+  const [pendingResume,setPendingResume]=useState(null);
   const [listingCategory, setListingCategory] = useState(relistFrom?.category || CATEGORIES[0]);
   const [listingType, setListingType] = useState('fixed');
   const [busy, setBusy] = useState(false), [error, setError] = useState('');
@@ -126,7 +130,7 @@ function CreateListing({ onClose, onCreated, relistFrom }) {
   const [copyingPhotos,setCopyingPhotos]=useState(false);
   const [signatureAi,setSignatureAi]=useState(null),[reviewingSignature,setReviewingSignature]=useState(false);
   const formRef=useRef(null);
-  const working=busy||uploading||analyzing||drafting||copyingPhotos||reviewingSignature||applyingSuggestion||processingPhoto;
+  const working=busy||uploading||analyzing||drafting||copyingPhotos||reviewingSignature||applyingSuggestion||processingPhoto||resuming;
   const certificates=media.filter(asset=>asset.kind==='certificate');
   const signaturePhoto=media.find(asset=>asset.kind==='signature');
   async function analyze() {
@@ -210,6 +214,31 @@ function CreateListing({ onClose, onCreated, relistFrom }) {
       setSignatureSuggestion(null);
     } catch(err){ setError(err.message); } finally { setApplyingSuggestion(false); }
   }
+  // Resuming re-signs the saved paths (a stored signed URL could easily be past its 1-hour expiry
+  // by the time someone comes back) rather than trusting whatever was saved alongside them.
+  async function resumeDraft() {
+    if(!draftPrompt) return;
+    setResuming(true);setError('');
+    try {
+      const signed=await service.signMediaUrls(draftPrompt.media);
+      setMedia(signed);
+      if(draftPrompt.listingCategory && CATEGORIES.includes(draftPrompt.listingCategory)) setListingCategory(draftPrompt.listingCategory);
+      setListingType(draftPrompt.listingType==='auction' ? 'auction' : 'fixed');
+      setNotes(draftPrompt.notes || '');
+      setCertificate(draftPrompt.certificate || {});
+      setSignatureAi(draftPrompt.signatureAi || null);
+      setPendingResume(draftPrompt.form || {});
+      setDraftPrompt(null);
+      setStep('form');
+    } catch(err){ setError(err.message); } finally { setResuming(false); }
+  }
+  async function discardDraft() {
+    if(!draftPrompt) return;
+    setResuming(true);
+    await Promise.all(draftPrompt.media.map(asset=>service.removeImage(asset.path).catch(()=>{})));
+    clearListingDraft();
+    setDraftPrompt(null);setResuming(false);
+  }
   // Only fires once the form (title/description/attribute inputs) actually exists -- during the
   // photo step there is nothing to write into yet, so a pendingDraft set there waits here until
   // step flips to 'form' (bundled into the same batched update as setStep, so this re-fires right
@@ -224,6 +253,18 @@ function CreateListing({ onClose, onCreated, relistFrom }) {
     if(tagsField && pendingDraft.tags.length) tagsField.value=pendingDraft.tags.join(', ');
     setPendingDraft(null);
   }, [pendingDraft, step]);
+  useEffect(() => {
+    if(!pendingResume || step!=='form') return;
+    const form=formRef.current;
+    const set=(name,value)=>{ const el=form?.elements.namedItem(name); if(el && value) el.value=value; };
+    set('title',pendingResume.title); set('description',pendingResume.description); set('price',pendingResume.price);
+    set('evidence',pendingResume.evidence); set('tags',pendingResume.tags);
+    set('weight_oz',pendingResume.weight_oz); set('length_in',pendingResume.length_in);
+    set('width_in',pendingResume.width_in); set('height_in',pendingResume.height_in);
+    const shippingEl=form?.elements.namedItem('free_shipping'); if(shippingEl) shippingEl.checked=!!pendingResume.free_shipping;
+    for(const [key,value] of Object.entries(pendingResume.attributes||{})) { const field=form?.elements.namedItem('attribute:'+key); if(field && value) field.value=value; }
+    setPendingResume(null);
+  }, [pendingResume, step]);
   useEffect(() => {
     if(!relistFrom) return;
     const form=formRef.current;
@@ -246,9 +287,14 @@ function CreateListing({ onClose, onCreated, relistFrom }) {
   }, []);
   async function close() {
     if(working) return;
-    setUploading(true);
-    try {for(const asset of media) await service.removeImage(asset.path);onClose();}
-    catch(err){setError('Could not discard all photos. '+err.message);setUploading(false);}
+    // Unlike before, closing no longer deletes the uploaded photos -- it saves them as a resumable
+    // draft instead, so an accidental exit doesn't cost a re-upload and a re-paid AI draft/
+    // background-removal call. Relist is excluded: it re-copies a fresh set of photos every time
+    // it's opened (its own useEffect above) and never gets a resume prompt, so its copies would
+    // just orphan silently in storage instead -- keep the original delete-on-close for that path.
+    if(!relistFrom && media.length) saveListingDraft({media,listingCategory,listingType,notes,certificate,signatureAi,form:readFormValues(formRef.current)});
+    else if(relistFrom) for(const asset of media) await service.removeImage(asset.path).catch(()=>{});
+    onClose();
   }
   async function submit(event) {
     event.preventDefault(); if (working) return;
@@ -269,11 +315,22 @@ function CreateListing({ onClose, onCreated, relistFrom }) {
       const form = Object.fromEntries(new FormData(event.currentTarget));
       const attributes = Object.fromEntries(Object.entries(form).filter(([key])=>key.startsWith('attribute:')).map(([key,value])=>[key.slice(10),value]));
       const id = await service.createListing({ ...form, attributes, ...certificate, media: finalMedia, price_cents: priceInCents(form.price), listing_type: listingType, auction_days: form.auction_days, signature_ai_label: signatureAi?.label, signature_ai_note: signatureAi?.note });
+      clearListingDraft();
       // Best-effort: the listing is already published, so a failure here shouldn't block the seller — but it should be visible for debugging.
       if (relistFrom?.purchase_id) service.markListingRelisted(id, relistFrom.purchase_id).catch(err => console.warn('Could not record relist provenance:', err.message));
       onCreated(id);
     } catch (err) { setError(err.message); setBusy(false); }
   }
+  if (!relistFrom && draftPrompt) return <Modal title="Resume your listing?" onClose={close}>
+    <div className="ai-photo-step">
+      <p className="muted">You have an unfinished listing from earlier, with its photo and any AI-drafted details already saved. Pick up where you left off, or discard it and start fresh.</p>
+      <div className="submit-row">
+        <button type="button" className="primary" onClick={resumeDraft} disabled={resuming}>{resuming ? 'Resuming…' : 'Resume draft'}</button>
+        <button type="button" className="text-button" onClick={discardDraft} disabled={resuming}>Discard and start over</button>
+      </div>
+      {error && <p role="alert" className="error">{error}</p>}
+    </div>
+  </Modal>;
   if (!relistFrom && step==='photo') return <Modal title="Create a listing" onClose={close}>
     <div className="ai-photo-step">
       <img src="/brand/king-credion-scan-baseball-v1.png" alt="" className="ai-photo-step-hero"/>

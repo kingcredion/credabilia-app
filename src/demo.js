@@ -38,6 +38,9 @@ export function createDemoService(storage = window.localStorage) {
       if(!path.startsWith(state.userId+'/') || state.listings.some(item=>(item.media || []).some(asset=>asset.path===path))) throw new Error('This photo cannot be removed.');
       delete state.uploads[path];save();
     },
+    async signMediaUrls(media) {
+      return media.map(asset=>({...asset,url:state.uploads[asset.path]?.url||null}));
+    },
     async removeBackground() {throw new Error('Background removal requires the connected app and an AI service. Not available in this practice preview.');},
     async analyzeSignature() {throw new Error('AI signature review requires the connected app and an AI service. Not available in this practice preview.');},
     async pushSubscriptionStatus() {return {supported:false,subscribed:false};},

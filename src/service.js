@@ -60,6 +60,12 @@ export function makeService() {
       // edit_listing() still detaches it from the listing server-side when the seller updates their photos.
       await client.storage.from('listing-media').remove([path]);
     },
+    async signMediaUrls(media) {
+      if(!media.length) return [];
+      const {data}=await client.storage.from('listing-media').createSignedUrls(media.map(a=>a.path),3600);
+      const urls=new Map((data||[]).map(a=>[a.path,a.signedUrl]));
+      return media.map(asset=>({...asset,url:urls.get(asset.path)||null}));
+    },
     async removeBackground(path) {
       const {data,error}=await client.functions.invoke('remove-background',{body:{path}});
       if(error) { let detail; try {detail=await error.context?.json();} catch {} throw new Error(detail?.error || 'Could not remove the background right now.'); }
