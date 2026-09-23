@@ -212,11 +212,17 @@ function CreateListing({ onClose, onCreated, relistFrom }) {
       const response=await fetch(photo.url);
       if(!response.ok) throw new Error('The item photo could not be read. Try uploading the signature close-up manually.');
       const bitmap=await createImageBitmap(await response.blob());
-      // Padded 35% per side -- the model's box is often tight enough to clip a stroke or two,
-      // and a slightly loose crop is a much smaller problem than a cut-off signature.
+      // Vision models are consistently better at pointing at roughly *where* something is than at
+      // drawing a tight, correctly-centered box around it -- so instead of trusting the box's own
+      // (often lopsided) edges, take its center and build a fixed, padded window symmetrically
+      // around that point ourselves. That guarantees a centered crop by construction regardless of
+      // how imprecise the model's edges were, padded 35% so a slightly loose crop (a much smaller
+      // problem than a cut-off signature) covers for underestimated size too.
       const {x0,y0,x1,y1}=signatureSuggestion.box;
-      const padX=(x1-x0)*0.35, padY=(y1-y0)*0.35;
-      const px0=Math.max(0,x0-padX), py0=Math.max(0,y0-padY), px1=Math.min(1,x1+padX), py1=Math.min(1,y1+padY);
+      const cx=(x0+x1)/2, cy=(y0+y1)/2;
+      const halfW=Math.max((x1-x0)/2,0.02)*1.35, halfH=Math.max((y1-y0)/2,0.02)*1.35;
+      const clamp=(c,half)=>{let lo=c-half,hi=c+half; if(lo<0){hi-=lo;lo=0;} if(hi>1){lo-=(hi-1);hi=1;} return [Math.max(0,lo),Math.min(1,hi)];};
+      const [px0,px1]=clamp(cx,halfW), [py0,py1]=clamp(cy,halfH);
       const sx=Math.round(px0*bitmap.width), sy=Math.round(py0*bitmap.height);
       const sw=Math.max(1,Math.round((px1-px0)*bitmap.width)), sh=Math.max(1,Math.round((py1-py0)*bitmap.height));
       const canvas=document.createElement('canvas'); canvas.width=sw; canvas.height=sh;
