@@ -1,6 +1,5 @@
 import React from 'react';
 import { Brand } from './Brand.jsx';
-import { VoiceAssistant, voiceAssistantAvailable } from './VoiceAssistant.jsx';
 
 export function HelpPage() {
   return <div className="legal-page">
@@ -19,7 +18,6 @@ export function HelpPage() {
       <li><strong>Email:</strong> <a href="mailto:kingcredion@credabilia.com">kingcredion@credabilia.com</a></li>
       <li><strong>Chat:</strong> use the chat icon in the header after signing in</li>
     </ul>
-    {voiceAssistantAvailable && <div className="evidence-box"><VoiceAssistant/></div>}
 
     <h2>Frequently asked questions</h2>
 
