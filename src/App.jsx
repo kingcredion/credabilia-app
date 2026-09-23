@@ -1,8 +1,8 @@
 import { Brand } from './Brand.jsx';
 import { ListingDetailFields, ListingDetailSummary } from './ListingDetails.jsx';
-import { listingMatches, DETAIL_FIELDS } from './listingDetails.js';
+import { listingMatches } from './listingDetails.js';
 import { MediaPicker, PhotoGallery } from './ListingMedia.jsx';
-import { mainPhotoBackgroundRemoved } from './media.js';
+import { mainPhotoBackgroundRemoved, prepareImage } from './media.js';
 import { certificateSuggestion } from './certificates.js';
 import CredibilityDetails, { CredibilityMeter } from './CredibilityDetails.jsx';
 import { TriviaPanel } from './Trivia.jsx';
@@ -113,16 +113,20 @@ function ThemeToggle() {
 }
 
 function CreateListing({ onClose, onCreated, relistFrom }) {
+  const [step,setStep]=useState(relistFrom ? 'form' : 'photo');
+  const [processingPhoto,setProcessingPhoto]=useState(false);
   const [listingCategory, setListingCategory] = useState(relistFrom?.category || CATEGORIES[0]);
   const [listingType, setListingType] = useState('fixed');
   const [busy, setBusy] = useState(false), [error, setError] = useState('');
   const [media,setMedia]=useState([]), [uploading,setUploading]=useState(false), [analyzing,setAnalyzing]=useState(false);
   const [certificate,setCertificate]=useState({}),[suggestion,setSuggestion]=useState(null),[confirmed,setConfirmed]=useState(false);
-  const [notes,setNotes]=useState(''),[drafting,setDrafting]=useState(false),[draft,setDraft]=useState(null),[pendingDraft,setPendingDraft]=useState(null);
+  const [notes,setNotes]=useState(''),[drafting,setDrafting]=useState(false),[pendingDraft,setPendingDraft]=useState(null);
+  const [draftApplied,setDraftApplied]=useState(false),[draftNote,setDraftNote]=useState('');
+  const [signatureSuggestion,setSignatureSuggestion]=useState(null),[applyingSuggestion,setApplyingSuggestion]=useState(false);
   const [copyingPhotos,setCopyingPhotos]=useState(false);
   const [signatureAi,setSignatureAi]=useState(null),[reviewingSignature,setReviewingSignature]=useState(false);
   const formRef=useRef(null);
-  const working=busy||uploading||analyzing||drafting||copyingPhotos||reviewingSignature;
+  const working=busy||uploading||analyzing||drafting||copyingPhotos||reviewingSignature||applyingSuggestion||processingPhoto;
   const certificates=media.filter(asset=>asset.kind==='certificate');
   const signaturePhoto=media.find(asset=>asset.kind==='signature');
   async function analyze() {
@@ -135,27 +139,91 @@ function CreateListing({ onClose, onCreated, relistFrom }) {
     try {const result=await service.analyzeSignature(signaturePhoto.path);setSignatureAi(result);}
     catch(err){setError(err.message);}finally{setReviewingSignature(false);}
   }
+  // Stages an AI draft result for the form: title/description/attributes/tags go through the
+  // pendingDraft effect below (deferred, since the form may not be mounted yet -- the photo step
+  // has no text fields at all), category is applied directly since it drives which category-specific
+  // attribute inputs even exist to fill in.
+  function applyDraftResult(result) {
+    if(result.category && CATEGORIES.includes(result.category)) setListingCategory(result.category);
+    setPendingDraft({title:result.title||'',description:result.description||'',attributes:result.attributes||{},tags:result.tags||[]});
+    const hasContent=result.title||result.description||result.category||Object.keys(result.attributes||{}).length||result.tags?.length||result.signature?.found;
+    setDraftApplied(!!(result.title||result.description||result.category||Object.keys(result.attributes||{}).length||result.tags?.length));
+    setDraftNote(hasContent ? '' : "Our analysis didn't bring back much from this photo — fill in the details below.");
+  }
+  // Step 1: a single main photo. AI drafting and background removal run in parallel right after
+  // upload so both are done (or have visibly failed) by the time the seller reaches the full form --
+  // Photoroom availability still isn't required to publish (see submit()'s own fallback below), this
+  // is just the first, best-effort attempt, done up front instead of silently mid-form.
+  async function uploadMainPhoto(event) {
+    const file=event.target.files?.[0]; event.target.value='';
+    if(!file || processingPhoto) return;
+    setProcessingPhoto(true);setError('');
+    try {
+      const asset=await service.uploadImage(await prepareImage(file),'item');
+      setMedia([asset]);
+      const [draftResult,bgResult]=await Promise.allSettled([
+        service.draftListing({notes:'',photoPath:asset.path}),
+        service.removeBackground(asset.path),
+      ]);
+      if(bgResult.status==='fulfilled') setMedia([bgResult.value]);
+      if(draftResult.status==='fulfilled') {
+        const result=draftResult.value;
+        applyDraftResult(result);
+        setSignatureSuggestion(result.signature?.found && result.signature.box
+          ? {photoPath:asset.path,photoUrl:asset.url,box:result.signature.box} : null);
+      } else {
+        setDraftNote("Our analysis didn't bring back much from this photo — fill in the details below.");
+      }
+    } catch(err) { setError(err.message); }
+    finally { setProcessingPhoto(false); setStep('form'); }
+  }
+  // Manual re-run from inside the full form (after adding notes, or swapping the main photo) --
+  // failures surface like any other action here, unlike the quiet step-1 attempt above.
   async function draftListing() {
-    setDrafting(true);setError('');setDraft(null);
-    try {const result=await service.draftListing({notes,photoPath:media.find(asset=>asset.kind==='item')?.path});setDraft(result);}
-    catch(err){setError(err.message);}finally{setDrafting(false);}
+    const photo=media.find(asset=>asset.kind==='item');
+    if(!photo) return;
+    setDrafting(true);setError('');
+    try {
+      const result=await service.draftListing({notes,photoPath:photo.path});
+      applyDraftResult(result);
+      setSignatureSuggestion(result.signature?.found && result.signature.box && !media.some(asset=>asset.kind==='signature')
+        ? {photoPath:photo.path,photoUrl:photo.url,box:result.signature.box} : null);
+    }
+    catch(err){ setError(err.message); }
+    finally{ setDrafting(false); }
   }
-  function applyDraft() {
-    const form=formRef.current;
-    if(draft.title) form.elements.namedItem('title').value=draft.title;
-    if(draft.description) form.elements.namedItem('description').value=draft.description;
-    if(draft.category && CATEGORIES.includes(draft.category)) setListingCategory(draft.category);
-    setPendingDraft({attributes:draft.attributes||{},tags:draft.tags||[]});
-    setDraft(null);
+  async function acceptSignatureSuggestion() {
+    if(!signatureSuggestion) return;
+    setApplyingSuggestion(true);setError('');
+    try {
+      const bitmap=await createImageBitmap(await (await fetch(signatureSuggestion.photoUrl)).blob());
+      const {x0,y0,x1,y1}=signatureSuggestion.box;
+      const sx=Math.round(x0*bitmap.width), sy=Math.round(y0*bitmap.height);
+      const sw=Math.max(1,Math.round((x1-x0)*bitmap.width)), sh=Math.max(1,Math.round((y1-y0)*bitmap.height));
+      const canvas=document.createElement('canvas'); canvas.width=sw; canvas.height=sh;
+      canvas.getContext('2d').drawImage(bitmap,sx,sy,sw,sh,0,0,sw,sh);
+      bitmap.close();
+      const cropped=await new Promise(resolve=>canvas.toBlob(resolve,'image/jpeg',0.9));
+      if(!cropped) throw new Error('Could not crop the signature close-up.');
+      const asset=await service.uploadImage(cropped,'signature');
+      setMedia(prev=>[...prev.filter(x=>x.kind!=='signature'),asset]);
+      setSignatureSuggestion(null);
+    } catch(err){ setError(err.message); } finally { setApplyingSuggestion(false); }
   }
+  // Only fires once the form (title/description/attribute inputs) actually exists -- during the
+  // photo step there is nothing to write into yet, so a pendingDraft set there waits here until
+  // step flips to 'form' (bundled into the same batched update as setStep, so this re-fires right
+  // after that render commits).
   useEffect(() => {
-    if(!pendingDraft) return;
+    if(!pendingDraft || step!=='form') return;
     const form=formRef.current;
+    if(pendingDraft.title) form.elements.namedItem('title').value=pendingDraft.title;
+    if(pendingDraft.description) form.elements.namedItem('description').value=pendingDraft.description;
     for(const [key,value] of Object.entries(pendingDraft.attributes)) { const field=form?.elements.namedItem('attribute:'+key); if(field) field.value=value; }
     const tagsField=form?.elements.namedItem('tags');
     if(tagsField && pendingDraft.tags.length) tagsField.value=pendingDraft.tags.join(', ');
     setPendingDraft(null);
-  }, [pendingDraft]);
+  }, [pendingDraft, step]);
   useEffect(() => {
     if(!relistFrom) return;
     const form=formRef.current;
@@ -188,21 +256,52 @@ function CreateListing({ onClose, onCreated, relistFrom }) {
     try {
       if(certificates.length && !certificate.certificate_issuer) throw new Error('Choose the issuer for your certificate photos.');
       if(certificate.certificate_issuer && !confirmed) throw new Error('Confirm the certificate details before publishing.');
-      if(!media.some(asset=>asset.kind==='item')) throw new Error('Add at least one item photo.');
-      if(!mainPhotoBackgroundRemoved(media)) throw new Error('Remove the background from your main photo before publishing.');
+      let finalMedia=media;
+      const mainPhoto=finalMedia.find(asset=>asset.kind==='item');
+      if(!mainPhoto) throw new Error('Add at least one item photo.');
+      if(!mainPhotoBackgroundRemoved(finalMedia)) {
+        try {
+          const replaced=await service.removeBackground(mainPhoto.path);
+          finalMedia=finalMedia.map(asset=>asset.path===mainPhoto.path?replaced:asset);
+          setMedia(finalMedia);
+        } catch { /* Photoroom unavailable right now -- publish with the original photo; the retry-background-removal job picks it up automatically. */ }
+      }
       const form = Object.fromEntries(new FormData(event.currentTarget));
       const attributes = Object.fromEntries(Object.entries(form).filter(([key])=>key.startsWith('attribute:')).map(([key,value])=>[key.slice(10),value]));
-      const id = await service.createListing({ ...form, attributes, ...certificate, media, price_cents: priceInCents(form.price), listing_type: listingType, auction_days: form.auction_days, signature_ai_label: signatureAi?.label, signature_ai_note: signatureAi?.note });
+      const id = await service.createListing({ ...form, attributes, ...certificate, media: finalMedia, price_cents: priceInCents(form.price), listing_type: listingType, auction_days: form.auction_days, signature_ai_label: signatureAi?.label, signature_ai_note: signatureAi?.note });
       // Best-effort: the listing is already published, so a failure here shouldn't block the seller — but it should be visible for debugging.
       if (relistFrom?.purchase_id) service.markListingRelisted(id, relistFrom.purchase_id).catch(err => console.warn('Could not record relist provenance:', err.message));
       onCreated(id);
     } catch (err) { setError(err.message); setBusy(false); }
   }
+  if (!relistFrom && step==='photo') return <Modal title="Create a listing" onClose={close}>
+    <div className="ai-photo-step">
+      <img src="/brand/king-credion-scan-baseball-v1.png" alt="" className="ai-photo-step-hero"/>
+      <p className="muted">AI reads your photo and drafts the listing for you — title, description, category, even a signature close-up if it spots one. Add a photo to get started; you can always fill in details yourself.</p>
+      <label>Add your main photo<input type="file" accept="image/jpeg,image/png,image/webp" disabled={processingPhoto} onChange={uploadMainPhoto}/></label>
+      {processingPhoto && <p role="status" className="field-note">Analyzing your photo…</p>}
+      {error && <p role="alert" className="error">{error}</p>}
+    </div>
+  </Modal>;
   return <Modal title={relistFrom ? 'Relist this item' : 'Create a listing'} onClose={close}>
-    <p className="muted">{relistFrom ? 'Details, tags and certificate info carried over from your purchase. Review everything and set your own price.' : 'A good listing starts with a clear description and honest evidence.'}</p>
+    <p className="muted">{relistFrom ? 'Details, tags and certificate info carried over from your purchase. Review everything and set your own price.' : 'Review what AI filled in and add anything it missed.'}</p>
     {copyingPhotos && <p role="status" className="field-note">Copying photos to your own listing…</p>}
+    {draftApplied && <p className="field-note bg-removed-ok">AI filled in the details from your photo — review everything before publishing. <button type="button" className="text-button" onClick={()=>setDraftApplied(false)}>Dismiss</button></p>}
+    {draftNote && <p className="field-note">{draftNote} <button type="button" className="text-button" onClick={()=>setDraftNote('')}>Dismiss</button></p>}
     <form ref={formRef} onSubmit={submit} className="form-stack">
       <label>Item title<input name="title" placeholder="What are you sharing?" minLength={4} maxLength={120} required autoFocus/></label>
+      <MediaPicker service={service} media={media} onChange={next=>{setMedia(next);setSuggestion(null);setConfirmed(false);setSignatureAi(null);}} busy={working} onBusy={setUploading} onError={setError}/>
+      {signatureSuggestion && <div className="evidence-box"><h3>Signature detected</h3>
+        <p className="field-note">Your item photo appears to show a signature. Use this cropped close-up instead of uploading a separate photo?</p>
+        <button type="button" className="text-button" onClick={acceptSignatureSuggestion} disabled={working}>{applyingSuggestion ? 'Cropping…' : 'Use this as my signature close-up'}</button>
+        <button type="button" className="text-button" onClick={()=>setSignatureSuggestion(null)} disabled={working}>Not a signature</button>
+      </div>}
+      {signaturePhoto && <div className="evidence-box"><h3>Signature AI opinion</h3>
+        {signatureAi ? <p className="field-note">{LABELS_AI[signatureAi.label]} — {signatureAi.note}</p> : <p className="field-note">Get a plain-language opinion on this signature — not a forensic authentication, and it improves as our signature library grows.</p>}
+        <button type="button" className="text-button" onClick={reviewSignature} disabled={working}>{reviewingSignature ? 'Reviewing…' : signatureAi ? 'Review again' : 'Get AI opinion'}</button>
+      </div>}
+      <label>Notes for AI <span className="optional">optional</span><textarea value={notes} onChange={event=>setNotes(event.target.value)} rows={3} maxLength={2000} placeholder="Add anything the photo won't show — who made it, when, condition, provenance…" disabled={working}/></label>
+      <button type="button" className="text-button" onClick={draftListing} disabled={working || !media.some(asset=>asset.kind==='item')}>{drafting ? 'Drafting…' : 'Regenerate with AI'}</button>
       {!relistFrom && <div className="categories" aria-label="Listing type"><button type="button" aria-pressed={listingType==='fixed'} className={listingType==='fixed' ? 'active' : ''} onClick={()=>setListingType('fixed')}>Fixed price</button><button type="button" aria-pressed={listingType==='auction'} className={listingType==='auction' ? 'active' : ''} onClick={()=>setListingType('auction')}>Auction</button></div>}
       <div className="form-row">
         <label>Category<select name="category" value={listingCategory} onChange={event=>setListingCategory(event.target.value)}>{CATEGORIES.map(c => <option key={c}>{c}</option>)}</select></label>
@@ -222,24 +321,6 @@ function CreateListing({ onClose, onCreated, relistFrom }) {
       </div>
       <label className="certificate-confirm"><input type="checkbox" name="free_shipping"/>Offer free shipping (you cover the cost)</label>
       <label>Evidence notes <span className="optional">optional</span><textarea name="evidence" rows={2} maxLength={2000} placeholder="Provenance, certificate details, or what is still unknown…"/></label>
-      <MediaPicker service={service} media={media} onChange={next=>{setMedia(next);setSuggestion(null);setConfirmed(false);setSignatureAi(null);}} busy={working} onBusy={setUploading} onError={setError}/>
-      {signaturePhoto && <div className="evidence-box"><h3>Signature AI opinion</h3>
-        {signatureAi ? <p className="field-note">{LABELS_AI[signatureAi.label]} — {signatureAi.note}</p> : <p className="field-note">Get a plain-language opinion on this signature — not a forensic authentication, and it improves as our signature library grows.</p>}
-        <button type="button" className="text-button" onClick={reviewSignature} disabled={working}>{reviewingSignature ? 'Reviewing…' : signatureAi ? 'Review again' : 'Get AI opinion'}</button>
-      </div>}
-      <label>Notes for an AI draft <span className="optional">optional</span><textarea value={notes} onChange={event=>setNotes(event.target.value)} rows={3} maxLength={2000} placeholder="What is it, who made it, when, condition, anything you know…" disabled={working}/></label>
-      <button type="button" className="text-button" onClick={draftListing} disabled={working || !notes.trim()}>{drafting ? 'Drafting…' : 'Draft with AI'}</button>
-      <p className="field-note">Sends your notes{media.some(asset=>asset.kind==='item') ? ' and your first item photo' : ''} to our AI provider to suggest a title, description, category, item details and tags. Review everything below before publishing — nothing is filled in automatically.</p>
-      {draft && <div className="evidence-box"><h3>Suggested draft</h3>
-        {draft.title && <p><strong>Title:</strong> {draft.title}</p>}
-        {draft.category && <p><strong>Category:</strong> {draft.category}</p>}
-        {draft.description && <p><strong>Description:</strong> {draft.description}</p>}
-        {!!Object.keys(draft.attributes || {}).length && <p><strong>Details:</strong> {Object.entries(draft.attributes).map(([key,value]) => `${DETAIL_FIELDS[key] || key}: ${value}`).join(' · ')}</p>}
-        {!!draft.tags?.length && <p><strong>Tags:</strong> {draft.tags.join(', ')}</p>}
-        {!draft.title && !draft.description && !draft.category && !Object.keys(draft.attributes || {}).length && !draft.tags?.length && <p>No usable details were returned. Try adding more notes.</p>}
-        <button type="button" className="text-button" onClick={applyDraft}>Use this draft</button>
-        <button type="button" className="text-button" onClick={()=>setDraft(null)}>Dismiss draft</button>
-      </div>}
       {certificates.length>0 && <><button type="button" className="text-button" onClick={analyze} disabled={working}>{analyzing?'Reading certificate…':'Read certificate with AI'}</button><p className="field-note">Sends the first certificate photo to our AI provider to suggest the company and number. Review the suggestions before publishing.</p></>}
       {suggestion && <div className="evidence-box"><h3>Suggested certificate details</h3><p>Issuer: {suggestion.certificate_issuer} · Number: {suggestion.certificate_number || 'Not readable'}</p><button type="button" className="text-button" onClick={()=>{setCertificate(suggestion);setConfirmed(false);setSuggestion(null);}}>Use these details and review</button><button type="button" className="text-button" onClick={()=>setSuggestion(null)}>Dismiss suggestion</button></div>}
       <CertificateFields value={certificate} onChange={value=>{setCertificate(value);setConfirmed(false);}} disabled={working}/>
@@ -272,11 +353,19 @@ function EditListing({item:currentItem,onClose,onSaved}) {
     setSaving(true);setError('');
     try{
       if(certificate.certificate_issuer && certificateChanged && !confirmed) throw new Error('Confirm the certificate details before saving.');
+      let finalMedia=media;
       if(mediaTouched) {
-        if(!media.some(asset=>asset.kind==='item')) throw new Error('Add at least one item photo.');
-        if(!mainPhotoBackgroundRemoved(media)) throw new Error('Remove the background from your main photo before saving.');
+        const mainPhoto=finalMedia.find(asset=>asset.kind==='item');
+        if(!mainPhoto) throw new Error('Add at least one item photo.');
+        if(!mainPhotoBackgroundRemoved(finalMedia)) {
+          try {
+            const replaced=await service.removeBackground(mainPhoto.path);
+            finalMedia=finalMedia.map(asset=>asset.path===mainPhoto.path?replaced:asset);
+            setMedia(finalMedia);
+          } catch { /* Photoroom unavailable right now -- save with the original photo; the retry-background-removal job picks it up automatically. */ }
+        }
       }
-      await service.editListing(item,{...form,...certificate,media,price_cents:priceInCents(form.price),signature_ai_label:signatureAi?.label,signature_ai_note:signatureAi?.note},mediaTouched);
+      await service.editListing(item,{...form,...certificate,media:finalMedia,price_cents:priceInCents(form.price),signature_ai_label:signatureAi?.label,signature_ai_note:signatureAi?.note},mediaTouched);
       onSaved();
     }
     catch(err){setError(err.message);setSaving(false);}

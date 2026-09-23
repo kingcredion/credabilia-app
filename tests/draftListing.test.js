@@ -34,6 +34,34 @@ test('draft handler validates identity, notes, ownership and quotas, and sanitiz
   assert.equal('price' in data,false);assert.equal('authenticity' in data,false);assert.equal('url' in data,false);
 });
 
+test('draft handler validates and clamps the signature detection box, and only returns one when a photo was sent',async()=>{
+  const id='11111111-1111-4111-8111-111111111111',path=id+'/aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa.jpg';
+  let signaturePayload={found:true,box:{x0:0.2,y0:0.3,x1:0.6,y1:0.5}};
+  const handler=createHandler({env:key=>key==='OPENAI_API_KEY'?'test-key':'test',
+    createClient:()=>({auth:{getUser:async()=>({data:{user:{id}}})},storage:{from:()=>({download:async()=>({data:new Blob([new Uint8Array([255,216,255,0])],{type:'image/jpeg'})})})},rpc:async()=>({error:null})}),
+    fetcher:async()=>Response.json({status:'completed',output:[{type:'message',content:[{type:'output_text',text:JSON.stringify({
+      title:'Item',description:'A fictional item for testing.',category:'Sports',
+      attributes:{item_type:null,subject:null,year:null,condition:null,sport:null,team:null,artist:null,medium:null,dimensions:null,publisher:null,issue:null,grading_company:null,grade:null},
+      tags:[],signature:signaturePayload
+    })}]}]})});
+  const request=body=>new Request('https://example.test',{method:'POST',headers:{Authorization:'Bearer test'},body:JSON.stringify(body)});
+
+  let result=await handler(request({notes:'A baseball',photo_path:path}));
+  assert.deepEqual((await result.json()).signature,{found:true,box:{x0:0.2,y0:0.3,x1:0.6,y1:0.5}});
+
+  signaturePayload={found:true,box:{x0:0.8,y0:0.2,x1:0.4,y1:0.5}}; // x1<x0: degenerate, must be treated as not found
+  result=await handler(request({notes:'A baseball',photo_path:path}));
+  assert.deepEqual((await result.json()).signature,{found:false,box:null});
+
+  signaturePayload={found:true,box:{x0:-0.5,y0:0.3,x1:1.5,y1:0.5}}; // out-of-range coordinates get clamped, not rejected, as long as still ordered
+  result=await handler(request({notes:'A baseball',photo_path:path}));
+  assert.deepEqual((await result.json()).signature,{found:true,box:{x0:0,y0:0.3,x1:1,y1:0.5}});
+
+  signaturePayload={found:true,box:{x0:0.2,y0:0.3,x1:0.6,y1:0.5}};
+  result=await handler(request({notes:'A baseball'})); // no photo sent -- never trust a signature claim without one
+  assert.deepEqual((await result.json()).signature,{found:false,box:null});
+});
+
 test('database enforces listing draft quota and selling permission',async()=>{
   const db=new PGlite();
   const seller='11111111-1111-4111-8111-111111111111',other='22222222-2222-4222-8222-222222222222';
