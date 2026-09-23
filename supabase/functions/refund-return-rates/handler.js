@@ -34,7 +34,7 @@ export function createHandler({createClient,env}) {
       if(identity.user.id!==refundRequest.buyer_id) return reply({error:'You can only get a label for your own return.'},403);
       if(refundRequest.status!=='return_required') return reply({error:'A return label is not needed for this request.'},400);
 
-      const {data:purchase,error:purchaseError}=await service.from('purchases').select('id,seller_id,shipping_address,listing_id,listings(weight_oz,length_in,width_in,height_in)').eq('id',refundRequest.purchase_id).maybeSingle();
+      const {data:purchase,error:purchaseError}=await service.from('purchases').select('id,seller_id,shipping_address,listing_id,listings!purchases_listing_id_fkey(weight_oz,length_in,width_in,height_in)').eq('id',refundRequest.purchase_id).maybeSingle();
       if(purchaseError || !purchase) return reply({error:'Purchase not found.'},404);
       const stored=purchase.listings;
       const weight=Number(stored?.weight_oz), length=Number(stored?.length_in), width=Number(stored?.width_in), height=Number(stored?.height_in);

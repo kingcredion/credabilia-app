@@ -23,7 +23,7 @@ export function createHandler({createClient,env}) {
       const purchaseId=body?.purchase_id, bodyParcel=body?.parcel;
       if(typeof purchaseId!=='string' || !UUID_RE.test(purchaseId)) return reply({error:'Invalid request.'},400);
 
-      const {data:sale,error:saleError}=await client.from('purchases').select('id,shipping_address,listing_id,insured,insured_value_cents,listings(weight_oz,length_in,width_in,height_in)').eq('id',purchaseId).eq('seller_id',identity.user.id).maybeSingle();
+      const {data:sale,error:saleError}=await client.from('purchases').select('id,shipping_address,listing_id,insured,insured_value_cents,listings!purchases_listing_id_fkey(weight_oz,length_in,width_in,height_in)').eq('id',purchaseId).eq('seller_id',identity.user.id).maybeSingle();
       if(saleError || !sale) return reply({error:'Sale not found.'},404);
       // Prefer the listing's own stored dimensions (set at listing time); fall back to the
       // request body only for legacy listings created before that existed.
