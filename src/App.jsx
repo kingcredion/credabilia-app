@@ -350,6 +350,7 @@ function CreateListing({ onClose, onCreated, relistFrom }) {
       <img src="/brand/king-credion-scan-baseball-v1.png" alt="" className="ai-photo-step-hero"/>
       <p className="muted">AI reads your photo and drafts the listing for you — title, description, category, even a signature close-up if it spots one. Add a photo to get started; you can always fill in details yourself.</p>
       <label>Add your main photo<input type="file" accept="image/jpeg,image/png,image/webp" disabled={processingPhoto} onChange={uploadMainPhoto}/></label>
+      <p className="field-note">Show the whole item with a little space around it — a photo cropped tight to the edges can trip up background removal and signature detection.</p>
       {processingPhoto && <p role="status" className="field-note">Analyzing your photo…</p>}
       {error && <p role="alert" className="error">{error}</p>}
     </div>
