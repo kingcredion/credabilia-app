@@ -127,11 +127,10 @@ function CreateListing({ onClose, onCreated, relistFrom }) {
   const [certificate,setCertificate]=useState({}),[suggestion,setSuggestion]=useState(null),[confirmed,setConfirmed]=useState(false);
   const [notes,setNotes]=useState(''),[drafting,setDrafting]=useState(false),[pendingDraft,setPendingDraft]=useState(null);
   const [draftApplied,setDraftApplied]=useState(false),[draftNote,setDraftNote]=useState('');
-  const [signatureSuggestion,setSignatureSuggestion]=useState(null),[applyingSuggestion,setApplyingSuggestion]=useState(false);
   const [copyingPhotos,setCopyingPhotos]=useState(false);
   const [signatureAi,setSignatureAi]=useState(null),[reviewingSignature,setReviewingSignature]=useState(false);
   const formRef=useRef(null);
-  const working=busy||uploading||analyzing||drafting||copyingPhotos||reviewingSignature||applyingSuggestion||processingPhoto||resuming||discarding;
+  const working=busy||uploading||analyzing||drafting||copyingPhotos||reviewingSignature||processingPhoto||resuming||discarding;
   const certificates=media.filter(asset=>asset.kind==='certificate');
   const signaturePhoto=media.find(asset=>asset.kind==='signature');
   async function analyze() {
@@ -143,6 +142,30 @@ function CreateListing({ onClose, onCreated, relistFrom }) {
     setReviewingSignature(true);setError('');
     try {const result=await service.analyzeSignature(signaturePhoto.path);setSignatureAi(result);}
     catch(err){setError(err.message);}finally{setReviewingSignature(false);}
+  }
+  // Vision models are consistently better at pointing at roughly *where* something is than at
+  // drawing a tight, correctly-centered box around it -- so instead of trusting the box's own
+  // (often lopsided) edges, take its center and build a fixed, padded window symmetrically
+  // around that point ourselves. That guarantees a centered crop by construction regardless of
+  // how imprecise the model's edges were, padded 35% so a slightly loose crop (a much smaller
+  // problem than a cut-off signature) covers for underestimated size too.
+  async function cropSignatureFromPhoto(photoUrl, box) {
+    const response=await fetch(photoUrl);
+    if(!response.ok) throw new Error('The item photo could not be read.');
+    const bitmap=await createImageBitmap(await response.blob());
+    const {x0,y0,x1,y1}=box;
+    const cx=(x0+x1)/2, cy=(y0+y1)/2;
+    const halfW=Math.max((x1-x0)/2,0.02)*1.35, halfH=Math.max((y1-y0)/2,0.02)*1.35;
+    const clamp=(c,half)=>{let lo=c-half,hi=c+half; if(lo<0){hi-=lo;lo=0;} if(hi>1){lo-=(hi-1);hi=1;} return [Math.max(0,lo),Math.min(1,hi)];};
+    const [px0,px1]=clamp(cx,halfW), [py0,py1]=clamp(cy,halfH);
+    const sx=Math.round(px0*bitmap.width), sy=Math.round(py0*bitmap.height);
+    const sw=Math.max(1,Math.round((px1-px0)*bitmap.width)), sh=Math.max(1,Math.round((py1-py0)*bitmap.height));
+    const canvas=document.createElement('canvas'); canvas.width=sw; canvas.height=sh;
+    canvas.getContext('2d').drawImage(bitmap,sx,sy,sw,sh,0,0,sw,sh);
+    bitmap.close();
+    const cropped=await new Promise(resolve=>canvas.toBlob(resolve,'image/jpeg',0.9));
+    if(!cropped) throw new Error('Could not crop the signature close-up.');
+    return cropped;
   }
   // Stages an AI draft result for the form: title/description/attributes/tags go through the
   // pendingDraft effect below (deferred, since the form may not be mounted yet -- the photo step
@@ -170,12 +193,20 @@ function CreateListing({ onClose, onCreated, relistFrom }) {
         service.draftListing({notes:'',photoPath:asset.path}),
         service.removeBackground(asset.path),
       ]);
-      if(bgResult.status==='fulfilled') setMedia([bgResult.value]);
+      let currentPhoto=asset;
+      if(bgResult.status==='fulfilled') { currentPhoto=bgResult.value; setMedia([currentPhoto]); }
       if(draftResult.status==='fulfilled') {
         const result=draftResult.value;
         applyDraftResult(result);
-        setSignatureSuggestion(result.signature?.found && result.signature.box
-          ? {box:result.signature.box} : null);
+        if(result.signature?.found && result.signature.box) {
+          // Best-effort and silent -- a failed auto-crop just means no signature photo got added,
+          // same as if none was detected; the seller can still add one manually.
+          try {
+            const cropped=await cropSignatureFromPhoto(currentPhoto.url,result.signature.box);
+            const sigAsset=await service.uploadImage(cropped,'signature');
+            setMedia(prev=>[...prev.filter(x=>x.kind!=='signature'),sigAsset]);
+          } catch {}
+        }
       } else {
         setDraftNote("Our analysis didn't bring back much from this photo — fill in the details below.");
       }
@@ -191,49 +222,16 @@ function CreateListing({ onClose, onCreated, relistFrom }) {
     try {
       const result=await service.draftListing({notes,photoPath:photo.path});
       applyDraftResult(result);
-      setSignatureSuggestion(result.signature?.found && result.signature.box && !media.some(asset=>asset.kind==='signature')
-        ? {box:result.signature.box} : null);
+      if(result.signature?.found && result.signature.box && !media.some(asset=>asset.kind==='signature')) {
+        try {
+          const cropped=await cropSignatureFromPhoto(photo.url,result.signature.box);
+          const sigAsset=await service.uploadImage(cropped,'signature');
+          setMedia(prev=>[...prev.filter(x=>x.kind!=='signature'),sigAsset]);
+        } catch {}
+      }
     }
     catch(err){ setError(err.message); }
     finally{ setDrafting(false); }
-  }
-  async function acceptSignatureSuggestion() {
-    if(!signatureSuggestion) return;
-    setApplyingSuggestion(true);setError('');
-    try {
-      // Crop from whatever the main item photo is *right now*, not the URL captured when the
-      // suggestion first appeared -- background removal can run in parallel and replace/delete
-      // that original file by the time this button is clicked, leaving a dead signed URL that
-      // createImageBitmap can't decode. Photoroom's cutout keeps the same canvas size, so the
-      // same fractional box still applies whether the main photo is still the original .jpg or
-      // already the background-removed .png.
-      const photo=media.find(asset=>asset.kind==='item');
-      if(!photo) throw new Error('The item photo is no longer available.');
-      const response=await fetch(photo.url);
-      if(!response.ok) throw new Error('The item photo could not be read. Try uploading the signature close-up manually.');
-      const bitmap=await createImageBitmap(await response.blob());
-      // Vision models are consistently better at pointing at roughly *where* something is than at
-      // drawing a tight, correctly-centered box around it -- so instead of trusting the box's own
-      // (often lopsided) edges, take its center and build a fixed, padded window symmetrically
-      // around that point ourselves. That guarantees a centered crop by construction regardless of
-      // how imprecise the model's edges were, padded 35% so a slightly loose crop (a much smaller
-      // problem than a cut-off signature) covers for underestimated size too.
-      const {x0,y0,x1,y1}=signatureSuggestion.box;
-      const cx=(x0+x1)/2, cy=(y0+y1)/2;
-      const halfW=Math.max((x1-x0)/2,0.02)*1.35, halfH=Math.max((y1-y0)/2,0.02)*1.35;
-      const clamp=(c,half)=>{let lo=c-half,hi=c+half; if(lo<0){hi-=lo;lo=0;} if(hi>1){lo-=(hi-1);hi=1;} return [Math.max(0,lo),Math.min(1,hi)];};
-      const [px0,px1]=clamp(cx,halfW), [py0,py1]=clamp(cy,halfH);
-      const sx=Math.round(px0*bitmap.width), sy=Math.round(py0*bitmap.height);
-      const sw=Math.max(1,Math.round((px1-px0)*bitmap.width)), sh=Math.max(1,Math.round((py1-py0)*bitmap.height));
-      const canvas=document.createElement('canvas'); canvas.width=sw; canvas.height=sh;
-      canvas.getContext('2d').drawImage(bitmap,sx,sy,sw,sh,0,0,sw,sh);
-      bitmap.close();
-      const cropped=await new Promise(resolve=>canvas.toBlob(resolve,'image/jpeg',0.9));
-      if(!cropped) throw new Error('Could not crop the signature close-up.');
-      const asset=await service.uploadImage(cropped,'signature');
-      setMedia(prev=>[...prev.filter(x=>x.kind!=='signature'),asset]);
-      setSignatureSuggestion(null);
-    } catch(err){ setError(err.message); } finally { setApplyingSuggestion(false); }
   }
   // Resuming re-signs the saved paths (a stored signed URL could easily be past its 1-hour expiry
   // by the time someone comes back) rather than trusting whatever was saved alongside them.
@@ -370,12 +368,8 @@ function CreateListing({ onClose, onCreated, relistFrom }) {
     <form ref={formRef} onSubmit={submit} className="form-stack">
       <label>Item title<input name="title" placeholder="What are you sharing?" minLength={4} maxLength={120} required autoFocus/></label>
       <MediaPicker service={service} media={media} onChange={next=>{setMedia(next);setSuggestion(null);setConfirmed(false);setSignatureAi(null);}} busy={working} onBusy={setUploading} onError={setError}/>
-      {signatureSuggestion && <div className="evidence-box"><h3>Signature detected</h3>
-        <p className="field-note">Your item photo appears to show a signature. Use this cropped close-up instead of uploading a separate photo?</p>
-        <button type="button" className="text-button" onClick={acceptSignatureSuggestion} disabled={working}>{applyingSuggestion ? 'Cropping…' : 'Use this as my signature close-up'}</button>
-        <button type="button" className="text-button" onClick={()=>setSignatureSuggestion(null)} disabled={working}>Not a signature</button>
-      </div>}
       {signaturePhoto && <div className="evidence-box"><h3>Signature AI opinion</h3>
+        <p className="field-note">If AI spotted this automatically and it isn't actually a signature, remove the photo above in the Signature close-up section.</p>
         {signatureAi ? <p className="field-note">{LABELS_AI[signatureAi.label]} — {signatureAi.note}</p> : <p className="field-note">Get a plain-language opinion on this signature — not a forensic authentication, and it improves as our signature library grows.</p>}
         <button type="button" className="text-button" onClick={reviewSignature} disabled={working}>{reviewingSignature ? 'Reviewing…' : signatureAi ? 'Review again' : 'Get AI opinion'}</button>
       </div>}
