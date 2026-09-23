@@ -174,7 +174,7 @@ function CreateListing({ onClose, onCreated, relistFrom }) {
         const result=draftResult.value;
         applyDraftResult(result);
         setSignatureSuggestion(result.signature?.found && result.signature.box
-          ? {photoPath:asset.path,photoUrl:asset.url,box:result.signature.box} : null);
+          ? {box:result.signature.box} : null);
       } else {
         setDraftNote("Our analysis didn't bring back much from this photo — fill in the details below.");
       }
@@ -191,7 +191,7 @@ function CreateListing({ onClose, onCreated, relistFrom }) {
       const result=await service.draftListing({notes,photoPath:photo.path});
       applyDraftResult(result);
       setSignatureSuggestion(result.signature?.found && result.signature.box && !media.some(asset=>asset.kind==='signature')
-        ? {photoPath:photo.path,photoUrl:photo.url,box:result.signature.box} : null);
+        ? {box:result.signature.box} : null);
     }
     catch(err){ setError(err.message); }
     finally{ setDrafting(false); }
@@ -200,7 +200,17 @@ function CreateListing({ onClose, onCreated, relistFrom }) {
     if(!signatureSuggestion) return;
     setApplyingSuggestion(true);setError('');
     try {
-      const bitmap=await createImageBitmap(await (await fetch(signatureSuggestion.photoUrl)).blob());
+      // Crop from whatever the main item photo is *right now*, not the URL captured when the
+      // suggestion first appeared -- background removal can run in parallel and replace/delete
+      // that original file by the time this button is clicked, leaving a dead signed URL that
+      // createImageBitmap can't decode. Photoroom's cutout keeps the same canvas size, so the
+      // same fractional box still applies whether the main photo is still the original .jpg or
+      // already the background-removed .png.
+      const photo=media.find(asset=>asset.kind==='item');
+      if(!photo) throw new Error('The item photo is no longer available.');
+      const response=await fetch(photo.url);
+      if(!response.ok) throw new Error('The item photo could not be read. Try uploading the signature close-up manually.');
+      const bitmap=await createImageBitmap(await response.blob());
       const {x0,y0,x1,y1}=signatureSuggestion.box;
       const sx=Math.round(x0*bitmap.width), sy=Math.round(y0*bitmap.height);
       const sw=Math.max(1,Math.round((x1-x0)*bitmap.width)), sh=Math.max(1,Math.round((y1-y0)*bitmap.height));
