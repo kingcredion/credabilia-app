@@ -118,6 +118,7 @@ function CreateListing({ onClose, onCreated, relistFrom }) {
   const [processingPhoto,setProcessingPhoto]=useState(false);
   const [draftPrompt,setDraftPrompt]=useState(() => relistFrom ? null : loadListingDraft());
   const [resuming,setResuming]=useState(false);
+  const [discarding,setDiscarding]=useState(false);
   const [pendingResume,setPendingResume]=useState(null);
   const [listingCategory, setListingCategory] = useState(relistFrom?.category || CATEGORIES[0]);
   const [listingType, setListingType] = useState('fixed');
@@ -130,7 +131,7 @@ function CreateListing({ onClose, onCreated, relistFrom }) {
   const [copyingPhotos,setCopyingPhotos]=useState(false);
   const [signatureAi,setSignatureAi]=useState(null),[reviewingSignature,setReviewingSignature]=useState(false);
   const formRef=useRef(null);
-  const working=busy||uploading||analyzing||drafting||copyingPhotos||reviewingSignature||applyingSuggestion||processingPhoto||resuming;
+  const working=busy||uploading||analyzing||drafting||copyingPhotos||reviewingSignature||applyingSuggestion||processingPhoto||resuming||discarding;
   const certificates=media.filter(asset=>asset.kind==='certificate');
   const signaturePhoto=media.find(asset=>asset.kind==='signature');
   async function analyze() {
@@ -248,10 +249,10 @@ function CreateListing({ onClose, onCreated, relistFrom }) {
   }
   async function discardDraft() {
     if(!draftPrompt) return;
-    setResuming(true);
+    setDiscarding(true);
     await Promise.all(draftPrompt.media.map(asset=>service.removeImage(asset.path).catch(()=>{})));
     clearListingDraft();
-    setDraftPrompt(null);setResuming(false);
+    setDraftPrompt(null);setDiscarding(false);
   }
   // Only fires once the form (title/description/attribute inputs) actually exists -- during the
   // photo step there is nothing to write into yet, so a pendingDraft set there waits here until
@@ -339,8 +340,8 @@ function CreateListing({ onClose, onCreated, relistFrom }) {
     <div className="ai-photo-step">
       <p className="muted">You have an unfinished listing from earlier, with its photo and any AI-drafted details already saved. Pick up where you left off, or discard it and start fresh.</p>
       <div className="submit-row">
-        <button type="button" className="primary" onClick={resumeDraft} disabled={resuming}>{resuming ? 'Resuming…' : 'Resume draft'}</button>
-        <button type="button" className="text-button" onClick={discardDraft} disabled={resuming}>Discard and start over</button>
+        <button type="button" className="primary" onClick={resumeDraft} disabled={working}>{resuming ? 'Resuming…' : 'Resume draft'}</button>
+        <button type="button" className="text-button" onClick={discardDraft} disabled={working}>{discarding ? 'Discarding…' : 'Discard and start over'}</button>
       </div>
       {error && <p role="alert" className="error">{error}</p>}
     </div>
@@ -349,8 +350,8 @@ function CreateListing({ onClose, onCreated, relistFrom }) {
     <div className="ai-photo-step">
       <img src="/brand/king-credion-scan-baseball-v1.png" alt="" className="ai-photo-step-hero"/>
       <p className="muted">AI reads your photo and drafts the listing for you — title, description, category, even a signature close-up if it spots one. Add a photo to get started; you can always fill in details yourself.</p>
+      <img src="/brand/credabilia-jersey-photo-guide-v1.png" alt="Example: a photo cropped too close to the item versus one showing the full item with space around it" className="ai-photo-guide"/>
       <label>Add your main photo<input type="file" accept="image/jpeg,image/png,image/webp" disabled={processingPhoto} onChange={uploadMainPhoto}/></label>
-      <p className="field-note">Show the whole item with a little space around it — a photo cropped tight to the edges can trip up background removal and signature detection.</p>
       {processingPhoto && <p role="status" className="field-note">Analyzing your photo…</p>}
       {error && <p role="alert" className="error">{error}</p>}
     </div>

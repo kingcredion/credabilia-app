@@ -30,4 +30,4 @@
 .danger-button{color:var(--error-text)}.primary.danger{background:var(--error-text)}.primary.danger:hover{opacity:.9}
 .support-thread{max-height:320px;overflow:auto;display:flex;flex-direction:column;gap:12px;margin-bottom:14px}
 .queue-progress{display:flex;flex-direction:column;gap:6px}.queue-progress span{font-size:11px;color:var(--text-muted)}.queue-progress-bar{height:4px;background:var(--border);border-radius:2px;overflow:hidden}.queue-progress-bar>div{height:100%;background:var(--green);transition:width .2s}
-.ai-photo-step{display:flex;flex-direction:column;align-items:center;text-align:center;gap:14px;padding:10px 0}.ai-photo-step-hero{width:120px;height:120px;object-fit:contain}.ai-photo-step label{font-size:12px;font-weight:600}
+.ai-photo-step{display:flex;flex-direction:column;align-items:center;text-align:center;gap:14px;padding:10px 0}.ai-photo-step-hero{width:120px;height:120px;object-fit:contain}.ai-photo-step label{font-size:12px;font-weight:600}.ai-photo-guide{width:100%;max-width:420px;border-radius:10px}
