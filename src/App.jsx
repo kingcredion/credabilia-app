@@ -113,6 +113,33 @@ function ThemeToggle() {
   </div>;
 }
 
+// Cascading state/region -> station select rather than one 498-row dropdown. `value`/`onSelect`
+// are controlled from the parent so a saved draft's chosen station can be restored (the region
+// auto-derives from it once the station list loads).
+function PickupStationPicker({ value, onSelect, disabled }) {
+  const [stations, setStations] = useState([]);
+  const [region, setRegion] = useState('');
+  useEffect(() => { service.pickupStations().then(setStations).catch(() => {}); }, []);
+  useEffect(() => {
+    if (!value || !stations.length || region) return;
+    const match = stations.find(s => s.id === value);
+    if (match) setRegion(`${match.country}|${match.state || ''}`);
+  }, [value, stations]);
+  const regions = [...new Set(stations.map(s => `${s.country}|${s.state || ''}`))].sort();
+  const regionLabel = key => { const [country, state] = key.split('|'); return state ? `${state}, ${country}` : country; };
+  const stationsInRegion = stations.filter(s => `${s.country}|${s.state || ''}` === region);
+  return <div className="form-row">
+    <label>State / region<select value={region} onChange={event => { setRegion(event.target.value); onSelect(''); }} disabled={disabled}>
+      <option value="">Choose a state or region</option>
+      {regions.map(key => <option key={key} value={key}>{regionLabel(key)}</option>)}
+    </select></label>
+    <label>Pickup location<select name="pickup_station_id" value={value || ''} onChange={event => onSelect(event.target.value)} disabled={disabled || !region} required>
+      <option value="">Choose a station</option>
+      {stationsInRegion.map(s => <option key={s.id} value={s.id}>{s.jurisdiction}{s.city ? ` — ${s.city}` : ''}</option>)}
+    </select></label>
+  </div>;
+}
+
 function CreateListing({ onClose, onCreated, relistFrom }) {
   const [step,setStep]=useState(relistFrom ? 'form' : 'photo');
   const [processingPhoto,setProcessingPhoto]=useState(false);
@@ -129,6 +156,7 @@ function CreateListing({ onClose, onCreated, relistFrom }) {
   const [draftApplied,setDraftApplied]=useState(false),[draftNote,setDraftNote]=useState('');
   const [copyingPhotos,setCopyingPhotos]=useState(false);
   const [signatureAi,setSignatureAi]=useState(null),[reviewingSignature,setReviewingSignature]=useState(false);
+  const [pickupEnabled,setPickupEnabled]=useState(false),[pickupStationId,setPickupStationId]=useState('');
   const formRef=useRef(null);
   const working=busy||uploading||analyzing||drafting||copyingPhotos||reviewingSignature||processingPhoto||resuming||discarding;
   const certificates=media.filter(asset=>asset.kind==='certificate');
@@ -290,6 +318,7 @@ function CreateListing({ onClose, onCreated, relistFrom }) {
     set('weight_oz',pendingResume.weight_oz); set('length_in',pendingResume.length_in);
     set('width_in',pendingResume.width_in); set('height_in',pendingResume.height_in);
     const shippingEl=form?.elements.namedItem('free_shipping'); if(shippingEl) shippingEl.checked=!!pendingResume.free_shipping;
+    setPickupEnabled(!!pendingResume.pickup_enabled); setPickupStationId(pendingResume.pickup_station_id || '');
     for(const [key,value] of Object.entries(pendingResume.attributes||{})) { const field=form?.elements.namedItem('attribute:'+key); if(field && value) field.value=value; }
     setPendingResume(null);
   }, [pendingResume, step]);
@@ -402,6 +431,8 @@ function CreateListing({ onClose, onCreated, relistFrom }) {
         <label>Height (in)<input name="height_in" type="number" min="1" step="0.1" required/></label>
       </div>
       <label className="certificate-confirm"><input type="checkbox" name="free_shipping"/>Offer free shipping (you cover the cost)</label>
+      {service.detailsEnabled && <label className="certificate-confirm"><input type="checkbox" name="pickup_enabled" checked={pickupEnabled} onChange={event=>setPickupEnabled(event.target.checked)} disabled={working}/>Offer local pickup at a safe-trade station</label>}
+      {service.detailsEnabled && pickupEnabled && <PickupStationPicker value={pickupStationId} onSelect={setPickupStationId} disabled={working}/>}
       <label>Evidence notes <span className="optional">optional</span><textarea name="evidence" rows={2} maxLength={2000} placeholder="Provenance, certificate details, or what is still unknown…"/></label>
       {certificates.length>0 && <><button type="button" className="text-button" onClick={analyze} disabled={working}>{analyzing?'Reading certificate…':'Read certificate with AI'}</button><p className="field-note">Sends the first certificate photo to our AI provider to suggest the company and number. Review the suggestions before publishing.</p></>}
       {suggestion && <div className="evidence-box"><h3>Suggested certificate details</h3><p>Issuer: {suggestion.certificate_issuer} · Number: {suggestion.certificate_number || 'Not readable'}</p><button type="button" className="text-button" onClick={()=>{setCertificate(suggestion);setConfirmed(false);setSuggestion(null);}}>Use these details and review</button><button type="button" className="text-button" onClick={()=>setSuggestion(null)}>Dismiss suggestion</button></div>}
@@ -609,6 +640,7 @@ function ShippingSettings({ profile }) {
 }
 
 function CheckoutAddress({ item, profile, busy, onClose, onConfirm }) {
+  const [fulfillmentMethod, setFulfillmentMethod] = useState('ship');
   const [address, setAddress] = useState(profile?.shipping_address || {});
   const [error, setError] = useState('');
   const [balance, setBalance] = useState(null);
@@ -616,25 +648,36 @@ function CheckoutAddress({ item, profile, busy, onClose, onConfirm }) {
   const [wantInsurance, setWantInsurance] = useState(true);
   const [verified, setVerified] = useState(false);
   useEffect(() => { service.myCreditBalance().then(setBalance).catch(() => {}); }, []);
+  const isPickup = fulfillmentMethod === 'pickup';
   // Mirrors reserve_listing_checkout()'s own cap -- the server re-validates and clamps this
   // regardless, this is just so the buyer sees an accurate number before submitting.
   const coinCap = Math.round(item.price_cents * 0.5);
   const creditToApply = applyCredit && balance ? Math.min(balance, coinCap) : 0;
   function submit(event) {
     event.preventDefault();
-    const required = ['name', 'street1', 'city', 'state', 'zip', 'country'];
-    if (required.some(key => !address[key]?.trim())) { setError('Fill in all required address fields.'); return; }
-    if (!verified) { setError('Verify your address before continuing.'); return; }
-    onConfirm(address, creditToApply, wantInsurance);
+    if (!isPickup) {
+      const required = ['name', 'street1', 'city', 'state', 'zip', 'country'];
+      if (required.some(key => !address[key]?.trim())) { setError('Fill in all required address fields.'); return; }
+      if (!verified) { setError('Verify your address before continuing.'); return; }
+    }
+    onConfirm(isPickup ? null : address, creditToApply, wantInsurance, fulfillmentMethod);
   }
-  return <Modal title="Confirm shipping address" onClose={onClose}>
-    <p className="muted">Where should "{item.title}" be shipped? This is for this order only — your saved default lives in Profile settings.</p>
+  return <Modal title={isPickup ? 'Confirm pickup' : 'Confirm shipping address'} onClose={onClose}>
+    {item.pickup_enabled && <div className="categories" aria-label="How you'll get this item">
+      <button type="button" aria-pressed={fulfillmentMethod === 'ship'} className={fulfillmentMethod === 'ship' ? 'active' : ''} onClick={() => setFulfillmentMethod('ship')}>Ship to me</button>
+      <button type="button" aria-pressed={isPickup} className={isPickup ? 'active' : ''} onClick={() => setFulfillmentMethod('pickup')}>Local pickup</button>
+    </div>}
+    {isPickup
+      ? <p className="muted">Meet the seller in person to pick up "{item.title}" — no shipping needed.</p>
+      : <p className="muted">Where should "{item.title}" be shipped? This is for this order only — your saved default lives in Profile settings.</p>}
     <form className="form-stack" onSubmit={submit}>
-      <ShippingAddressFields value={address} onChange={setAddress} disabled={busy} onVerifiedChange={setVerified}/>
+      {isPickup
+        ? <div className="evidence-box"><h3>{item.pickup_station?.jurisdiction}</h3><p>{[item.pickup_station?.city, item.pickup_station?.state, item.pickup_station?.country].filter(Boolean).join(', ')}</p>{item.pickup_station?.notes && <p className="field-note">{item.pickup_station.notes}</p>}</div>
+        : <ShippingAddressFields value={address} onChange={setAddress} disabled={busy} onVerifiedChange={setVerified}/>}
       {!!balance && <label className="certificate-confirm"><input type="checkbox" checked={applyCredit} onChange={event => setApplyCredit(event.target.checked)} disabled={busy}/><img src="/brand/credion-coin-simple-v1.png" alt="" className="coin-icon"/>Apply {money(Math.min(balance, coinCap))} in Credion Coins to this order (you have {money(balance)} available)</label>}
-      <label className="certificate-confirm"><input type="checkbox" checked={wantInsurance} onChange={event => setWantInsurance(event.target.checked)} disabled={busy}/>Insure this item for shipping (covers loss or damage in transit — exact cost shown at payment)</label>
+      {!isPickup && <label className="certificate-confirm"><input type="checkbox" checked={wantInsurance} onChange={event => setWantInsurance(event.target.checked)} disabled={busy}/>Insure this item for shipping (covers loss or damage in transit — exact cost shown at payment)</label>}
       {error && <p role="alert" className="error">{error}</p>}
-      <button className="primary" disabled={busy || !verified}>{busy ? 'Processing…' : 'Continue to payment'}<ArrowRight size={16}/></button>
+      <button className="primary" disabled={busy || (!isPickup && !verified)}>{busy ? 'Processing…' : 'Continue to payment'}<ArrowRight size={16}/></button>
     </form>
   </Modal>;
 }
@@ -910,12 +953,39 @@ function BuyRequestCard({ request, onResolved }) {
   </div></div>;
 }
 
+function PurchasedItemFulfillment({ item, onConfirmed }) {
+  const [busy, setBusy] = useState(false), [error, setError] = useState('');
+  async function confirmReceived() {
+    setBusy(true); setError('');
+    try { await service.confirmPickupReceived(item.purchase_id); onConfirmed(); }
+    catch (err) { setError(err.message); } finally { setBusy(false); }
+  }
+  if (item.fulfillment_method === 'pickup') return <div className="evidence-box"><h3><Package size={18}/>Pickup</h3>
+    <p>Meet at {item.pickup_station?.jurisdiction}{item.pickup_station?.city ? ` — ${item.pickup_station.city}` : ''}</p>
+    {item.pickup_station?.notes && <p className="field-note">{item.pickup_station.notes}</p>}
+    {!item.seller_marked_picked_up_at
+      ? <p className="field-note">Waiting for the seller to mark this picked up.</p>
+      : item.buyer_confirmed_pickup_at
+      ? <p className="field-note">You confirmed pickup {new Date(item.buyer_confirmed_pickup_at).toLocaleDateString()}</p>
+      : <><p className="field-note">The seller marked this picked up.</p><button type="button" className="text-button" disabled={busy} onClick={confirmReceived}>{busy ? 'Confirming…' : 'Confirm I picked this up'}</button></>}
+    {error && <p role="alert" className="error">{error}</p>}
+    <p className="field-note">{item.escrow_status === 'released' ? 'Payment released to the seller' : 'We hold your payment until you confirm pickup'}</p>
+  </div>;
+  return <div className="evidence-box"><h3><Package size={18}/>Shipping</h3>{item.shipped_at ? <><p>Shipped {new Date(item.shipped_at).toLocaleDateString()}</p>{item.tracking_number && <p><a href={item.tracking_url} target="_blank" rel="noreferrer">Track: {item.tracking_number}</a></p>}{item.tracking_status && item.tracking_status !== 'UNKNOWN' && <p className="field-note">Status: {item.tracking_status}</p>}</> : <p className="field-note">The seller hasn't shipped this yet.</p>}<p className="field-note">{item.escrow_status === 'released' ? 'Payment released to the seller' : 'We hold your payment until delivery is confirmed'}{item.insured ? ' · Insured' : ''}</p></div>;
+}
+
 function SoldItemCard({ sale, session, onShipped, onRefundChanged, focusPurchaseId, onFocused }) {
   const [shipping, setShipping] = useState(false);
   const [needsParcel, setNeedsParcel] = useState(false);
   const [parcel, setParcel] = useState({ weight_oz: '', length_in: '', width_in: '', height_in: '' });
   const [rates, setRates] = useState(null), [ratesError, setRatesError] = useState('');
   const [busy, setBusy] = useState(false);
+  const [pickupBusy, setPickupBusy] = useState(false), [pickupError, setPickupError] = useState('');
+  async function markPickedUp() {
+    setPickupBusy(true); setPickupError('');
+    try { await service.markPickedUp(sale.id); onShipped({ ...sale, seller_marked_picked_up_at: new Date().toISOString() }); }
+    catch (err) { setPickupError(err.message); } finally { setPickupBusy(false); }
+  }
   // The listing already has package dimensions from when it was created, so this usually skips
   // straight to real rates — the manual form only appears as a fallback for older listings that
   // predate that requirement.
@@ -942,8 +1012,15 @@ function SoldItemCard({ sale, session, onShipped, onRefundChanged, focusPurchase
       <div className="card-meta"><span>{sale.category}</span><span>SOLD {new Date(sale.created_at).toLocaleDateString()}</span></div>
       <h3>{sale.title}</h3>
       <div className="card-bottom"><strong>{money(sale.price_cents)}</strong></div>
-      {sale.shipped_at && <p className="field-note">{sale.escrow_status === 'released' ? `Payment released ${new Date(sale.funds_released_at).toLocaleDateString()}` : 'Payment held until delivery is confirmed'}</p>}
-      {sale.shipped_at ? <p className="field-note">Shipped · {sale.tracking_number ? <a href={sale.tracking_url} target="_blank" rel="noreferrer">Track {sale.tracking_number}</a> : 'Tracking pending'}{sale.label_url && <> · <a href={sale.label_url} target="_blank" rel="noreferrer">Print label</a></>}</p>
+      {(sale.shipped_at || sale.seller_marked_picked_up_at) && <p className="field-note">{sale.escrow_status === 'released' ? `Payment released ${new Date(sale.funds_released_at).toLocaleDateString()}` : sale.fulfillment_method === 'pickup' ? 'Payment held until the buyer confirms pickup' : 'Payment held until delivery is confirmed'}</p>}
+      {sale.fulfillment_method === 'pickup' ? <>
+          <p className="field-note">Meet at {sale.pickup_station?.jurisdiction}{sale.pickup_station?.city ? ` — ${sale.pickup_station.city}` : ''}</p>
+          {sale.seller_marked_picked_up_at
+            ? <p className="field-note">{sale.buyer_confirmed_pickup_at ? 'Buyer confirmed pickup' : 'Waiting for the buyer to confirm pickup…'}</p>
+            : <button type="button" className="text-button" disabled={pickupBusy} onClick={markPickedUp}><Package size={16}/>{pickupBusy ? 'Marking…' : 'Mark picked up'}</button>}
+          {pickupError && <p role="alert" className="error">{pickupError}</p>}
+        </>
+      : sale.shipped_at ? <p className="field-note">Shipped · {sale.tracking_number ? <a href={sale.tracking_url} target="_blank" rel="noreferrer">Track {sale.tracking_number}</a> : 'Tracking pending'}{sale.label_url && <> · <a href={sale.label_url} target="_blank" rel="noreferrer">Print label</a></>}</p>
         : !shipping ? <button type="button" className="text-button" onClick={startShipping}><Package size={16}/>Ship now</button>
         : needsParcel ? <form className="form-stack" onSubmit={getRatesWithParcel}>
             <p className="field-note">This listing predates saved package sizes — enter it once here.</p>
@@ -1468,11 +1545,11 @@ export default function App() {
     try { const now = await service.toggleFavorite(listingId); setFavoriteIds(ids => now ? [...ids, listingId] : ids.filter(id => id !== listingId)); }
     catch (err) { setError(err.message); }
   }
-  async function buyNow(listingId, shippingAddress, applyCreditCents, wantInsurance) {
+  async function buyNow(listingId, shippingAddress, applyCreditCents, wantInsurance, fulfillmentMethod) {
     if (!session) { setModal('login'); return; }
     setBusy(true); setError('');
     try {
-      const result = await service.startCheckout(listingId, shippingAddress, applyCreditCents, wantInsurance);
+      const result = await service.startCheckout(listingId, shippingAddress, applyCreditCents, wantInsurance, fulfillmentMethod);
       if (result?.url) { window.location.href = result.url; return; }
       setNotice('Purchase complete — this item is now in your collection.'); setSelectedId(null); refresh();
     } catch (err) { setError(err.message); }
@@ -1543,7 +1620,7 @@ export default function App() {
           </section>
         </> : ownedItem ? <>
           <button className="back-button" onClick={() => setSelectedId(null)}><ArrowLeft size={17}/>Back to listings</button>
-          <div className="detail-grid"><div>{ownedItem.media?.some(asset=>asset.kind==='item') ? <PhotoGallery key={ownedItem.id} media={ownedItem.media} title={ownedItem.title}/> : <ItemArt category={ownedItem.category} large/>}<PhotoGallery key={ownedItem.id+'cert'} media={ownedItem.media} kind="certificate" title={ownedItem.title}/></div><section className="item-info"><span className="pill">{ownedItem.category}</span><h1>{ownedItem.title}</h1><p className="seller-name">Purchased {new Date(ownedItem.purchased_at).toLocaleDateString()}</p><p className="detail-price">{money(ownedItem.price_cents)}</p><p>{ownedItem.description}</p><ListingDetailSummary item={ownedItem}/><div className="evidence-box"><h3><Package size={18}/>Shipping</h3>{ownedItem.shipped_at ? <><p>Shipped {new Date(ownedItem.shipped_at).toLocaleDateString()}</p>{ownedItem.tracking_number && <p><a href={ownedItem.tracking_url} target="_blank" rel="noreferrer">Track: {ownedItem.tracking_number}</a></p>}{ownedItem.tracking_status && ownedItem.tracking_status !== 'UNKNOWN' && <p className="field-note">Status: {ownedItem.tracking_status}</p>}</> : <p className="field-note">The seller hasn't shipped this yet.</p>}<p className="field-note">{ownedItem.escrow_status === 'released' ? 'Payment released to the seller' : 'We hold your payment until delivery is confirmed'}{ownedItem.insured ? ' · Insured' : ''}</p></div><BuyerRefundPanel item={ownedItem} onRequested={refresh}/><SellerRatingForm item={ownedItem} onRated={refresh}/><MessageThread purchaseId={ownedItem.purchase_id} service={service} session={session} counterpartyLabel="seller" messageCount={ownedItem.message_count} autoOpen={focusPurchaseId === ownedItem.purchase_id} onFocused={() => setFocusPurchaseId(null)} onRead={refresh}/><CertificateDetails item={ownedItem}/><button className="primary" onClick={()=>setModal('relist')}><RefreshCw size={16}/>Relist this item</button></section></div>
+          <div className="detail-grid"><div>{ownedItem.media?.some(asset=>asset.kind==='item') ? <PhotoGallery key={ownedItem.id} media={ownedItem.media} title={ownedItem.title}/> : <ItemArt category={ownedItem.category} large/>}<PhotoGallery key={ownedItem.id+'cert'} media={ownedItem.media} kind="certificate" title={ownedItem.title}/></div><section className="item-info"><span className="pill">{ownedItem.category}</span><h1>{ownedItem.title}</h1><p className="seller-name">Purchased {new Date(ownedItem.purchased_at).toLocaleDateString()}</p><p className="detail-price">{money(ownedItem.price_cents)}</p><p>{ownedItem.description}</p><ListingDetailSummary item={ownedItem}/><PurchasedItemFulfillment item={ownedItem} onConfirmed={refresh}/><BuyerRefundPanel item={ownedItem} onRequested={refresh}/><SellerRatingForm item={ownedItem} onRated={refresh}/><MessageThread purchaseId={ownedItem.purchase_id} service={service} session={session} counterpartyLabel="seller" messageCount={ownedItem.message_count} autoOpen={focusPurchaseId === ownedItem.purchase_id} onFocused={() => setFocusPurchaseId(null)} onRead={refresh}/><CertificateDetails item={ownedItem}/><button className="primary" onClick={()=>setModal('relist')}><RefreshCw size={16}/>Relist this item</button></section></div>
         </> : pendingBuy ? <>
           <button className="back-button" onClick={() => setSelectedId(null)}><ArrowLeft size={17}/>Back to listings</button>
           <div className="detail-grid"><div>{pendingBuy.media?.some(asset=>asset.kind==='item') ? <PhotoGallery key={pendingBuy.listing_id} media={pendingBuy.media} title={pendingBuy.title}/> : <ItemArt category={pendingBuy.category} large/>}</div><section className="item-info"><span className="pill">{pendingBuy.category}</span><h1>{pendingBuy.title}</h1><p className="detail-price">{money(pendingBuy.price_cents)}</p>{pendingBuy.status === 'confirmed' ? <><p className="field-note">The seller confirmed this is still available.</p><button className="primary" disabled={busy} onClick={()=>setModal('checkout-address')}>Continue to checkout<ArrowRight size={16}/></button></> : <p role="status" className="field-note">Waiting for the seller to confirm this item is still available…</p>}</section></div>
@@ -1567,7 +1644,7 @@ export default function App() {
       </main>
     </div>
     {modal === 'login' && <Modal title="Welcome to Credabilia" onClose={() => setModal(null)}><p className="muted">One account to collect, sell, and share your perspective.</p>{service.mode === 'demo' ? <><div className="evidence-box"><h3>Try the local preview</h3><p>These two separate practice accounts stay in this browser. Each can switch between all three workspaces. Real sign-in is available when the Supabase project is connected.</p></div><div className="form-stack">{DEMO_ACCOUNTS.map(account => <button key={account.id} className="primary full-width" onClick={() => signIn(account.id)} disabled={busy}>{busy ? 'Opening…' : `Continue as ${account.display_name}`}<ArrowRight size={18}/></button>)}</div></> : <><button className="primary full-width" onClick={() => signIn()} disabled={busy}>{busy ? 'Opening…' : 'Continue with Google'}<ArrowRight size={18}/></button><p className="field-note">or</p><EmailLogin/><p className="field-note">By continuing, you agree to Credabilia's <a href="/terms" target="_blank" rel="noreferrer">Terms of Service</a> and <a href="/privacy" target="_blank" rel="noreferrer">Privacy Policy</a>.</p></>}<p className="field-note">Your sign-in method does not determine your workspace. You can switch between all three after signing in.</p></Modal>}
-    {modal === 'checkout-address' && (selected || pendingBuy) && <CheckoutAddress item={selected || pendingBuy} profile={profile} busy={busy} onClose={() => setModal(null)} onConfirm={(address, applyCreditCents, wantInsurance) => { const id = selected?.id || pendingBuy?.listing_id; setModal(null); buyNow(id, address, applyCreditCents, wantInsurance); }}/>}
+    {modal === 'checkout-address' && (selected || pendingBuy) && <CheckoutAddress item={selected || pendingBuy} profile={profile} busy={busy} onClose={() => setModal(null)} onConfirm={(address, applyCreditCents, wantInsurance, fulfillmentMethod) => { const id = selected?.id || pendingBuy?.listing_id; setModal(null); buyNow(id, address, applyCreditCents, wantInsurance, fulfillmentMethod); }}/>}
     {modal === 'create' && <CreateListing onClose={() => setModal(null)} onCreated={id => { setModal(null); setNotice('Your listing is published.'); setSelectedId(id); refresh(); }}/>}
     {modal === 'relist' && ownedItem && <CreateListing relistFrom={ownedItem} onClose={() => setModal(null)} onCreated={id => { setModal(null); setNotice('Your relisted item is published.'); switchWorkspace('seller'); setSelectedId(id); refresh(); }}/>}
     {modal === 'edit' && selected && own && <EditListing key={selected.id} item={selected} onClose={()=>setModal(null)} onSaved={()=>{setModal(null);setNotice('Your listing changes are saved.');refresh();}}/>}

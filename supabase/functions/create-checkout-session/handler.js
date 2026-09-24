@@ -25,19 +25,22 @@ export function createHandler({createClient,env}) {
       const listingId=body?.listing_id, shippingAddress=body?.shipping_address;
       const applyCreditCents=Number.isInteger(body?.apply_credit_cents) && body.apply_credit_cents>0 ? body.apply_credit_cents : 0;
       const wantInsurance=body?.want_insurance!==false;
+      const fulfillmentMethod=body?.fulfillment_method==='pickup' ? 'pickup' : 'ship';
       if(typeof listingId!=='string' || !UUID_RE.test(listingId)) return reply({error:'Invalid request.'},400);
-      if(typeof shippingAddress!=='object' || shippingAddress===null) return reply({error:'A shipping address is required.'},400);
+      if(fulfillmentMethod==='ship' && (typeof shippingAddress!=='object' || shippingAddress===null)) return reply({error:'A shipping address is required.'},400);
 
-      const {data:reservation,error:reserveError}=await client.rpc('reserve_listing_checkout',{p_listing_id:listingId,p_shipping_address:shippingAddress,p_apply_credit_cents:applyCreditCents,p_want_insurance:wantInsurance});
+      const {data:reservation,error:reserveError}=await client.rpc('reserve_listing_checkout',{p_listing_id:listingId,p_shipping_address:shippingAddress,p_apply_credit_cents:applyCreditCents,p_want_insurance:wantInsurance,p_fulfillment_method:fulfillmentMethod});
       if(reserveError) return reply({error:reserveError.message},400);
       const {checkout_session_id:checkoutSessionId,price_cents:priceCents,title,applied_credit_cents:appliedCreditCents,free_shipping:freeShipping,seller_shipping_address:sellerAddress,want_insurance:insuranceRequested,parcel}=reservation;
 
       // Real, marked-up shipping (and, if requested, insurance) cost -- only computable now that
       // we know both addresses (seller's saved address + the buyer's just-entered one). No parcel
       // on the listing (a legacy listing from before this feature) just means no shipping/
-      // insurance cost this time, same as today's behavior.
+      // insurance cost this time, same as today's behavior. Pickup always skips this branch --
+      // dimensions are still required at listing time regardless of fulfillment method, so `parcel`
+      // alone can't distinguish pickup from ship.
       let shippingOnlyCents=0, insuranceCostCents=0;
-      if(parcel && env('SHIPPO_API_KEY')) {
+      if(fulfillmentMethod==='ship' && parcel && env('SHIPPO_API_KEY')) {
         const quoteShipment=insure=>fetch('https://api.goshippo.com/shipments/',{
           method:'POST',
           headers:{Authorization:`ShippoToken ${env('SHIPPO_API_KEY')}`,'Content-Type':'application/json'},

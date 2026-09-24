@@ -16,7 +16,9 @@ export function listingInput(input) {
   if (!Number.isSafeInteger(input.price_cents) || input.price_cents < 100 || input.price_cents > 100000000) throw new Error('Enter a price between $1 and $1,000,000.');
   const weight_oz = Number(input.weight_oz), length_in = Number(input.length_in), width_in = Number(input.width_in), height_in = Number(input.height_in);
   if (![weight_oz, length_in, width_in, height_in].every(n => Number.isFinite(n) && n > 0)) throw new Error('Enter a valid package weight and size, so buyers can see a real shipping cost.');
-  return { title, description, evidence, category: input.category, price_cents: input.price_cents, weight_oz, length_in, width_in, height_in, free_shipping: !!input.free_shipping, ...certificateInput(input), ...listingDetails(input, input.category) };
+  const pickup_enabled = !!input.pickup_enabled;
+  if (pickup_enabled && !input.pickup_station_id) throw new Error('Choose a pickup location.');
+  return { title, description, evidence, category: input.category, price_cents: input.price_cents, weight_oz, length_in, width_in, height_in, free_shipping: !!input.free_shipping, pickup_enabled, pickup_station_id: pickup_enabled ? input.pickup_station_id : null, ...certificateInput(input), ...listingDetails(input, input.category) };
 }
 
 export function auditInput(input) {

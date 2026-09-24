@@ -27,6 +27,8 @@ export function readFormValues(form) {
   const values = {};
   for (const field of FORM_FIELDS) values[field] = form.elements.namedItem(field)?.value || '';
   values.free_shipping = !!form.elements.namedItem('free_shipping')?.checked;
+  values.pickup_enabled = !!form.elements.namedItem('pickup_enabled')?.checked;
+  values.pickup_station_id = form.elements.namedItem('pickup_station_id')?.value || '';
   values.attributes = {};
   for (const el of form.elements) { if (el.name?.startsWith('attribute:')) values.attributes[el.name.slice(10)] = el.value; }
   return values;

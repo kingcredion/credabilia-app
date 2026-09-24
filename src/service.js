@@ -119,7 +119,14 @@ export function makeService() {
     async createListing(input) {
       const value = listingInput(input);
       const detailsEnabled = import.meta.env.VITE_LISTING_DETAILS_ENABLED === 'true';
-      return unwrap(await client.rpc(detailsEnabled ? 'create_listing_with_details' : 'create_listing_with_media', { ...(detailsEnabled ? {p_attributes:value.attributes,p_tags:value.tags,p_weight_oz:value.weight_oz,p_length_in:value.length_in,p_width_in:value.width_in,p_height_in:value.height_in,p_free_shipping:value.free_shipping,p_listing_type:input.listing_type==='auction'?'auction':'fixed',p_auction_days:input.listing_type==='auction'?Number(input.auction_days):null,p_signature_ai_label:input.signature_ai_label||null,p_signature_ai_note:input.signature_ai_note||null} : {}), p_title: value.title, p_description: value.description, p_category: value.category, p_price_cents: value.price_cents, p_evidence: value.evidence, p_issuer: value.certificate_issuer, p_number: value.certificate_number, p_company: value.certificate_company, p_media: mediaInput(input.media) }));
+      return unwrap(await client.rpc(detailsEnabled ? 'create_listing_with_details' : 'create_listing_with_media', { ...(detailsEnabled ? {p_attributes:value.attributes,p_tags:value.tags,p_weight_oz:value.weight_oz,p_length_in:value.length_in,p_width_in:value.width_in,p_height_in:value.height_in,p_free_shipping:value.free_shipping,p_listing_type:input.listing_type==='auction'?'auction':'fixed',p_auction_days:input.listing_type==='auction'?Number(input.auction_days):null,p_signature_ai_label:input.signature_ai_label||null,p_signature_ai_note:input.signature_ai_note||null,p_pickup_enabled:value.pickup_enabled,p_pickup_station_id:value.pickup_station_id} : {}), p_title: value.title, p_description: value.description, p_category: value.category, p_price_cents: value.price_cents, p_evidence: value.evidence, p_issuer: value.certificate_issuer, p_number: value.certificate_number, p_company: value.certificate_company, p_media: mediaInput(input.media) }));
+    },
+    async pickupStations() { return unwrap(await client.from('pickup_stations').select('*').order('country').order('state')); },
+    async markPickedUp(purchaseId) { unwrap(await client.rpc('mark_picked_up', { p_purchase_id: purchaseId })); },
+    async confirmPickupReceived(purchaseId) {
+      const {data,error}=await client.functions.invoke('confirm-pickup',{body:{purchase_id:purchaseId}});
+      if(error) { let detail; try {detail=await error.context?.json();} catch {} throw new Error(detail?.error || 'Could not confirm pickup right now.'); }
+      return data;
     },
     async analyzeSignature(path,subject,listingId) {
       const {data,error}=await client.functions.invoke('analyze-signature',{body:{path,subject:subject||undefined,listing_id:listingId||undefined}});
@@ -163,8 +170,8 @@ export function makeService() {
     async respondToBuyRequest(requestId, available) { return unwrap(await client.rpc('respond_to_buy_request', { p_request_id: requestId, p_available: available })); },
     async myOpenBuyRequests() { return signMedia(unwrap(await client.rpc('my_open_buy_requests'))); },
     async myBuyRequests() { return signMedia(unwrap(await client.rpc('my_buy_requests'))); },
-    async startCheckout(listingId, shippingAddress, applyCreditCents, wantInsurance) {
-      const {data,error}=await client.functions.invoke('create-checkout-session',{body:{listing_id:listingId,shipping_address:shippingAddress,apply_credit_cents:applyCreditCents||0,want_insurance:wantInsurance!==false}});
+    async startCheckout(listingId, shippingAddress, applyCreditCents, wantInsurance, fulfillmentMethod) {
+      const {data,error}=await client.functions.invoke('create-checkout-session',{body:{listing_id:listingId,shipping_address:shippingAddress,apply_credit_cents:applyCreditCents||0,want_insurance:wantInsurance!==false,fulfillment_method:fulfillmentMethod==='pickup'?'pickup':'ship'}});
       if(error) { let detail; try {detail=await error.context?.json();} catch {} throw new Error(detail?.error || 'This item could not be purchased right now.'); }
       return data;
     },

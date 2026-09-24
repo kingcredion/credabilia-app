@@ -5,6 +5,16 @@ import { DEMO_USER, listingInput, auditInput, sampleListings } from './domain.js
 
 export const DEMO_ACCOUNTS = [DEMO_USER, { ...DEMO_USER, id: '22222222-2222-4222-8222-222222222222', display_name: 'Jordan Lee' }];
 
+// A small local sample, not the full ~500-row production table -- demo mode just needs enough to
+// preview the station-picker UI, never a real backend query.
+const DEMO_PICKUP_STATIONS = [
+  { id: 'demo-station-1', jurisdiction: 'Fort Worth Police Department', city: 'Fort Worth', state: 'TX', country: 'USA', notes: null },
+  { id: 'demo-station-2', jurisdiction: 'Cedar Park Police Department', city: 'Cedar Park', state: 'TX', country: 'USA', notes: "The Police Department's parking lot and lobby are monitored by 24-hour surveillance cameras and are located in well lit, public spaces." },
+  { id: 'demo-station-3', jurisdiction: 'Boston Police Department', city: 'Boston', state: 'MA', country: 'USA', notes: 'Designated Safe Exchange Zones with 24 hr surveillance at all district stations and Police headquarters' },
+  { id: 'demo-station-4', jurisdiction: 'Fremont Police Department', city: 'Fremont', state: 'CA', country: 'USA', notes: '2 marked spaces in the Police Dept. front lot under recorded video/audio surveillance 24/7' },
+  { id: 'demo-station-5', jurisdiction: 'Calgary Police Service', city: 'Calgary', state: 'Alberta', country: 'Canada', notes: 'Parking lots at all district offices' },
+];
+
 export function createDemoService(storage = window.localStorage) {
   const key = 'credabilia-next-demo-v2';
   let listeners = new Set();
@@ -120,14 +130,16 @@ export function createDemoService(storage = window.localStorage) {
           media:(item.media||[]).filter(asset=>asset.kind==='item')};
       });
     },
-    async startCheckout(listingId, shippingAddress, applyCreditCents, wantInsurance) {
+    async startCheckout(listingId, shippingAddress, applyCreditCents, wantInsurance, fulfillmentMethod) {
       requireUser();
+      const isPickup=fulfillmentMethod==='pickup';
       const item=state.listings.find(x=>x.id===listingId);
       const confirmedRequest=state.buyRequests.find(r=>r.listing_id===listingId && r.buyer_id===state.userId && r.status==='confirmed');
       if(!confirmedRequest) throw new Error('Ask the seller to confirm this item is still available before buying.');
       if(!item || item.status!=='pending') throw new Error('This item is not available to buy.');
       if(item.seller_id===state.userId) throw new Error('You cannot buy your own listing.');
-      if(!validAddress(shippingAddress)) throw new Error('Fill in all required address fields.');
+      if(isPickup && !item.pickup_enabled) throw new Error('This item is not available for pickup.');
+      if(!isPickup && !validAddress(shippingAddress)) throw new Error('Fill in all required address fields.');
       // platform_fee_cents/seller_payout_cents mirror the real eBay-style fee (13.6% + $0.30/$0.40),
       // so demo revenue stats match production semantics.
       const platformFeeCents=Math.round(item.price_cents*0.136)+(item.price_cents<=1000?30:40);
@@ -141,7 +153,8 @@ export function createDemoService(storage = window.localStorage) {
       }
       // Fakes a marked-up quote using the listing's own stored dimensions, matching the live
       // "real Shippo quote at checkout" flow without a real carrier call in this local preview.
-      const hasParcel=item.weight_oz && item.length_in && item.width_in && item.height_in;
+      // Pickup never quotes shipping/insurance, same as the live edge function's branch.
+      const hasParcel=!isPickup && item.weight_oz && item.length_in && item.width_in && item.height_in;
       const shippingCostCents=hasParcel ? 895 : 0;
       const sellerShippingCharge=item.free_shipping ? shippingCostCents : 0;
       const insured=hasParcel && wantInsurance!==false;
@@ -151,13 +164,33 @@ export function createDemoService(storage = window.localStorage) {
         seller_payout_cents:item.price_cents-platformFeeCents-sellerShippingCharge,
         shipping_cost_cents:shippingCostCents,applied_credit_cents:creditToApply,
         insured,insured_value_cents:insured?item.price_cents:0,insurance_cost_cents:insuranceCostCents,
-        escrow_status:'held',funds_released_at:null,
-        created_at:new Date().toISOString(),shipping_address:shippingAddress,tracking_status:'UNKNOWN'};
+        escrow_status:'held',funds_released_at:null,fulfillment_method:isPickup?'pickup':'ship',
+        pickup_station_id:isPickup?item.pickup_station_id:null,seller_marked_picked_up_at:null,buyer_confirmed_pickup_at:null,
+        created_at:new Date().toISOString(),shipping_address:isPickup?null:shippingAddress,tracking_status:'UNKNOWN'};
       state.purchases.push(purchase);
       if(creditToApply>0) state.credits.push({id:crypto.randomUUID(),user_id:state.userId,amount_cents:-creditToApply,reason:'Applied to checkout',created_at:new Date().toISOString()});
       item.status='sold';
       try{save();}catch(error){state.purchases.pop();item.status='active';if(creditToApply>0)state.credits.pop();throw error;}
       return {completed:true};
+    },
+    async pickupStations() { return DEMO_PICKUP_STATIONS; },
+    async markPickedUp(purchaseId) {
+      requireUser();
+      const purchase=state.purchases.find(p=>p.id===purchaseId && p.seller_id===state.userId);
+      if(!purchase || purchase.fulfillment_method!=='pickup' || purchase.escrow_status!=='held' || purchase.seller_marked_picked_up_at) throw new Error('Sale not found or already marked picked up.');
+      purchase.seller_marked_picked_up_at=new Date().toISOString();
+      save();
+    },
+    async confirmPickupReceived(purchaseId) {
+      requireUser();
+      const purchase=state.purchases.find(p=>p.id===purchaseId && p.buyer_id===state.userId);
+      if(!purchase || purchase.fulfillment_method!=='pickup' || purchase.escrow_status!=='held' || !purchase.seller_marked_picked_up_at || purchase.buyer_confirmed_pickup_at) throw new Error('Ask the seller to confirm the handoff first, or this was already confirmed.');
+      // No multi-day wait to model in demo mode, same reasoning buyShippingLabel already uses --
+      // confirming receipt immediately simulates the real Stripe transfer + mark_purchase_released.
+      purchase.buyer_confirmed_pickup_at=new Date().toISOString();
+      purchase.escrow_status='released'; purchase.funds_released_at=new Date().toISOString();
+      save();
+      return {ok:true};
     },
     async myCreditBalance() { requireUser(); return state.credits.filter(c=>c.user_id===state.userId).reduce((sum,c)=>sum+c.amount_cents,0); },
     async myPurchases() {
@@ -166,7 +199,10 @@ export function createDemoService(storage = window.localStorage) {
         const item=state.listings.find(x=>x.id===p.listing_id) || {};
         const refund=state.refundRequests.find(r=>r.purchase_id===p.id);
         const rating=state.sellerRatings.find(r=>r.purchase_id===p.id);
-        return {id:item.id,purchase_id:p.id,title:item.title,description:item.description,category:item.category,evidence:item.evidence,price_cents:item.price_cents,attributes:item.attributes,tags:item.tags,certificate_issuer:item.certificate_issuer,certificate_number:item.certificate_number,certificate_company:item.certificate_company,media:item.media || [],purchased_at:p.created_at,shipping_cost_cents:p.shipping_cost_cents || 0,tracking_number:p.tracking_number || null,tracking_url:p.tracking_url || null,tracking_status:p.tracking_status || 'UNKNOWN',shipped_at:p.shipped_at || null,escrow_status:p.escrow_status || 'held',insured:!!p.insured,insurance_cost_cents:p.insurance_cost_cents || 0,refund_status:refund?.status || null,refund_reason:refund?.reason || null,refund_seller_response:refund?.seller_response || null,refund_request_id:refund?.id || null,offered_amount_cents:refund?.offered_amount_cents ?? null,return_tracking_number:refund?.return_tracking_number || null,return_tracking_url:refund?.return_tracking_url || null,return_label_url:refund?.return_label_url || null,return_shipped_at:refund?.return_shipped_at || null,return_tracking_status:refund?.return_tracking_status || 'UNKNOWN',message_count:state.messages.filter(m=>m.purchase_id===p.id).length,my_rating:rating?.rating ?? null,my_rating_comment:rating?.comment ?? null};
+        return {id:item.id,purchase_id:p.id,title:item.title,description:item.description,category:item.category,evidence:item.evidence,price_cents:item.price_cents,attributes:item.attributes,tags:item.tags,certificate_issuer:item.certificate_issuer,certificate_number:item.certificate_number,certificate_company:item.certificate_company,media:item.media || [],purchased_at:p.created_at,shipping_cost_cents:p.shipping_cost_cents || 0,tracking_number:p.tracking_number || null,tracking_url:p.tracking_url || null,tracking_status:p.tracking_status || 'UNKNOWN',shipped_at:p.shipped_at || null,escrow_status:p.escrow_status || 'held',insured:!!p.insured,insurance_cost_cents:p.insurance_cost_cents || 0,
+          fulfillment_method:p.fulfillment_method || 'ship',seller_marked_picked_up_at:p.seller_marked_picked_up_at || null,buyer_confirmed_pickup_at:p.buyer_confirmed_pickup_at || null,
+          pickup_station:p.fulfillment_method==='pickup' ? (DEMO_PICKUP_STATIONS.find(s=>s.id===p.pickup_station_id) || null) : null,
+          refund_status:refund?.status || null,refund_reason:refund?.reason || null,refund_seller_response:refund?.seller_response || null,refund_request_id:refund?.id || null,offered_amount_cents:refund?.offered_amount_cents ?? null,return_tracking_number:refund?.return_tracking_number || null,return_tracking_url:refund?.return_tracking_url || null,return_label_url:refund?.return_label_url || null,return_shipped_at:refund?.return_shipped_at || null,return_tracking_status:refund?.return_tracking_status || 'UNKNOWN',message_count:state.messages.filter(m=>m.purchase_id===p.id).length,my_rating:rating?.rating ?? null,my_rating_comment:rating?.comment ?? null};
       });
     },
     async rateSeller(purchaseId, rating, comment) {
@@ -192,6 +228,8 @@ export function createDemoService(storage = window.localStorage) {
           shipping_cost_cents:p.shipping_cost_cents || 0,seller_shipping_charge_cents:p.seller_shipping_charge_cents || 0,
           tracking_number:p.tracking_number || null,tracking_url:p.tracking_url || null,tracking_status:p.tracking_status || 'UNKNOWN',label_url:p.label_url || null,shipped_at:p.shipped_at || null,
           escrow_status:p.escrow_status || 'held',funds_released_at:p.funds_released_at || null,
+          fulfillment_method:p.fulfillment_method || 'ship',seller_marked_picked_up_at:p.seller_marked_picked_up_at || null,buyer_confirmed_pickup_at:p.buyer_confirmed_pickup_at || null,
+          pickup_station:p.fulfillment_method==='pickup' ? (DEMO_PICKUP_STATIONS.find(s=>s.id===p.pickup_station_id) || null) : null,
           refund_status:refund?.status || null,refund_reason:refund?.reason || null,refund_seller_response:refund?.seller_response || null,refund_request_id:refund?.id || null,
           offered_amount_cents:refund?.offered_amount_cents ?? null,return_tracking_number:refund?.return_tracking_number || null,return_tracking_url:refund?.return_tracking_url || null,return_label_url:refund?.return_label_url || null,return_shipped_at:refund?.return_shipped_at || null,return_tracking_status:refund?.return_tracking_status || 'UNKNOWN',
           message_count:state.messages.filter(m=>m.purchase_id===p.id).length,

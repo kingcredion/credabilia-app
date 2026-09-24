@@ -1,6 +1,9 @@
 import Stripe from 'npm:stripe@17';
 
 const STALE_DAYS=10;
+// Shorter than shipping's 10 days -- the pickup handoff already physically happened by the time
+// seller_marked_picked_up_at is set; this fallback only covers a buyer who forgot to tap "confirm".
+const STALE_PICKUP_DAYS=3;
 
 // Called only by the daily pg_cron job (202609250019_escrow_release_schedule.sql) via pg_net,
 // authenticated with the real service role key as a Supabase-issued JWT -- verify_jwt on this
@@ -15,12 +18,16 @@ export function createHandler({createClient,env}) {
     try {
       if(!env('STRIPE_SECRET_KEY')) return reply({released:0});
       const service=createClient(env('SUPABASE_URL'),env('SUPABASE_SERVICE_ROLE_KEY'));
-      const cutoff=new Date(Date.now()-STALE_DAYS*24*60*60*1000).toISOString();
-      const {data:stale,error}=await service.from('purchases').select('id,seller_id,stripe_payment_intent_id,seller_payout_cents,escrow_status').eq('escrow_status','held').not('shipped_at','is',null).lt('shipped_at',cutoff);
-      if(error) { console.error('release-stale-escrow query failed:',error.message); return reply({error:'Could not check for stale escrow holds.'},500); }
+      const shipCutoff=new Date(Date.now()-STALE_DAYS*24*60*60*1000).toISOString();
+      const pickupCutoff=new Date(Date.now()-STALE_PICKUP_DAYS*24*60*60*1000).toISOString();
+      const columns='id,seller_id,stripe_payment_intent_id,seller_payout_cents,escrow_status';
+      const {data:staleShipped,error:shipError}=await service.from('purchases').select(columns).eq('escrow_status','held').not('shipped_at','is',null).lt('shipped_at',shipCutoff);
+      if(shipError) { console.error('release-stale-escrow query failed:',shipError.message); return reply({error:'Could not check for stale escrow holds.'},500); }
+      const {data:stalePickup,error:pickupError}=await service.from('purchases').select(columns).eq('escrow_status','held').eq('fulfillment_method','pickup').not('seller_marked_picked_up_at','is',null).lt('seller_marked_picked_up_at',pickupCutoff);
+      if(pickupError) { console.error('release-stale-escrow pickup query failed:',pickupError.message); return reply({error:'Could not check for stale escrow holds.'},500); }
 
       let released=0;
-      for(const purchase of stale||[]) {
+      for(const purchase of [...(staleShipped||[]),...(stalePickup||[])]) {
         try { await releaseEscrow(service,env,purchase); released++; }
         catch (err) { console.error('release-stale-escrow failed for purchase',purchase.id,err); }
       }
