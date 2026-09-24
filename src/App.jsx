@@ -10,7 +10,7 @@ import { TriviaPanel } from './Trivia.jsx';
 import { ItemHistory } from './ItemHistory.jsx';
 import CertificateDetails, { CertificateFields } from './CertificateDetails.jsx';
 import React, { useEffect, useRef, useState } from 'react';
-import { ArrowUpRight, ArrowRight, Search, ShieldCheck, Plus, Store, Compass, ClipboardCheck, LogOut, X, Check, BookOpen, Sparkles, Layers, ArrowLeft, AlertCircle, Heart, Settings, RefreshCw, Package, Bell, MessageCircle, Sun, Moon, Monitor, Star, Flag } from 'lucide-react';
+import { ArrowUpRight, ArrowRight, Search, ShieldCheck, Plus, Store, Compass, ClipboardCheck, LogOut, X, Check, BookOpen, Sparkles, Layers, ArrowLeft, AlertCircle, Heart, Settings, RefreshCw, Package, Bell, MessageCircle, Sun, Moon, Monitor, Star, Flag, User } from 'lucide-react';
 import { DEMO_ACCOUNTS } from './demo.js';
 import { makeService } from './service.js';
 import { Storefront } from './Storefront.jsx';
@@ -37,7 +37,7 @@ function Modal({ title, children, onClose }) {
   </dialog>;
 }
 
-function NotificationBell({ notifications, onNavigate }) {
+function NotificationBell({ notifications, onNavigate, variant }) {
   const [open, setOpen] = useState(false);
   const wrap = useRef(null);
   useEffect(() => {
@@ -46,17 +46,44 @@ function NotificationBell({ notifications, onNavigate }) {
     document.addEventListener('mousedown', onDocClick);
     return () => document.removeEventListener('mousedown', onDocClick);
   }, [open]);
-  return <div className="notif-wrap" ref={wrap}>
-    <button className="icon-button" aria-label={`Notifications${notifications.length ? ` (${notifications.length} need attention)` : ''}`} title="Notifications" onClick={() => setOpen(o => !o)}>
-      <Bell size={18}/>{notifications.length > 0 && <span className="notif-badge">{notifications.length}</span>}
+  const bottomBar = variant === 'bottombar';
+  const label = `Notifications${notifications.length ? ` (${notifications.length} need attention)` : ''}`;
+  return <div className={bottomBar ? 'bottom-nav-item-wrap' : 'notif-wrap'} ref={wrap}>
+    <button className={bottomBar ? 'bottom-nav-item' : 'icon-button'} aria-label={label} title="Notifications" onClick={() => setOpen(o => !o)}>
+      {bottomBar
+        ? <><span className="bottom-nav-indicator"><Bell size={22}/>{notifications.length > 0 && <span className="notif-badge">{notifications.length}</span>}</span><span>Alerts</span></>
+        : <>{<Bell size={18}/>}{notifications.length > 0 && <span className="notif-badge">{notifications.length}</span>}</>}
     </button>
-    {open && <div className="notif-panel" role="menu">
+    {open && <div className={bottomBar ? 'notif-panel bottom-nav-panel' : 'notif-panel'} role="menu">
       {!notifications.length ? <p className="notif-empty field-note">Nothing needs your attention.</p>
         : notifications.map(n => <button key={`${n.purchase_id}-${n.listing_id}-${n.kind}`} type="button" className="notif-row" role="menuitem" onClick={() => { onNavigate(n); setOpen(false); }}>
             {n.kind === 'message' ? <MessageCircle size={16}/> : <AlertCircle size={16}/>}<span>{n.message}</span>
           </button>)}
     </div>}
   </div>;
+}
+
+function BottomNav({ session, workspace, onSwitchWorkspace, notifications, onNavigateNotification, profile, onProfile, onSignIn, authReady }) {
+  const tabs = [
+    { key: 'collector', label: 'Discover', Icon: Compass },
+    { key: 'seller', label: 'Sell', Icon: Store },
+    { key: 'auditor', label: 'Audit', Icon: ClipboardCheck },
+  ];
+  return <nav className="bottom-nav" aria-label="Main navigation">
+    {tabs.map(tab => { const active = workspace === tab.key; return (
+      <button key={tab.key} type="button" className={active ? 'bottom-nav-item active' : 'bottom-nav-item'} aria-current={active ? 'page' : undefined} onClick={() => onSwitchWorkspace(tab.key)}>
+        <span className="bottom-nav-indicator"><tab.Icon size={22}/></span><span>{tab.label}</span>
+      </button>
+    ); })}
+    {session ? <>
+      <NotificationBell notifications={notifications} onNavigate={onNavigateNotification} variant="bottombar"/>
+      <button type="button" className="bottom-nav-item" onClick={onProfile}>
+        <span className="bottom-nav-indicator"><span className="avatar bottom-nav-avatar">{profile?.display_name?.slice(0,1) || 'C'}</span></span><span>Profile</span>
+      </button>
+    </> : <button type="button" className="bottom-nav-item" disabled={!authReady} onClick={onSignIn}>
+      <span className="bottom-nav-indicator"><User size={22}/></span><span>Sign in</span>
+    </button>}
+  </nav>;
 }
 
 const THEME_KEY = 'credabilia-theme';
@@ -1691,6 +1718,7 @@ export default function App() {
         <footer><span>© {new Date().getFullYear()} Credabilia LLC · 732 S 6th St, Ste 7531, Las Vegas, NV 89101</span><span>Made for the love of the find.</span><span className="footer-legal"><a href="tel:+18667500255">1 (866) 750-0255</a><a href="/help">Help</a><a href="/terms">Terms</a><a href="/privacy">Privacy</a></span></footer>
       </main>
     </div>
+    <BottomNav session={session} workspace={workspace} onSwitchWorkspace={switchWorkspace} notifications={notifications} onNavigateNotification={focusNotification} profile={profile} authReady={authReady} onProfile={() => setModal('profile')} onSignIn={() => setModal('login')}/>
     {modal === 'login' && <Modal title="Welcome to Credabilia" onClose={() => setModal(null)}><p className="muted">One account to collect, sell, and share your perspective.</p>{service.mode === 'demo' ? <><div className="evidence-box"><h3>Try the local preview</h3><p>These two separate practice accounts stay in this browser. Each can switch between all three workspaces. Real sign-in is available when the Supabase project is connected.</p></div><div className="form-stack">{DEMO_ACCOUNTS.map(account => <button key={account.id} className="primary full-width" onClick={() => signIn(account.id)} disabled={busy}>{busy ? 'Opening…' : `Continue as ${account.display_name}`}<ArrowRight size={18}/></button>)}</div></> : <><button className="primary full-width" onClick={() => signIn()} disabled={busy}>{busy ? 'Opening…' : 'Continue with Google'}<ArrowRight size={18}/></button><p className="field-note">or</p><EmailLogin/><p className="field-note">By continuing, you agree to Credabilia's <a href="/terms" target="_blank" rel="noreferrer">Terms of Service</a> and <a href="/privacy" target="_blank" rel="noreferrer">Privacy Policy</a>.</p></>}<p className="field-note">Your sign-in method does not determine your workspace. You can switch between all three after signing in.</p></Modal>}
     {modal === 'checkout-address' && (selected || pendingBuy) && <CheckoutAddress item={selected || pendingBuy} profile={profile} busy={busy} onClose={() => setModal(null)} onConfirm={(address, applyCreditCents, wantInsurance, fulfillmentMethod) => { const id = selected?.id || pendingBuy?.listing_id; setModal(null); buyNow(id, address, applyCreditCents, wantInsurance, fulfillmentMethod); }}/>}
     {modal === 'create' && <CreateListing onClose={() => setModal(null)} onCreated={id => { setModal(null); setNotice('Your listing is published.'); setSelectedId(id); refresh(); }}/>}
