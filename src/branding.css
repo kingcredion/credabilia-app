@@ -2,9 +2,9 @@
    equivalent in styles.css. Colors now live in theme.css as shared tokens -- styles.css
    references them directly, so this file no longer needs to re-declare or override any color. */
 .brand { flex-shrink: 0; }
-.brand .brand-lockup { display: flex; flex-direction: column; align-items: center; align-self: center; margin: 0; }
+.brand .brand-lockup { display: flex; flex-direction: row; align-items: center; gap: 8px; align-self: center; margin: 0; }
 .brand .brand-logo { display: block; width: 170px; height: 57px; }
-.brand .brand-tagline { display: block; align-self: center; margin-top: 2px; width: 150px; height: auto; }
+.brand .brand-tagline { display: block; align-self: center; margin-top: 0; width: 150px; height: auto; }
 .topbar nav { margin-left: 30px; }
 .hero-tag svg { color: var(--brand-teal); }
 .hero-mascot {
@@ -34,7 +34,7 @@
 }
 @media (max-width: 600px) {
   .brand .brand-logo { width: 145px; height: 47px; }
-  .brand .brand-tagline { width: 250px; }
+  .brand .brand-tagline { width: 125px; }
   .topbar { gap: 12px; }
   .hero-mascot { padding: 0 24px 18px; }
   .hero-mascot img { width: 225px; height: 260px; }
@@ -43,6 +43,6 @@
    the header's icon row (theme/King Credion/notifications/avatar/sign-out) is added back in. */
 @media (max-width: 400px) {
   .brand .brand-logo { width: 108px; height: 35px; }
-  .brand .brand-tagline { width: 190px; }
+  .brand .brand-tagline { width: 95px; }
   .topbar { gap: 8px; }
 }
