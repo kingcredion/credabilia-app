@@ -23,11 +23,22 @@ export function createHandler({createClient,env}) {
       const columns='id,seller_id,stripe_payment_intent_id,seller_payout_cents,escrow_status';
       const {data:staleShipped,error:shipError}=await service.from('purchases').select(columns).eq('escrow_status','held').not('shipped_at','is',null).lt('shipped_at',shipCutoff);
       if(shipError) { console.error('release-stale-escrow query failed:',shipError.message); return reply({error:'Could not check for stale escrow holds.'},500); }
-      const {data:stalePickup,error:pickupError}=await service.from('purchases').select(columns).eq('escrow_status','held').eq('fulfillment_method','pickup').not('seller_marked_picked_up_at','is',null).lt('seller_marked_picked_up_at',pickupCutoff);
+      const {data:stalePickupRaw,error:pickupError}=await service.from('purchases').select(columns).eq('escrow_status','held').eq('fulfillment_method','pickup').not('seller_marked_picked_up_at','is',null).lt('seller_marked_picked_up_at',pickupCutoff);
       if(pickupError) { console.error('release-stale-escrow pickup query failed:',pickupError.message); return reply({error:'Could not check for stale escrow holds.'},500); }
 
+      // Dispute-gated: a buyer who filed "I haven't received this" (an ordinary refund_requests
+      // row) must never have their purchase silently auto-released out from under an open dispute
+      // just because the seller marked it picked up -- silence (no dispute) is what this fallback
+      // is actually meant to cover, not an active disagreement.
+      let stalePickup=stalePickupRaw||[];
+      if(stalePickup.length) {
+        const {data:openDisputes}=await service.from('refund_requests').select('purchase_id').in('purchase_id',stalePickup.map(p=>p.id)).in('status',['pending','contested']);
+        const disputedIds=new Set((openDisputes||[]).map(d=>d.purchase_id));
+        stalePickup=stalePickup.filter(p=>!disputedIds.has(p.id));
+      }
+
       let released=0;
-      for(const purchase of [...(staleShipped||[]),...(stalePickup||[])]) {
+      for(const purchase of [...(staleShipped||[]),...stalePickup]) {
         try { await releaseEscrow(service,env,purchase); released++; }
         catch (err) { console.error('release-stale-escrow failed for purchase',purchase.id,err); }
       }

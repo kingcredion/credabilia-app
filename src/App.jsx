@@ -140,6 +140,54 @@ function PickupStationPicker({ value, onSelect, disabled }) {
   </div>;
 }
 
+// Full-screen, undismissable-except-by-acting confirmation for a pickup purchase the seller has
+// already marked handed off. Unlike Modal, there's no close button, no backdrop-click, and Escape
+// is swallowed -- the only ways out are the two real actions below. One at a time if several are
+// pending (mirrors AuditQueue's own one-at-a-time queue). Blocking is deliberately asymmetric with
+// the seller's own "mark picked up" step (a plain notification, not a gate) -- this only ever
+// appears after a real event already happened (the seller's mark), so there's always something
+// true to react to; forcing the same block on the seller before any handoff occurred would
+// pressure a false "picked up" click just to get their app back.
+function PickupConfirmationGate({ purchases, onResolved }) {
+  const pending = purchases.filter(p => p.fulfillment_method === 'pickup' && p.escrow_status === 'held' && p.seller_marked_picked_up_at && !p.buyer_confirmed_pickup_at);
+  const current = pending[0];
+  const [showDispute, setShowDispute] = useState(false);
+  const [disputeReason, setDisputeReason] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState('');
+  const dialogRef = useRef(null);
+  useEffect(() => { const el = dialogRef.current; if (el && current && !el.open) el.showModal(); }, [current?.purchase_id]);
+  if (!current) return null;
+  async function confirm() {
+    setBusy(true); setError('');
+    try { await service.confirmPickupReceived(current.purchase_id); onResolved(); }
+    catch (err) { setError(err.message); setBusy(false); }
+  }
+  async function submitDispute(event) {
+    event.preventDefault(); if (busy || !disputeReason.trim()) return;
+    setBusy(true); setError('');
+    try { await service.requestRefund(current.purchase_id, disputeReason); onResolved(); }
+    catch (err) { setError(err.message); setBusy(false); }
+  }
+  return <dialog ref={dialogRef} onCancel={event => event.preventDefault()} aria-labelledby="pickup-gate-title" className="pickup-gate">
+    <img src="/brand/king-credion-local-pickup-v1.png" alt="" className="pickup-gate-hero"/>
+    <h2 id="pickup-gate-title">Did you pick up "{current.title}"?</h2>
+    <p className="muted">The seller marked this handed off at {current.pickup_station?.jurisdiction}{current.pickup_station?.city ? ` — ${current.pickup_station.city}` : ''}. Confirming releases payment to the seller.</p>
+    {!showDispute ? <div className="submit-row">
+        <button type="button" className="primary" disabled={busy} onClick={confirm}>{busy ? 'Confirming…' : 'Yes, I picked this up'}<ArrowRight size={16}/></button>
+        <button type="button" className="text-button" disabled={busy} onClick={() => setShowDispute(true)}>I haven't received this yet</button>
+      </div>
+      : <form className="form-stack" onSubmit={submitDispute}>
+          <label>What happened?<textarea value={disputeReason} onChange={event => setDisputeReason(event.target.value)} rows={3} maxLength={2000} required placeholder="Tell us what happened — we'll pause payment and help resolve this."/></label>
+          <div className="submit-row">
+            <button className="primary danger" disabled={busy || !disputeReason.trim()}>{busy ? 'Submitting…' : 'Report an issue'}</button>
+            <button type="button" className="text-button" disabled={busy} onClick={() => setShowDispute(false)}>Back</button>
+          </div>
+        </form>}
+    {error && <p role="alert" className="error">{error}</p>}
+  </dialog>;
+}
+
 function CreateListing({ onClose, onCreated, relistFrom }) {
   const [step,setStep]=useState(relistFrom ? 'form' : 'photo');
   const [processingPhoto,setProcessingPhoto]=useState(false);
@@ -1651,5 +1699,6 @@ export default function App() {
     {modal === 'profile' && <Modal title="Profile and settings" onClose={() => setModal(null)}><ProfileSettings profile={profile} session={session} onSaved={() => { setModal(null); setNotice('Your profile is saved.'); refresh(); }} onSignOut={() => { setModal(null); signOut(); }}/></Modal>}
     {modal === 'support' && <Modal title="Ask King Credion" onClose={() => setModal(null)}><SupportChat service={service}/></Modal>}
     {modal === 'learn' && <Modal title="Start with the evidence" onClose={() => setModal(null)}><ol className="guide"><li><strong>Observe before deciding.</strong><p>Look at condition, markings, materials, and the description. Record what you can actually see.</p></li><li><strong>Check the story.</strong><p>Provenance and certificates need verification. A familiar name alone does not prove authenticity.</p></li><li><strong>Say what is missing.</strong><p>Ask for clearer photos or documentation. Uncertainty is more useful than unsupported confidence.</p></li></ol><p className="field-note">Educational trivia will build on these skills in a later phase. Participation XP does not certify expertise.</p></Modal>}
+    {session && <PickupConfirmationGate purchases={purchases} onResolved={refresh}/>}
   </div>;
 }
