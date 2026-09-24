@@ -1291,7 +1291,7 @@ function AuditQueue({ items, session, profile, onNeedLogin, onAudited }) {
         <p className="field-note">Signature close-up</p>
         {signaturePhoto ? <>
           <PhotoGallery media={current.media} kind="signature" title={current.title}/>
-          {current.signature_ai_label ? <p className="field-note">AI opinion: {LABELS_AI[current.signature_ai_label]} — not verified. {current.signature_ai_note} Gets better as Credabilia's signature library grows.</p> : <>
+          {current.signature_ai_label ? <p className="field-note">AI opinion: {LABELS_AI[current.signature_ai_label]} — not verified. {current.signature_ai_note} <span className="trust-highlight">Gets better as Credabilia's signature library grows.</span></p> : <>
             <p className="field-note">No AI opinion recorded yet.</p>
             {profile?.can_audit && <button type="button" className="text-button" onClick={getSignatureOpinion} disabled={signatureBusy}>{signatureBusy ? 'Reviewing…' : 'Get AI opinion'}</button>}
             {signatureError && <p role="alert" className="error">{signatureError}</p>}
