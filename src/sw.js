@@ -13,8 +13,8 @@ self.addEventListener('push', event => {
   const title = data.title || 'Credabilia';
   event.waitUntil(self.registration.showNotification(title, {
     body: data.body || '',
-    icon: '/brand/app-icons/web/icon-192.png',
-    badge: '/brand/app-icons/web/icon-192.png',
+    icon: '/brand/app-icons/crown-c/web/icon-192.png',
+    badge: '/brand/app-icons/crown-c/web/icon-192.png',
     data: { url: data.url || '/' },
   }));
 });
