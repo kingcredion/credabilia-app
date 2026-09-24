@@ -48,7 +48,7 @@ function NotificationBell({ notifications, onNavigate, variant }) {
   }, [open]);
   const bottomBar = variant === 'bottombar';
   const label = `Notifications${notifications.length ? ` (${notifications.length} need attention)` : ''}`;
-  return <div className={bottomBar ? 'bottom-nav-item-wrap' : 'notif-wrap'} ref={wrap}>
+  return <div className={bottomBar ? 'bottom-nav-item-wrap' : 'notif-wrap header-bell'} ref={wrap}>
     <button className={bottomBar ? 'bottom-nav-item' : 'icon-button'} aria-label={label} title="Notifications" onClick={() => setOpen(o => !o)}>
       {bottomBar
         ? <><span className="bottom-nav-indicator"><Bell size={22}/>{notifications.length > 0 && <span className="notif-badge">{notifications.length}</span>}</span><span>Alerts</span></>
