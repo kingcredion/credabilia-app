@@ -14,6 +14,7 @@ export function createHandler({createClient,env,fetcher=fetch}) {
       const text=await request.text(); if(text.length>1024) return reply({error:'Invalid request.'},400);
       let body;try{body=JSON.parse(text);}catch{return reply({error:'Invalid request.'},400);}
       const path=body?.path;
+      const subject=typeof body?.subject==='string' ? body.subject.trim().slice(0,120) : '';
       if(typeof path!=='string' || !new RegExp('^'+identity.user.id+'/[0-9a-f-]{36}[.]jpg$').test(path)) return reply({error:'Choose one of your uploaded signature photos.'},403);
       const {data:blob,error:downloadError}=await client.storage.from('listing-media').download(path);
       if(downloadError || !blob || blob.size>5242880 || blob.type!=='image/jpeg') return reply({error:'Signature photo could not be read.'},400);
@@ -39,7 +40,30 @@ export function createHandler({createClient,env,fetcher=fetch}) {
       let fields;try{fields=JSON.parse(output);}catch{return reply({error:'The AI opinion could not be read.'},422);}
       const label=['consistent','inconclusive','concerns'].includes(fields.label)?fields.label:'inconclusive';
       const note=typeof fields.note==='string'?fields.note.trim().slice(0,500):'';
-      return reply({label,note});
+      // Reference comparison is best-effort and additive -- a subject was given, so try to compare
+      // against Credabilia's own curated signature library, but never fail the review itself over
+      // it (a missing/failed embedding just means no reference data, not an error to the seller).
+      let referenceMatchCount=null, referenceSimilarity=null;
+      if(subject && note) {
+        try {
+          const embedResponse=await fetcher('https://api.openai.com/v1/embeddings',{
+            method:'POST',headers:{Authorization:'Bearer '+env('OPENAI_API_KEY'),'Content-Type':'application/json'},signal:AbortSignal.timeout(15000),
+            body:JSON.stringify({model:'text-embedding-3-small',input:note}),
+          });
+          if(embedResponse.ok) {
+            const embedResult=await embedResponse.json();
+            const vector=embedResult.data?.[0]?.embedding;
+            if(Array.isArray(vector) && vector.length===1536) {
+              const {data:matches}=await client.rpc('search_signature_references',{p_subject:subject,p_embedding:'['+vector.join(',')+']',p_limit:5});
+              if(Array.isArray(matches) && matches.length) {
+                referenceMatchCount=matches.length;
+                referenceSimilarity=Math.round((matches.reduce((sum,m)=>sum+m.similarity,0)/matches.length)*1000)/1000;
+              } else { referenceMatchCount=0; }
+            }
+          }
+        } catch {}
+      }
+      return reply({label,note,reference_match_count:referenceMatchCount,reference_similarity:referenceSimilarity});
     } catch {return reply({error:'Signature review is temporarily unavailable. Your listing is safe.'},503);}
   };
 }

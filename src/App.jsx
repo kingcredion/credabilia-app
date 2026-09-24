@@ -140,7 +140,7 @@ function CreateListing({ onClose, onCreated, relistFrom }) {
   }
   async function reviewSignature() {
     setReviewingSignature(true);setError('');
-    try {const result=await service.analyzeSignature(signaturePhoto.path);setSignatureAi(result);}
+    try {const result=await service.analyzeSignature(signaturePhoto.path,formRef.current?.elements.namedItem('attribute:subject')?.value);setSignatureAi(result);}
     catch(err){setError(err.message);}finally{setReviewingSignature(false);}
   }
   // Vision models are consistently better at pointing at roughly *where* something is than at
@@ -416,7 +416,7 @@ function EditListing({item:currentItem,onClose,onSaved}) {
   const signaturePhoto=media.find(asset=>asset.kind==='signature');
   async function reviewSignature() {
     setReviewingSignature(true);setError('');
-    try {const result=await service.analyzeSignature(signaturePhoto.path);setSignatureAi(result);}
+    try {const result=await service.analyzeSignature(signaturePhoto.path,item.attributes?.subject);setSignatureAi(result);}
     catch(err){setError(err.message);}finally{setReviewingSignature(false);}
   }
   const certificateChanged=certificate.certificate_issuer!==(item.certificate_issuer||'')||certificate.certificate_number!==(item.certificate_number||'')||certificate.certificate_company!==(item.certificate_company||'');
@@ -1087,6 +1087,36 @@ function AdminUsers() {
   </div>;
 }
 
+function AdminSignatureLibrary() {
+  const [provenance, setProvenance] = useState('self_reported');
+  const [list, setList] = useState(undefined), [error, setError] = useState(''), [busyId, setBusyId] = useState(null);
+  function load() { service.adminListSignatureReferences(provenance).then(setList).catch(err => setError(err.message)); }
+  useEffect(() => { load(); }, [provenance]);
+  async function promote(id) { setBusyId(id); setError(''); try { await service.adminPromoteSignatureReference(id); load(); } catch (err) { setError(err.message); } finally { setBusyId(null); } }
+  async function discard(id) { setBusyId(id); setError(''); try { await service.adminDiscardSignatureReference(id); load(); } catch (err) { setError(err.message); } finally { setBusyId(null); } }
+  return <div className="form-stack">
+    <p className="field-note">Every signature with a subject filled in is auto-captured here for review. Only promoted references are usable for future comparisons.</p>
+    <div className="categories" role="group" aria-label="Signature library view">
+      <button aria-pressed={provenance === 'self_reported'} className={provenance === 'self_reported' ? 'active' : ''} onClick={() => setProvenance('self_reported')}>Awaiting review</button>
+      <button aria-pressed={provenance === 'operator_curated'} className={provenance === 'operator_curated' ? 'active' : ''} onClick={() => setProvenance('operator_curated')}>Curated library</button>
+    </div>
+    {error && <p role="alert" className="error">{error}</p>}
+    {list === undefined ? <p role="status">Loading…</p>
+      : !list.length ? <p className="field-note">{provenance === 'self_reported' ? 'No signatures awaiting review.' : 'No curated references yet.'}</p>
+      : <div className="items-grid">{list.map(ref => <div key={ref.id} className="item-card evidence-box">
+          {ref.url ? <img src={ref.url} alt={`Signature for ${ref.subject_name}`} className="admin-signature-photo"/> : <p className="field-note">Photo unavailable</p>}
+          <p><strong>{ref.subject_name}</strong></p>
+          <p className="field-note">From "{ref.listing_title}"</p>
+          {ref.description && <p className="field-note">{ref.description}</p>}
+          <p className="field-note">{ref.has_embedding ? 'Indexed' : 'Not yet indexed'}</p>
+          <div className="form-row">
+            {provenance === 'self_reported' && <button type="button" className="text-button" disabled={busyId === ref.id} onClick={() => promote(ref.id)}>{busyId === ref.id ? 'Promoting…' : 'Promote to library'}</button>}
+            <button type="button" className="text-button danger-button" disabled={busyId === ref.id} onClick={() => discard(ref.id)}>{busyId === ref.id ? 'Removing…' : 'Discard'}</button>
+          </div>
+        </div>)}</div>}
+  </div>;
+}
+
 function AdminDashboard() {
   const [tab, setTab] = useState('disputes');
   return <div className="form-stack">
@@ -1095,11 +1125,13 @@ function AdminDashboard() {
       <button aria-pressed={tab === 'reports'} className={tab === 'reports' ? 'active' : ''} onClick={() => setTab('reports')}>Reports</button>
       <button aria-pressed={tab === 'support'} className={tab === 'support' ? 'active' : ''} onClick={() => setTab('support')}>Support</button>
       <button aria-pressed={tab === 'users'} className={tab === 'users' ? 'active' : ''} onClick={() => setTab('users')}>Users</button>
+      <button aria-pressed={tab === 'signatures'} className={tab === 'signatures' ? 'active' : ''} onClick={() => setTab('signatures')}>Signature library</button>
     </div>
     {tab === 'disputes' && <AdminDisputes/>}
     {tab === 'reports' && <AdminReports/>}
     {tab === 'support' && <AdminSupport/>}
     {tab === 'users' && <AdminUsers/>}
+    {tab === 'signatures' && <AdminSignatureLibrary/>}
   </div>;
 }
 

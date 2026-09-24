@@ -387,6 +387,9 @@ export function createDemoService(storage = window.localStorage) {
     async adminGetSupportThread() { requireUser(); return []; },
     async adminReplyToSupport() { throw new Error('The admin dashboard requires the connected app. Not available in this practice preview.'); },
     async adminListUsers() { requireUser(); return []; },
+    async adminListSignatureReferences() { requireUser(); return []; },
+    async adminPromoteSignatureReference() { throw new Error('The admin dashboard requires the connected app. Not available in this practice preview.'); },
+    async adminDiscardSignatureReference() { throw new Error('The admin dashboard requires the connected app. Not available in this practice preview.'); },
     async reportContent(targetType, targetId, reason, details) {
       requireUser();
       const clean=String(reason || '').trim();
