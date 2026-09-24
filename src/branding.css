@@ -3,7 +3,7 @@
    references them directly, so this file no longer needs to re-declare or override any color. */
 .brand { flex-shrink: 0; }
 .brand .brand-lockup { display: flex; flex-direction: row; align-items: center; gap: 8px; align-self: center; margin: 0; }
-.brand .brand-logo { display: block; width: 170px; height: 57px; }
+.brand .brand-logo { display: block; width: 150px; height: auto; }
 .brand .brand-tagline { display: block; align-self: center; margin-top: 0; width: 150px; height: auto; }
 .topbar nav { margin-left: 30px; }
 .hero-tag svg { color: var(--brand-teal); }
@@ -33,7 +33,7 @@
   to { opacity: 1; }
 }
 @media (max-width: 600px) {
-  .brand .brand-logo { width: 145px; height: 47px; }
+  .brand .brand-logo { width: 125px; height: auto; }
   .brand .brand-tagline { width: 190px; }
   .topbar { gap: 12px; }
   .hero-mascot { padding: 0 24px 18px; }
@@ -42,7 +42,7 @@
 /* Narrow phones (e.g. 360-390px Android widths) -- the 600px sizing above still overflows once
    the header's icon row (theme/King Credion/notifications/avatar/sign-out) is added back in. */
 @media (max-width: 400px) {
-  .brand .brand-logo { width: 108px; height: 35px; }
+  .brand .brand-logo { width: 95px; height: auto; }
   .brand .brand-tagline { width: 130px; }
   .topbar { gap: 8px; }
 }
