@@ -34,7 +34,7 @@
 }
 @media (max-width: 600px) {
   .brand .brand-logo { width: 145px; height: 47px; }
-  .brand .brand-tagline { width: 125px; }
+  .brand .brand-tagline { width: 250px; }
   .topbar { gap: 12px; }
   .hero-mascot { padding: 0 24px 18px; }
   .hero-mascot img { width: 225px; height: 260px; }
@@ -43,6 +43,6 @@
    the header's icon row (theme/King Credion/notifications/avatar/sign-out) is added back in. */
 @media (max-width: 400px) {
   .brand .brand-logo { width: 108px; height: 35px; }
-  .brand .brand-tagline { width: 95px; }
+  .brand .brand-tagline { width: 190px; }
   .topbar { gap: 8px; }
 }
