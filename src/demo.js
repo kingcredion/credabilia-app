@@ -527,6 +527,15 @@ export function createDemoService(storage = window.localStorage) {
       Object.assign(item,value,certificate,{media,signature_ai_label:input.signature_ai_label||null,signature_ai_note:input.signature_ai_note||null});
       try{save();}catch(error){Object.assign(item,before);state.revisions.pop();throw error;}
     },
+    async deleteListing(id) {
+      requireUser();
+      const item=state.listings.find(x=>x.id===id);
+      if(!item || item.seller_id!==state.userId) throw new Error('You can only delete your own listing.');
+      if(!currentUser().can_sell) throw new Error('Selling permission required.');
+      if(item.status!=='active') throw new Error('Only active listings can be deleted.');
+      item.status='archived';
+      save();
+    },
     async submitAudit(listingId, input) {
       requireUser(); const value = auditInput(input);
       const item = state.listings.find(x => x.id === listingId);

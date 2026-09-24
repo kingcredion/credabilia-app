@@ -1156,6 +1156,21 @@ function AdminDashboard() {
   </div>;
 }
 
+function DeleteListingButton({ item, onDeleted }) {
+  const [confirming, setConfirming] = useState(false), [busy, setBusy] = useState(false), [error, setError] = useState('');
+  async function confirmDelete() {
+    setBusy(true); setError('');
+    try { await service.deleteListing(item.id); onDeleted(); }
+    catch (err) { setError(err.message); setBusy(false); }
+  }
+  return <div>
+    {!confirming
+      ? <button type="button" className="text-button danger-button" onClick={() => setConfirming(true)}>Delete listing</button>
+      : <div className="form-row"><button type="button" className="primary danger" disabled={busy} onClick={confirmDelete}>{busy ? 'Deleting…' : 'Yes, delete this listing'}</button><button type="button" className="text-button" disabled={busy} onClick={() => setConfirming(false)}>Cancel</button></div>}
+    {error && <p role="alert" className="error">{error}</p>}
+  </div>;
+}
+
 function DeleteAccount({ onDeleted }) {
   const [confirming, setConfirming] = useState(false), [busy, setBusy] = useState(false), [error, setError] = useState('');
   async function confirmDelete() {
@@ -1513,6 +1528,7 @@ export default function App() {
         </> : selected ? <>
           <button className="back-button" onClick={() => setSelectedId(null)}><ArrowLeft size={17}/>Back to listings</button>
           {own && profile?.can_sell && <button className="text-button" onClick={()=>setModal('edit')}>Edit listing</button>}
+          {own && profile?.can_sell && <DeleteListingButton item={selected} onDeleted={()=>{setSelectedId(null);setNotice('Your listing has been deleted.');refresh();}}/>}
           {session && !own && <button className="text-button" onClick={()=>toggleFavorite(selected.id)}><Heart size={16} fill={favoriteIds.includes(selected.id) ? 'currentColor' : 'none'}/>{favoriteIds.includes(selected.id) ? 'Saved' : 'Save to collection'}</button>}
           {session && !own && <ReportButton targetType="listing" targetId={selected.id} label="Report listing"/>}
           {session && !own && <BlockSellerButton sellerId={selected.seller_id}/>}

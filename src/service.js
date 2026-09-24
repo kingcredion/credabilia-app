@@ -133,6 +133,7 @@ export function makeService() {
         p_issuer:v.certificate_issuer,p_number:v.certificate_number,p_company:v.certificate_company,
         p_media:mediaTouched?mediaInput(input.media):null,p_expected:editableFields(item)}));
     },
+    async deleteListing(id) { unwrap(await client.rpc('delete_listing',{p_id:id})); },
     async getListingHistory(listingId) { return signMedia((unwrap(await client.rpc('get_listing_history',{p_listing_id:listingId}))).map(v=>({...v,media:v.media||[]}))); },
     async submitAudit(listingId, input) {
       const value = auditInput(input);
