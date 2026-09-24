@@ -1715,7 +1715,7 @@ export default function App() {
             </>}
           </section><section className="community-note"><div className="note-icon"><ShieldCheck size={25}/></div><div><h3>Confidence grows with evidence.</h3><p>A community opinion is a starting point. For valuable purchases, seek qualified authentication.</p></div><button className="icon-button" aria-label="Read the auditing guide" onClick={() => setModal('learn')}><ArrowUpRight size={24}/></button></section>
         </>}
-        <footer><span>© {new Date().getFullYear()} Credabilia LLC · 732 S 6th St, Ste 7531, Las Vegas, NV 89101</span><span>Made for the love of the find.</span><span className="footer-legal"><a href="tel:+18667500255">1 (866) 750-0255</a><a href="/help">Help</a><a href="/terms">Terms</a><a href="/privacy">Privacy</a></span></footer>
+        <footer><span>© {new Date().getFullYear()} Credabilia LLC · 732 S 6th St, Ste 7531, Las Vegas, NV 89101</span><img className="footer-tagline" src="/brand/the-memorabilia-kingdom-gold-quill-v1.png" alt="The Memorabilia Kingdom" width="2172" height="724"/><span className="footer-legal"><a href="tel:+18667500255">1 (866) 750-0255</a><a href="/help">Help</a><a href="/terms">Terms</a><a href="/privacy">Privacy</a></span></footer>
       </main>
     </div>
     <BottomNav session={session} workspace={workspace} onSwitchWorkspace={switchWorkspace} notifications={notifications} onNavigateNotification={focusNotification} profile={profile} authReady={authReady} onProfile={() => setModal('profile')} onSignIn={() => setModal('login')}/>
