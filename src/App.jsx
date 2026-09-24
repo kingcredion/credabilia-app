@@ -1604,7 +1604,7 @@ export default function App() {
     : collectionFilter === 'saved' ? items.filter(item => favoriteIds.includes(item.id)) : items;
   const filtered = eligible.filter(item => (category === 'All items' || item.category === category) && listingMatches(item, query));
   const collectionItems = workspace === 'collector' && collectionFilter === 'owned' ? purchases : filtered;
-  const switchWorkspace = value => { setWorkspace(value); setSelectedId(null); setCategory('All items'); setQuery(''); setError(''); setCollectionFilter('all'); setSellerTab('active'); };
+  const switchWorkspace = value => { setWorkspace(value); setSelectedId(null); setCategory('All items'); setQuery(''); setError(''); setCollectionFilter('all'); setSellerTab('active'); window.scrollTo({ top: 0 }); };
   function focusNotification(n) {
     setModal(null);
     if (n.role === 'buyer') { setSelectedId(n.listing_id); }
