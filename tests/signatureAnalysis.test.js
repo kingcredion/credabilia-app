@@ -18,8 +18,56 @@ test('analyze-signature handler validates identity, path ownership and quota, an
   assert.equal(calls,0);
 
   const result=await handler(request({path}));assert.equal(result.status,200);
-  assert.deepEqual(await result.json(),{label:'consistent',note:'The pen stroke looks natural, with normal pressure variation.',reference_match_count:null,reference_similarity:null});
+  assert.deepEqual(await result.json(),{label:'consistent',note:'The pen stroke looks natural, with normal pressure variation.',reference_match_count:null,reference_similarity:null,written:null});
   assert.equal(calls,1);
+});
+
+test('analyze-signature handler accepts a listing_id-validated path for a non-owner caller, and writes the opinion via a service-role RPC',async()=>{
+  const buyerId='22222222-2222-4222-8222-222222222222';
+  const sellerId='11111111-1111-4111-8111-111111111111';
+  const listingId='33333333-3333-4333-8333-333333333333';
+  const sigPath=sellerId+'/aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa.jpg';
+  let submitArgs=null,submitCalls=0;
+  const handler=createHandler({env:key=>key==='OPENAI_API_KEY'?'test-key':'test',
+    createClient:()=>({
+      auth:{getUser:async()=>({data:{user:{id:buyerId}}})},
+      storage:{from:()=>({download:async()=>({data:new Blob([new Uint8Array([255,216,255,0])],{type:'image/jpeg'})})})},
+      from:table=>{assert.equal(table,'listing_media');return {select:()=>({eq:()=>({eq:()=>({maybeSingle:async()=>({data:{path:sigPath}})})})})};},
+      rpc:async(name,args)=>{
+        if(name==='submit_signature_opinion'){submitCalls++;submitArgs=args;return {data:{written:true}};}
+        return {error:null};
+      },
+    }),
+    fetcher:async url=>{
+      if(url==='https://api.openai.com/v1/responses') return Response.json({status:'completed',output:[{type:'message',content:[{type:'output_text',text:JSON.stringify({label:'consistent',note:'Looks natural.'})}]}]});
+      throw new Error('unexpected fetch '+url);
+    }});
+  const request=body=>new Request('https://example.test',{method:'POST',headers:{Authorization:'Bearer test'},body:JSON.stringify(body)});
+  // Note: sigPath is prefixed with sellerId, not buyerId -- the whole point of this test is that
+  // the listing_id branch bypasses the uid-prefix check entirely, validating against the DB instead.
+  const result=await handler(request({path:sigPath,listing_id:listingId}));
+  assert.equal(result.status,200);
+  const data=await result.json();
+  assert.equal(data.label,'consistent');
+  assert.equal(data.written,true);
+  assert.equal(submitCalls,1);
+  assert.deepEqual(submitArgs,{p_listing_id:listingId,p_label:'consistent',p_note:'Looks natural.'});
+});
+
+test('analyze-signature handler rejects a listing_id path that is not that listing\'s actual signature media, without calling OpenAI',async()=>{
+  const buyerId='22222222-2222-4222-8222-222222222222';
+  const listingId='33333333-3333-4333-8333-333333333333';
+  let calls=0;
+  const handler=createHandler({env:()=>'test',
+    createClient:()=>({
+      auth:{getUser:async()=>({data:{user:{id:buyerId}}})},
+      from:()=>({select:()=>({eq:()=>({eq:()=>({maybeSingle:async()=>({data:null})})})})}),
+    }),
+    fetcher:async()=>{calls++;throw new Error('should not fetch');}});
+  const request=body=>new Request('https://example.test',{method:'POST',headers:{Authorization:'Bearer test'},body:JSON.stringify(body)});
+  const result=await handler(request({path:'someone/not-the-right-file.jpg',listing_id:listingId}));
+  assert.equal(result.status,403);
+  assert.equal(calls,0);
 });
 
 test('analyze-signature handler compares against the reference library when a subject is given',async()=>{

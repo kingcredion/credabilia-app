@@ -15,7 +15,22 @@ export function createHandler({createClient,env,fetcher=fetch}) {
       let body;try{body=JSON.parse(text);}catch{return reply({error:'Invalid request.'},400);}
       const path=body?.path;
       const subject=typeof body?.subject==='string' ? body.subject.trim().slice(0,120) : '';
-      if(typeof path!=='string' || !new RegExp('^'+identity.user.id+'/[0-9a-f-]{36}[.]jpg$').test(path)) return reply({error:'Choose one of your uploaded signature photos.'},403);
+      // listing_id present means this is a post-publish call (edit-time re-trigger, or a buyer's
+      // audit fallback) -- the path is checked against that listing's actual signature photo
+      // instead of the caller's own uid prefix, since ownership of the path no longer implies
+      // ownership of the right to analyze it (a buyer never owns the seller's photo path). This
+      // is safe because that exact photo is already visible to any signed-in user through the
+      // normal browse/audit flow (listing_media's own RLS already allows it for active listings) --
+      // no new exposure, just re-purposing an already-effectively-public read.
+      const listingId=typeof body?.listing_id==='string' && /^[0-9a-f-]{36}$/.test(body.listing_id) ? body.listing_id : null;
+      let pathOk=false;
+      if(listingId) {
+        const {data:sigRow}=await client.from('listing_media').select('path').eq('listing_id',listingId).eq('kind','signature').maybeSingle();
+        pathOk=typeof path==='string' && sigRow?.path===path;
+      } else {
+        pathOk=typeof path==='string' && new RegExp('^'+identity.user.id+'/[0-9a-f-]{36}[.]jpg$').test(path);
+      }
+      if(!pathOk) return reply({error:'Choose one of your uploaded signature photos.'},403);
       const {data:blob,error:downloadError}=await client.storage.from('listing-media').download(path);
       if(downloadError || !blob || blob.size>5242880 || blob.type!=='image/jpeg') return reply({error:'Signature photo could not be read.'},400);
       const bytes=new Uint8Array(await blob.arrayBuffer());
@@ -63,7 +78,20 @@ export function createHandler({createClient,env,fetcher=fetch}) {
           }
         } catch {}
       }
-      return reply({label,note,reference_match_count:referenceMatchCount,reference_similarity:referenceSimilarity});
+      // Post-publish calls (listing_id present) write the result themselves, server-side, right
+      // after this real OpenAI call succeeded -- via a service-role client the caller never has
+      // access to, so a stored opinion can only ever come from a call that actually ran. `written`
+      // tells the caller whether this is now the permanent value, or someone else's call already
+      // beat it there (write-once, enforced atomically in submit_signature_opinion).
+      let written=null;
+      if(listingId) {
+        try {
+          const serviceClient=createClient(env('SUPABASE_URL'),env('SUPABASE_SERVICE_ROLE_KEY'));
+          const {data:submitResult}=await serviceClient.rpc('submit_signature_opinion',{p_listing_id:listingId,p_label:label,p_note:note});
+          written=!!submitResult?.written;
+        } catch { written=false; }
+      }
+      return reply({label,note,reference_match_count:referenceMatchCount,reference_similarity:referenceSimilarity,written});
     } catch {return reply({error:'Signature review is temporarily unavailable. Your listing is safe.'},503);}
   };
 }

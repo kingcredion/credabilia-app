@@ -27,7 +27,7 @@ async function freshDb() {
   // Same migration list already proven to build cleanly in tests/adminTrustSafety.test.js, plus
   // 202609110006/150007 (edit_listing/create_listing_with_details are introduced there) and this
   // feature's own 3 new migrations appended at the end.
-  const MIGRATIONS = ['202609100001_foundation.sql','202609100002_certificates.sql','202609100003_credibility.sql','202609100004_media.sql','202609100005_extraction_quota.sql','202609110006_listing_edits.sql','202609150007_listing_details.sql','202609180010_collection_and_settings.sql','202609190011_listing_history.sql','202609200012_stripe_connect_payments.sql','202609210013_storefronts_and_dashboard.sql','202609220014_shipping.sql','202609230015_messaging.sql','202609240016_fees_shipping_rewards.sql','202609250018_escrow_and_insurance.sql','202609260021_support_chat.sql','202609270022_refund_requests.sql','202609280024_refund_partial_and_return.sql','202609290025_notifications.sql','202609300027_credibility_low_default.sql','202609300029_background_removal_png_uploads.sql','202609300030_require_background_removed_main_photo.sql','202609300031_fix_browse_listings_media_regression.sql','202609300032_push_notifications.sql','202609300033_buy_availability_confirmation.sql','202609300034_seller_ratings.sql','202609300035_auctions.sql','202609300038_klaviyo_events.sql','202609300039_klaviyo_content_type_fix.sql','202609300046_signature_media_kind.sql','202609300047_signature_analysis_quota.sql','202609300048_signature_credibility_blend.sql'];
+  const MIGRATIONS = ['202609100001_foundation.sql','202609100002_certificates.sql','202609100003_credibility.sql','202609100004_media.sql','202609100005_extraction_quota.sql','202609110006_listing_edits.sql','202609150007_listing_details.sql','202609180010_collection_and_settings.sql','202609190011_listing_history.sql','202609200012_stripe_connect_payments.sql','202609210013_storefronts_and_dashboard.sql','202609220014_shipping.sql','202609230015_messaging.sql','202609240016_fees_shipping_rewards.sql','202609250018_escrow_and_insurance.sql','202609260021_support_chat.sql','202609270022_refund_requests.sql','202609280024_refund_partial_and_return.sql','202609290025_notifications.sql','202609300027_credibility_low_default.sql','202609300029_background_removal_png_uploads.sql','202609300030_require_background_removed_main_photo.sql','202609300031_fix_browse_listings_media_regression.sql','202609300032_push_notifications.sql','202609300033_buy_availability_confirmation.sql','202609300034_seller_ratings.sql','202609300035_auctions.sql','202609300038_klaviyo_events.sql','202609300039_klaviyo_content_type_fix.sql','202609300046_signature_media_kind.sql','202609300047_signature_analysis_quota.sql','202609300048_signature_credibility_blend.sql','202609300049_background_removal_retry.sql','202609300056_auto_signature_opinion.sql'];
   for (const file of MIGRATIONS) await db.exec(await readFile(new URL('../supabase/migrations/'+file, import.meta.url), 'utf8'));
   async function as(user, role = 'authenticated') { await db.exec('reset role'); await db.query("select set_config('request.jwt.claim.sub',$1,false)", [user]); await db.exec('set role ' + role); }
   async function raw(sql, params) { await db.exec('reset role'); return db.query(sql, params); }
@@ -53,34 +53,70 @@ test('signature kind is accepted and capped at 1 in create_listing_with_media', 
   } finally { await db.close(); }
 });
 
-test('edit_listing stores the AI signature opinion, and the check constraint rejects an unrecognized label', async () => {
+test('submit_signature_opinion is write-once, requires a signature photo, and is service_role-only', async () => {
   const { db, as, raw } = await freshDb();
   const seller = '11111111-1111-4111-8111-111111111111';
-  const itemPath = seller + '/aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa.png';
+  const itemPath1 = seller + '/aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa.png';
+  const itemPath2 = seller + '/dddddddd-dddd-4ddd-8ddd-dddddddddddd.png';
+  const sigPath = seller + '/bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb.jpg';
   try {
     await raw('insert into auth.users(id) values($1)', [seller]);
     await as(seller);
-    await db.query("insert into storage.objects(bucket_id,name) values('listing-media',$1)", [itemPath]);
-    const id = (await db.query("select public.create_listing_with_media('Signature fixture','A fictional listing for testing.','Sports',3000,'',null,null,null,$1) as id", [JSON.stringify([{ path: itemPath, kind: 'item' }])])).rows[0].id;
+    for (const p of [itemPath1, itemPath2, sigPath]) await db.query("insert into storage.objects(bucket_id,name) values('listing-media',$1)", [p]);
+    const noSigId = (await db.query("select public.create_listing_with_media('Signature fixture','A fictional listing for testing.','Sports',3000,'',null,null,null,$1) as id", [JSON.stringify([{ path: itemPath1, kind: 'item' }])])).rows[0].id;
+    const sigId = (await db.query("select public.create_listing_with_media('Signature fixture','A fictional listing for testing.','Sports',3000,'',null,null,null,$1) as id", [JSON.stringify([{ path: itemPath2, kind: 'item' }, { path: sigPath, kind: 'signature' }])])).rows[0].id;
 
-    await db.query("select public.edit_listing($1,'Signature fixture','A fictional listing for testing.','Sports',3000,'',null,null,null,null,$2,'consistent','Looks like natural pen pressure.')",
-      [id, JSON.stringify({ title: 'Signature fixture', description: 'A fictional listing for testing.', category: 'Sports', price_cents: 3000, evidence: '' })]);
-    const stored = (await raw('select signature_ai_label,signature_ai_note from public.listings where id=$1', [id])).rows[0];
+    // Client-level RPC access is not granted (service_role-only) -- a signed-in seller cannot call it directly.
+    await assert.rejects(db.query("select public.submit_signature_opinion($1,'consistent','x')", [noSigId]), /permission denied/);
+
+    // No signature photo on the listing -- a service-role caller (raw = role reset) gets written:false, nothing stored.
+    let result = (await raw("select public.submit_signature_opinion($1,'consistent','No signature here.') as r", [noSigId])).rows[0].r;
+    assert.equal(result.written, false);
+
+    // Has a signature photo -- first call writes and is permanent.
+    result = (await raw("select public.submit_signature_opinion($1,'consistent','Looks like natural pen pressure.') as r", [sigId])).rows[0].r;
+    assert.equal(result.written, true);
+    let stored = (await raw('select signature_ai_label,signature_ai_note from public.listings where id=$1', [sigId])).rows[0];
     assert.equal(stored.signature_ai_label, 'consistent');
     assert.equal(stored.signature_ai_note, 'Looks like natural pen pressure.');
 
-    await assert.rejects(raw("update public.listings set signature_ai_label='definitely real' where id=$1", [id]), /violates check constraint/);
+    // Second call, even with a different label, is a no-op -- write-once, first writer wins.
+    result = (await raw("select public.submit_signature_opinion($1,'concerns','A different opinion.') as r", [sigId])).rows[0].r;
+    assert.equal(result.written, false);
+    stored = (await raw('select signature_ai_label,signature_ai_note from public.listings where id=$1', [sigId])).rows[0];
+    assert.equal(stored.signature_ai_label, 'consistent');
+    assert.equal(stored.signature_ai_note, 'Looks like natural pen pressure.');
+
+    await assert.rejects(raw("select public.submit_signature_opinion($1,'definitely real','x')", [sigId]), /Invalid label/);
+    // The column's own check constraint (defense in depth, unchanged by this feature) also rejects a bad value directly.
+    await assert.rejects(raw("update public.listings set signature_ai_label='definitely real' where id=$1", [sigId]), /violates check constraint/);
   } finally { await db.close(); }
 });
 
-test('consume_signature_analysis(): 5/hour limit, requires selling permission', async () => {
+test('consume_signature_analysis(): 5/hour limit, requires selling or auditing permission', async () => {
   const { db, as, raw } = await freshDb();
   const seller = '11111111-1111-4111-8111-111111111111';
+  const auditor = '22222222-2222-4222-8222-222222222222';
+  const neither = '33333333-3333-4333-8333-333333333333';
   try {
-    await raw('insert into auth.users(id) values($1)', [seller]);
+    await raw('insert into auth.users(id) values($1),($2),($3)', [seller, auditor, neither]);
+    await raw('update public.account_permissions set can_audit=false where user_id=$1', [seller]);
+    await raw('update public.account_permissions set can_sell=false where user_id=$1', [auditor]);
+    await raw('update public.account_permissions set can_sell=false,can_audit=false where user_id=$1', [neither]);
+
+    // Seller-only (can_sell=true, can_audit=false) still works, same as before this feature.
     await as(seller);
     for (let i = 0; i < 5; i++) await db.query('select public.consume_signature_analysis()');
     await assert.rejects(db.query('select public.consume_signature_analysis()'), /signature analysis limit/);
+
+    // Auditor-only (can_sell=false, can_audit=true) now works too -- the buyer-fallback trigger needs this.
+    await as(auditor);
+    await db.query('select public.consume_signature_analysis()');
+
+    // Neither permission -- still rejected.
+    await as(neither);
+    await assert.rejects(db.query('select public.consume_signature_analysis()'), /Selling or auditing permission required/);
+
     await assert.rejects(db.query('delete from public.signature_analysis_usage'), /permission denied/);
   } finally { await db.close(); }
 });

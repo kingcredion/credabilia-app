@@ -272,6 +272,15 @@ function CreateListing({ onClose, onCreated, relistFrom }) {
     if(tagsField && pendingDraft.tags.length) tagsField.value=pendingDraft.tags.join(', ');
     setPendingDraft(null);
   }, [pendingDraft, step]);
+  // Fires automatically the moment a signature photo exists with no opinion yet -- no seller click
+  // required. Declared after the pendingDraft-apply effect above so, within the same render commit
+  // (auto-crop sets both media and step together), the AI-drafted subject field is already written
+  // into the DOM before this reads it. Re-fires whenever signatureAi is cleared (MediaPicker's
+  // onChange resets it on any media change), so swapping in a new signature photo tries again too.
+  useEffect(() => {
+    if(!signaturePhoto || signatureAi || reviewingSignature) return;
+    reviewSignature();
+  }, [signaturePhoto?.path, signatureAi, reviewingSignature]);
   useEffect(() => {
     if(!pendingResume || step!=='form') return;
     const form=formRef.current;
@@ -370,8 +379,8 @@ function CreateListing({ onClose, onCreated, relistFrom }) {
       <MediaPicker service={service} media={media} onChange={next=>{setMedia(next);setSuggestion(null);setConfirmed(false);setSignatureAi(null);}} busy={working} onBusy={setUploading} onError={setError}/>
       {signaturePhoto && <div className="evidence-box"><h3>Signature AI opinion</h3>
         <p className="field-note">If AI spotted this automatically and it isn't actually a signature, remove the photo above in the Signature close-up section.</p>
-        {signatureAi ? <p className="field-note">{LABELS_AI[signatureAi.label]} — {signatureAi.note}</p> : <p className="field-note">Get a plain-language opinion on this signature — not a forensic authentication, and it improves as our signature library grows.</p>}
-        <button type="button" className="text-button" onClick={reviewSignature} disabled={working}>{reviewingSignature ? 'Reviewing…' : signatureAi ? 'Review again' : 'Get AI opinion'}</button>
+        {reviewingSignature && <p role="status" className="field-note">Reviewing signature…</p>}
+        {signatureAi && <p className="field-note">{LABELS_AI[signatureAi.label]} — {signatureAi.note}</p>}
       </div>}
       <label>Notes for AI <span className="optional">optional</span><textarea value={notes} onChange={event=>setNotes(event.target.value)} rows={3} maxLength={2000} placeholder="Add anything the photo won't show — who made it, when, condition, provenance…" disabled={working}/></label>
       <button type="button" className="text-button" onClick={draftListing} disabled={working || !media.some(asset=>asset.kind==='item')}>{drafting ? 'Drafting…' : 'Regenerate with AI'}</button>
@@ -416,9 +425,20 @@ function EditListing({item:currentItem,onClose,onSaved}) {
   const signaturePhoto=media.find(asset=>asset.kind==='signature');
   async function reviewSignature() {
     setReviewingSignature(true);setError('');
-    try {const result=await service.analyzeSignature(signaturePhoto.path,item.attributes?.subject);setSignatureAi(result);}
+    // item.id makes this a post-publish call -- the edge function validates the path against the
+    // listing's own signature media row (not the caller's uid) and writes the result itself via a
+    // service-role, write-once RPC, so re-triggering here can never overwrite an already-set opinion.
+    try {const result=await service.analyzeSignature(signaturePhoto.path,item.attributes?.subject,item.id);setSignatureAi(result);}
     catch(err){setError(err.message);}finally{setReviewingSignature(false);}
   }
+  // Auto-fires when a signature photo exists but item.signature_ai_label was never set (automatic
+  // trigger failed at creation, or the photo is newly added during this edit) -- no manual retry.
+  // If item.signature_ai_label was already set, signatureAi starts non-null (see useState above)
+  // and this never fires, matching "no one else can trigger" once an opinion is permanent.
+  useEffect(() => {
+    if(!signaturePhoto || signatureAi || reviewingSignature) return;
+    reviewSignature();
+  }, [signaturePhoto?.path, signatureAi, reviewingSignature]);
   const certificateChanged=certificate.certificate_issuer!==(item.certificate_issuer||'')||certificate.certificate_number!==(item.certificate_number||'')||certificate.certificate_company!==(item.certificate_company||'');
   async function submit(event) {
     event.preventDefault();if(working)return;
@@ -438,7 +458,7 @@ function EditListing({item:currentItem,onClose,onSaved}) {
           } catch { /* Photoroom unavailable right now -- save with the original photo; the retry-background-removal job picks it up automatically. */ }
         }
       }
-      await service.editListing(item,{...form,...certificate,media:finalMedia,price_cents:priceInCents(form.price),signature_ai_label:signatureAi?.label,signature_ai_note:signatureAi?.note},mediaTouched);
+      await service.editListing(item,{...form,...certificate,media:finalMedia,price_cents:priceInCents(form.price)},mediaTouched);
       onSaved();
     }
     catch(err){setError(err.message);setSaving(false);}
@@ -454,8 +474,9 @@ function EditListing({item:currentItem,onClose,onSaved}) {
       <label>Evidence notes<textarea name="evidence" defaultValue={item.evidence} maxLength={2000}/></label>
       <MediaPicker service={service} media={media} onChange={next=>{setMedia(next);setMediaTouched(true);setSignatureAi(null);}} busy={working} onBusy={setUploading} onError={setError}/>
       {signaturePhoto && <div className="evidence-box"><h3>Signature AI opinion</h3>
-        {signatureAi ? <p className="field-note">{LABELS_AI[signatureAi.label]} — {signatureAi.note}</p> : <p className="field-note">Get a plain-language opinion on this signature — not a forensic authentication, and it improves as our signature library grows.</p>}
-        <button type="button" className="text-button" onClick={reviewSignature} disabled={working}>{reviewingSignature ? 'Reviewing…' : signatureAi ? 'Review again' : 'Get AI opinion'}</button>
+        {reviewingSignature && <p role="status" className="field-note">Reviewing signature…</p>}
+        {signatureAi && <p className="field-note">{LABELS_AI[signatureAi.label]} — {signatureAi.note}</p>}
+        {!reviewingSignature && !signatureAi && <p className="field-note">No AI opinion recorded yet.</p>}
       </div>}
       <CertificateFields value={certificate} onChange={value=>{setCertificate(value);setConfirmed(false);}} disabled={working}/>
       {certificate.certificate_issuer && certificateChanged && <label className="certificate-confirm"><input type="checkbox" checked={confirmed} onChange={event=>setConfirmed(event.target.checked)} required disabled={working}/>I checked the company and number against my certificate.</label>}
@@ -1219,9 +1240,11 @@ function AuditQueue({ items, session, profile, onNeedLogin, onAudited }) {
   const [explanation, setExplanation] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
+  const [signatureBusy, setSignatureBusy] = useState(false);
+  const [signatureError, setSignatureError] = useState('');
   const current = queue[0];
 
-  function advance() { setQueue(list => list.slice(1)); setVerdict(null); setExplanation(''); setError(''); }
+  function advance() { setQueue(list => list.slice(1)); setVerdict(null); setExplanation(''); setError(''); setSignatureError(''); }
   function pickChip(value) { setVerdict(value); setExplanation(VERDICT_NOTES[value]); setError(''); }
 
   async function submit(event) {
@@ -1239,6 +1262,20 @@ function AuditQueue({ items, session, profile, onNeedLogin, onAudited }) {
   if (!current) return <div className="empty-state"><Layers size={34}/><h3>You're all caught up.</h3><p>New items will show up here as sellers publish them.</p></div>;
 
   const signaturePhoto = current.media?.find(asset => asset.kind === 'signature');
+  // The buyer-audit fallback: only reachable when automation never produced an opinion (API was
+  // down at creation, or an older listing predates auto-trigger). Own busy/error state, separate
+  // from the audit-submission form's -- this runs independently of submitting a verdict. Patches
+  // queue[0] directly since it's seeded once from the items prop and never re-syncs (a parent
+  // refresh wouldn't reach an already-mounted instance).
+  async function getSignatureOpinion() {
+    if (signatureBusy) return;
+    setSignatureBusy(true); setSignatureError('');
+    try {
+      const result = await service.analyzeSignature(signaturePhoto.path, current.attributes?.subject, current.id);
+      setQueue(list => [{ ...list[0], signature_ai_label: result.label, signature_ai_note: result.note }, ...list.slice(1)]);
+    } catch (err) { setSignatureError(err.message); }
+    finally { setSignatureBusy(false); }
+  }
   return <div className="form-stack audit-queue">
     <div className="queue-progress"><span>Item {total - queue.length + 1} of {total}</span><div className="queue-progress-bar"><div style={{ width: `${((total - queue.length) / total) * 100}%` }}/></div></div>
     <div className="evidence-box">
@@ -1254,7 +1291,11 @@ function AuditQueue({ items, session, profile, onNeedLogin, onAudited }) {
         <p className="field-note">Signature close-up</p>
         {signaturePhoto ? <>
           <PhotoGallery media={current.media} kind="signature" title={current.title}/>
-          {current.signature_ai_label ? <p className="field-note">AI opinion: {LABELS_AI[current.signature_ai_label]} — not verified. {current.signature_ai_note} Gets better as Credabilia's signature library grows.</p> : <p className="field-note">No AI opinion recorded yet.</p>}
+          {current.signature_ai_label ? <p className="field-note">AI opinion: {LABELS_AI[current.signature_ai_label]} — not verified. {current.signature_ai_note} Gets better as Credabilia's signature library grows.</p> : <>
+            <p className="field-note">No AI opinion recorded yet.</p>
+            {profile?.can_audit && <button type="button" className="text-button" onClick={getSignatureOpinion} disabled={signatureBusy}>{signatureBusy ? 'Reviewing…' : 'Get AI opinion'}</button>}
+            {signatureError && <p role="alert" className="error">{signatureError}</p>}
+          </>}
         </> : <p className="field-note">No signature photo provided.</p>}
       </div>
       <CertificateDetails item={current}/>
