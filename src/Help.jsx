@@ -3,7 +3,7 @@ import { Brand } from './Brand.jsx';
 
 export function HelpPage() {
   return <div className="legal-page">
-    <a className="legal-back" href="/"><Brand/></a>
+    <a className="legal-back brand" href="/"><Brand/></a>
     <h1>Help &amp; Contact</h1>
     <p className="legal-updated">We're here to help, day or night.</p>
 

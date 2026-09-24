@@ -5,7 +5,7 @@ const LAST_UPDATED = 'September 21, 2026';
 
 function LegalShell({ title, children }) {
   return <div className="legal-page">
-    <a className="legal-back" href="/"><Brand/></a>
+    <a className="legal-back brand" href="/"><Brand/></a>
     <h1>{title}</h1>
     <p className="legal-updated">Last updated: {LAST_UPDATED}</p>
     {children}
