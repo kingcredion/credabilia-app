@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">Credabilia</string>
+    <string name="title_activity_main">Credabilia</string>
+    <string name="package_name">com.credabilia.app</string>
+    <string name="custom_url_scheme">com.credabilia.app</string>
+</resources>
