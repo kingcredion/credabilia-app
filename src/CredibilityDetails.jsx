@@ -1,4 +1,5 @@
 import React from 'react';
+import { Check, ClipboardCheck, ArrowRight } from 'lucide-react';
 
 // Reused on the marketplace grid card (compact, no label) and on the full item-credibility
 // section below (full width, alongside the numeric breakdown already in the text around it).
@@ -14,13 +15,16 @@ export function CredibilityMeter({ score, compact }) {
   </span>;
 }
 
-export default function CredibilityDetails({ item }) {
+export default function CredibilityDetails({ item, session, own, auditedLabel, onAudit }) {
   if (!Number.isFinite(item.credibility_score)) return null;
   return <section className="evidence-box" aria-label="Item credibility">
     <h3>Item credibility · {item.credibility_score}/100</h3>
     <CredibilityMeter score={item.credibility_score}/>
     <p>{item.certificate_supplied ? `Issuer rating: ${item.certificate_score}/100` : 'No certificate provided'} · {item.certificate_weight}% of the score</p>
     <p>Community: {item.credibility_audit_count ? `${item.community_score}/100` : 'No audits yet'} · {item.community_weight}% of the score</p>
+    {session && !own && (auditedLabel
+      ? <p className="field-note"><Check size={14}/> You audited this — {auditedLabel}</p>
+      : <button type="button" className="primary compact" onClick={onAudit}><ClipboardCheck size={16}/>Audit this item<ArrowRight size={16}/></button>)}
     <details><summary>How this score works</summary>
       <p>Credabilia combines the listed certificate issuer's rating with community assessments. Company ratings are Credabilia's product settings. Seller-provided certificate details have not been checked with the issuer by Credabilia.</p>
       <p>Community assessments start with five neutral baseline votes so one opinion has limited influence. Each assessment currently has equal weight. “Looks consistent” contributes 100, “Need more evidence” 50, and “I see concerns” 0.</p>
