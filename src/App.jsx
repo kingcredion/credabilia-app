@@ -1400,9 +1400,19 @@ const VERDICT_NOTES = {
 };
 const LABELS_AI = { consistent: 'looks consistent', inconclusive: 'inconclusive', concerns: 'flagged a concern' };
 
-function AuditQueue({ items, session, profile, onNeedLogin, onAudited }) {
-  const [queue, setQueue] = useState(items);
+function AuditQueue({ items, session, profile, onNeedLogin, onAudited, focusItemId, onFocused }) {
+  // Deep-linked from an item's own detail page ("Audit this item") -- move that item to the
+  // front of the queue once, so the person lands on the exact item they came from instead of
+  // whatever happened to be first. A plain useState(items) would ignore focusItemId entirely.
+  const [queue, setQueue] = useState(() => {
+    const idx = focusItemId ? items.findIndex(item => item.id === focusItemId) : -1;
+    if (idx <= 0) return items;
+    const reordered = items.slice();
+    const [target] = reordered.splice(idx, 1);
+    return [target, ...reordered];
+  });
   const [total] = useState(items.length);
+  useEffect(() => { if (focusItemId) onFocused?.(); }, []);
   const [verdict, setVerdict] = useState(null);
   const [explanation, setExplanation] = useState('');
   const [busy, setBusy] = useState(false);
@@ -1517,6 +1527,7 @@ export default function App() {
   const [sales, setSales] = useState([]), [sellerTab, setSellerTab] = useState('active');
   const [buyRequests, setBuyRequests] = useState([]), [sellerBuyRequests, setSellerBuyRequests] = useState([]);
   const [notifications, setNotifications] = useState([]), [focusPurchaseId, setFocusPurchaseId] = useState(null);
+  const [focusAuditItemId, setFocusAuditItemId] = useState(null);
   const [revision, setRevision] = useState(0);
   const refresh = () => setRevision(v => v + 1);
   useEffect(() => {
@@ -1605,6 +1616,7 @@ export default function App() {
   const filtered = eligible.filter(item => (category === 'All items' || item.category === category) && listingMatches(item, query));
   const collectionItems = workspace === 'collector' && collectionFilter === 'owned' ? purchases : filtered;
   const switchWorkspace = value => { setWorkspace(value); setSelectedId(null); setCategory('All items'); setQuery(''); setError(''); setCollectionFilter('all'); setSellerTab('active'); window.scrollTo({ top: 0 }); };
+  function auditItem(id) { setFocusAuditItemId(id); switchWorkspace('auditor'); }
   function focusNotification(n) {
     setModal(null);
     if (n.role === 'buyer') { setSelectedId(n.listing_id); }
@@ -1646,14 +1658,6 @@ export default function App() {
       setNotice(available ? 'The buyer has been notified — they can now complete checkout.' : 'The buyer has been notified this item is no longer available.');
     } catch (err) { setError(err.message); } finally { setBusy(false); }
   }
-  async function submitAudit(event) {
-    event.preventDefault(); if (busy) return; setBusy(true); setError('');
-    try {
-      const form = Object.fromEntries(new FormData(event.currentTarget));
-      const result = await service.submitAudit(selectedId, form);
-      setNotice(result.xp_earned ? 'Audit recorded. +5 participation XP.' : 'Your audit is already recorded.'); refresh();
-    } catch (err) { setError(err.message); } finally { setBusy(false); }
-  }
   return <div className="app">
     {service.mode === 'demo' && <div className="demo-banner"><span><span className="live-dot"/> LOCAL PREVIEW <span className="banner-detail">· Sample items and two practice accounts. No real login or purchases.</span></span><button onClick={async () => { await service.reset(); setSelectedId(null); setWorkspace('collector'); refresh(); }}>Reset demo</button></div>}
     <header className="topbar">
@@ -1676,7 +1680,7 @@ export default function App() {
         {notice && <div className="message success" role="status"><Check size={18}/><span>{notice}</span><button onClick={() => setNotice('')} aria-label="Dismiss notification"><X size={16}/></button></div>}
         {workspace === 'auditor' ? <>
           <section className="hero"><div className="hero-copy"><p className="eyebrow"><span className="small-line"/>OBSERVATION OVER ASSUMPTION</p><h1>Look closer.<br/><em>Share what you see.</em></h1><p>Help collectors make informed decisions. Review evidence, explain your reasoning, and keep learning.</p></div><div className="hero-mascot"><img src={HERO_IMAGES.auditor.src} width={HERO_IMAGES.auditor.width} height={HERO_IMAGES.auditor.height} alt={HERO_IMAGES.auditor.alt}/></div></section>
-          <AuditQueue key={session?.user?.id || 'anon'} items={filtered} session={session} profile={profile} onNeedLogin={() => setModal('login')} onAudited={result => { setNotice(result.xp_earned ? 'Audit recorded. +5 participation XP.' : 'Your audit is already recorded.'); refresh(); }}/>
+          <AuditQueue key={session?.user?.id || 'anon'} items={filtered} session={session} profile={profile} onNeedLogin={() => setModal('login')} onAudited={result => { setNotice(result.xp_earned ? 'Audit recorded. +5 participation XP.' : 'Your audit is already recorded.'); refresh(); }} focusItemId={focusAuditItemId} onFocused={() => setFocusAuditItemId(null)}/>
         </> : selected ? <>
           <button className="back-button" onClick={() => setSelectedId(null)}><ArrowLeft size={17}/>Back to listings</button>
           {own && profile?.can_sell && <button className="text-button" onClick={()=>setModal('edit')}>Edit listing</button>}
@@ -1684,15 +1688,10 @@ export default function App() {
           {session && !own && <button className="text-button" onClick={()=>toggleFavorite(selected.id)}><Heart size={16} fill={favoriteIds.includes(selected.id) ? 'currentColor' : 'none'}/>{favoriteIds.includes(selected.id) ? 'Saved' : 'Save to collection'}</button>}
           {session && !own && <ReportButton targetType="listing" targetId={selected.id} label="Report listing"/>}
           {session && !own && <BlockSellerButton sellerId={selected.seller_id}/>}
+          {session && !own && (previousAudit
+            ? <span className="field-note"><Check size={14}/> You audited this — {LABELS[previousAudit.verdict]}</span>
+            : <button className="text-button" onClick={()=>auditItem(selected.id)}><ClipboardCheck size={16}/>Audit this item</button>)}
           <div className="detail-grid"><div>{selected.media?.some(asset=>asset.kind==='item') ? <PhotoGallery key={selected.id} media={selected.media} title={selected.title}/> : <ItemArt kind={selected.artwork} category={selected.category} large/>}<PhotoGallery key={selected.id+'cert'} media={selected.media} kind="certificate" title={selected.title}/></div><section className="item-info"><span className="pill">{selected.category}</span><h1>{selected.title}</h1><p className="seller-name">Shared by {selected.seller_name}{selected.seller_rating_count > 0 && <> · <RatingStars value={selected.seller_rating_avg} count={selected.seller_rating_count}/></>} · Member since {new Date(selected.seller_member_since).getFullYear()}{selected.seller_sales_count > 0 && <> · {selected.seller_sales_count} {selected.seller_sales_count === 1 ? 'sale' : 'sales'}</>}</p><p className="detail-price">{money(selected.price_cents)}</p>{selected.listing_type==='auction' && <p className="field-note">{selected.bid_count} {selected.bid_count===1?'bid':'bids'} · {auctionTimeLeft(selected.auction_ends_at)}</p>}{session && !own && <>{service.mode==='live' && !selected.seller_charges_enabled && <p className="field-note">This seller hasn't finished payment setup yet.</p>}{myRequest?.status==='confirmed' ? <><p className="field-note">{selected.listing_type==='auction' ? 'You won this auction!' : 'The seller confirmed this is still available.'}</p><button className="primary" disabled={busy} onClick={()=>setModal('checkout-address')}>Continue to checkout<ArrowRight size={16}/></button></> : myRequest?.status==='pending' ? <p role="status" className="field-note">Waiting for the seller to confirm this item is still available…</p> : selected.listing_type==='auction' ? <AuctionBidBox item={selected} onBid={refresh}/> : <button className="primary" disabled={busy || (service.mode==='live' && !selected.seller_charges_enabled)} onClick={()=>requestToBuy(selected.id)}>{busy ? 'Processing…' : 'Ask to buy'}<ArrowRight size={16}/></button>}</>}<p>{selected.description}</p><ListingDetailSummary item={selected}/><div className="evidence-box"><h3><ShieldCheck size={18}/>Evidence notes</h3><p>{selected.evidence || 'No evidence has been provided yet. Ask for more information before reaching a conclusion.'}</p></div><CertificateDetails key={selected.id} item={selected}/><CredibilityDetails item={selected}/><ItemHistory key={selected.id+selected.version} item={selected} service={service}/><TriviaPanel key={selected.id} item={selected} service={service} signedIn={!!session}/><p className="field-note">Community assessments are opinions, not professional authentication.</p></section></div>
-          <section className="audit-panel"><div><p className="eyebrow">LOOK CLOSER</p><h2>What does the evidence tell you?</h2><p className="muted">Explain what you observed. “Need more evidence” is a useful answer.</p></div>
-            {!session ? <button className="primary" onClick={() => setModal('login')}>Sign in to audit <ArrowRight size={16}/></button>
-              : own ? <p className="empty-inline">This is your listing. Other members can submit assessments.</p>
-              : previousAudit ? <div className="recorded"><Check size={20}/><div><strong>Your assessment is recorded</strong><p>{LABELS[previousAudit.verdict]} · {previousAudit.explanation}</p></div></div>
-              : !profile ? <p role="status">{loading ? 'Loading your account…' : 'Account details could not be loaded. Refresh to try again.'}</p>
-              : !profile.can_audit ? <p>Auditing isn’t enabled for your account.</p>
-              : <form onSubmit={submitAudit} className="form-stack"><fieldset><legend>Your assessment</legend><div className="verdicts">{Object.entries(LABELS).map(([value, label]) => <label key={value}><input type="radio" name="verdict" value={value} required/>{label}</label>)}</div></fieldset><label>Explain your reasoning<textarea name="explanation" required minLength={20} maxLength={2000} rows={3} placeholder="Point to a specific detail, explain your concern, or describe what evidence is missing…"/></label><div className="submit-row"><span>One assessment per item · +5 participation XP</span><button className="primary" disabled={busy}>{busy ? 'Recording…' : 'Submit audit'}<ArrowRight size={17}/></button></div></form>}
-          </section>
         </> : ownedItem ? <>
           <button className="back-button" onClick={() => setSelectedId(null)}><ArrowLeft size={17}/>Back to listings</button>
           <div className="detail-grid"><div>{ownedItem.media?.some(asset=>asset.kind==='item') ? <PhotoGallery key={ownedItem.id} media={ownedItem.media} title={ownedItem.title}/> : <ItemArt category={ownedItem.category} large/>}<PhotoGallery key={ownedItem.id+'cert'} media={ownedItem.media} kind="certificate" title={ownedItem.title}/></div><section className="item-info"><span className="pill">{ownedItem.category}</span><h1>{ownedItem.title}</h1><p className="seller-name">Purchased {new Date(ownedItem.purchased_at).toLocaleDateString()}</p><p className="detail-price">{money(ownedItem.price_cents)}</p><p>{ownedItem.description}</p><ListingDetailSummary item={ownedItem}/><PurchasedItemFulfillment item={ownedItem} onConfirmed={refresh}/><BuyerRefundPanel item={ownedItem} onRequested={refresh}/><SellerRatingForm item={ownedItem} onRated={refresh}/><MessageThread purchaseId={ownedItem.purchase_id} service={service} session={session} counterpartyLabel="seller" messageCount={ownedItem.message_count} autoOpen={focusPurchaseId === ownedItem.purchase_id} onFocused={() => setFocusPurchaseId(null)} onRead={refresh}/><CertificateDetails item={ownedItem}/><button className="primary" onClick={()=>setModal('relist')}><RefreshCw size={16}/>Relist this item</button></section></div>
