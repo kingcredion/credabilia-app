@@ -31,9 +31,9 @@ export function TriviaPanel({ item, service, signedIn }) {
   if (trivia === undefined) return null;
   const answered = trivia && trivia.correct_index !== undefined;
   return <section className="evidence-box" aria-label="Item trivia">
-    <h3>Test your eye</h3>
+    <h3>Trivia time</h3>
     {!trivia && <>
-      <p className="field-note">Generate one learning question about this item — what to look for, not whether it's authentic.</p>
+      <p className="field-note">Generate a fun trivia question about this item, its team, or the person behind it.</p>
       {signedIn ? <button type="button" className="text-button" onClick={generate} disabled={busy}>{busy ? 'Writing a question…' : 'Generate a question'}</button>
         : <p className="field-note">Sign in to generate a question for this item.</p>}
     </>}
