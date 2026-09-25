@@ -12,6 +12,14 @@
   box-shadow: 0 4px 24px var(--showroom-shadow);
   backdrop-filter: blur(16px);
   -webkit-backdrop-filter: blur(16px);
+  /* backdrop-filter forces a new stacking context on this element (same as filter/transform),
+     which traps its absolutely-positioned dropdowns (theme toggle, notification bell) inside it
+     -- without an explicit position+z-index here, that trapped context sits at the same implicit
+     level as .page-layout/.hero right after it in the DOM, and later-DOM-order wins ties, so the
+     hero section painted over the dropdowns and made them unclickable. Elevating the whole topbar
+     above that level fixes it for everything nested inside, not just one dropdown at a time. */
+  position: relative;
+  z-index: 20;
 }
 .app .hero {
   border-radius: 24px;
