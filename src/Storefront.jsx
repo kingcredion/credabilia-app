@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
-import { ShieldCheck, ArrowUpRight, Layers } from 'lucide-react';
+import { ArrowUpRight, Layers } from 'lucide-react';
+import { Brand } from './Brand.jsx';
 import { ItemArt, money, RatingStars } from './ItemArt.jsx';
 
 export function Storefront({ slug, service, onBack }) {
@@ -12,7 +13,7 @@ export function Storefront({ slug, service, onBack }) {
   }, [slug]);
   return <div className="app">
     <header className="topbar">
-      <button className="brand" onClick={onBack} aria-label="Credabilia home"><ShieldCheck size={28} strokeWidth={1.7}/>credabilia<span>®</span></button>
+      <button className="brand" onClick={onBack} aria-label="Credabilia home"><Brand/></button>
       <button className="primary compact" onClick={onBack}>Join Credabilia <ArrowUpRight size={16}/></button>
     </header>
     <div className="page-layout">

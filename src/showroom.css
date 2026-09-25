@@ -1,0 +1,124 @@
+/* Shared brand surfaces across the marketplace, account flows and public pages. */
+:root {
+  --showroom-blue: #164eb0;
+  --showroom-emerald: #08745c;
+  --showroom-gold: #b3832e;
+  --showroom-glass: #fffdf5e8;
+  --showroom-shadow: #163b3920;
+  background: radial-gradient(ellipse at 90% 10%, #168c7810, transparent 55%), var(--bg);
+}
+.app .topbar {
+  background: var(--showroom-glass);
+  box-shadow: 0 4px 24px var(--showroom-shadow);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+}
+.app .hero {
+  border-radius: 24px;
+  border: 1px solid color-mix(in srgb, var(--brand-teal) 25%, var(--surface));
+  background: radial-gradient(ellipse at 85% 25%, #d8ac4430, transparent 45%),
+    linear-gradient(120deg, color-mix(in srgb, var(--surface) 93%, #347bea), color-mix(in srgb, var(--surface) 80%, #16a085));
+  box-shadow: 0 16px 42px var(--showroom-shadow, var(--shadow-card));
+  overflow: hidden;
+}
+.app .hero h1 { color: var(--text); line-height: 1.12; }
+.app .hero h1 em { color: var(--showroom-emerald); }
+.primary:not(.danger) {
+  background: linear-gradient(110deg, #164eb0, #08745c);
+  color: #fff;
+  border: 1px solid #ffffff26;
+  border-radius: 12px;
+  box-shadow: 0 6px 18px #074b552b;
+}
+.primary:not(.danger):hover { background: linear-gradient(110deg, #103d91, #055e4a); }
+.app .workspace.selected {
+  background: linear-gradient(110deg, var(--selected-bg), color-mix(in srgb, var(--selected-bg) 85%, var(--brand-gold)));
+  box-shadow: inset 3px 0 var(--showroom-gold);
+  border-radius: 12px;
+}
+.app .nav-current::after { background: var(--showroom-gold); }
+.app .learning-card { border-radius: 16px; }
+.app .values-strip { color: var(--brand-teal); }
+.app .listings-section .item-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 18px;
+  box-shadow: 0 6px 20px var(--showroom-shadow);
+  overflow: hidden;
+}
+.app .listings-section .item-card-content { padding: 22px; }
+.app .search { background: var(--surface); border-radius: 12px; }
+.app .categories button { border-radius: 999px; }
+.app .community-note {
+  border-radius: 18px;
+  background: linear-gradient(115deg, var(--surface), var(--selected-bg));
+}
+@media (hover: hover) and (prefers-reduced-motion: no-preference) {
+  .app .listings-section button.item-card { transition: transform .2s ease, box-shadow .2s ease; }
+  .app .listings-section button.item-card:hover { transform: translateY(-4px); box-shadow: 0 14px 30px var(--showroom-shadow); }
+}
+:root[data-theme="dark"] {
+  --showroom-glass: #142824ed;
+  --showroom-emerald: #65dec0;
+  --showroom-gold: #e2b967;
+  --showroom-shadow: #00000045;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --showroom-glass: #142824ed;
+    --showroom-emerald: #65dec0;
+    --showroom-gold: #e2b967;
+    --showroom-shadow: #00000045;
+  }
+}
+@media (max-width: 600px) {
+  .app .hero { border-radius: 20px; }
+  .app .hero-copy { padding: 28px 24px 12px; }
+  .app .hero h1 { font-size: clamp(32px, 8.5vw, 42px); }
+  .app .listings-section .item-card-content { padding: 18px; }
+}
+
+
+/* Solid reading surfaces keep forms, financial details and evidence legible. */
+.app { min-height: 100vh; }
+.audit-panel, .evidence-box, .empty-state, .recorded, .empty-inline {
+  border-radius: 16px;
+}
+.audit-panel, dialog, .notif-panel {
+  border-color: color-mix(in srgb, var(--brand-teal) 22%, var(--border));
+  box-shadow: 0 12px 32px var(--showroom-shadow);
+}
+.evidence-box {
+  background: linear-gradient(125deg, var(--surface), var(--surface-2));
+  border-color: var(--border);
+}
+.stat-grid .evidence-box { border-top: 3px solid var(--showroom-gold); }
+.stat-grid strong, .detail-price { color: var(--brand-teal); }
+dialog { border-radius: 22px; }
+.dialog-header { padding-bottom: 16px; border-bottom: 1px solid var(--border); }
+.form-stack input:not([type=checkbox]):not([type=radio]), .form-stack select, .form-stack textarea,
+.form-row > input, .google-button { border-radius: 10px; }
+.form-row > input { min-width: 0; padding: 11px 12px; border: 1px solid var(--border); background: var(--surface); color: var(--text); }
+.verdicts label { border-radius: 12px; }
+.verdicts label:has(input:checked) { border-color: var(--brand-teal); background: var(--selected-bg); }
+.notif-panel { border-radius: 16px; }
+.notif-row { border-radius: 10px; }
+.bottom-nav { background: var(--showroom-glass); backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px); box-shadow: 0 -4px 24px var(--showroom-shadow); }
+.bottom-nav-item.active .bottom-nav-indicator { box-shadow: inset 0 -2px var(--showroom-gold); }
+.gallery-main, .item-art.large { border-radius: 20px; border: 1px solid var(--border); }
+.support-message .recorded { min-width: 0; overflow-wrap: anywhere; }
+.legal-page { background: var(--surface); border: 1px solid var(--border); border-radius: 22px; box-shadow: 0 12px 36px var(--showroom-shadow); margin: 32px auto; }
+.legal-page h1 { color: var(--brand-teal); }
+.legal-page h2 { border-top: 1px solid var(--border); padding-top: 24px; }
+.legal-page .legal-back { max-width: 100%; }
+.item-card:is(a) { color: var(--text); text-decoration: none; }
+@media (max-width: 600px) {
+  .legal-page { margin: 12px; padding: 24px 20px 48px; }
+  .legal-page .brand-lockup { flex-wrap: wrap; }
+  .legal-page h1 { font-size: 28px; }
+  dialog { padding: 22px 18px; }
+  .form-row > input { font-size: 16px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .item-card:hover { transform: none; }
+}
