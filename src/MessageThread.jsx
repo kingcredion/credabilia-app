@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { MessageCircle } from 'lucide-react';
 
 export function MessageThread({ purchaseId, service, session, counterpartyLabel, messageCount, autoOpen, onFocused, onRead }) {
@@ -7,6 +7,9 @@ export function MessageThread({ purchaseId, service, session, counterpartyLabel,
   const [error, setError] = useState('');
   const [body, setBody] = useState('');
   const [busy, setBusy] = useState(false);
+  const logRef = useRef(null);
+
+  useEffect(() => { logRef.current?.scrollTo({ top: logRef.current.scrollHeight, behavior: 'smooth' }); }, [messages]);
 
   async function load() {
     setError('');
@@ -34,7 +37,7 @@ export function MessageThread({ purchaseId, service, session, counterpartyLabel,
     <h3><MessageCircle size={18}/>Message {counterpartyLabel}</h3>
     {messages === undefined ? <p role="status" className="field-note">Loading messages…</p>
       : !messages.length ? <p className="field-note">No messages yet. Say hello.</p>
-      : messages.map(message => <div key={message.id} className="recorded"><div><strong>{message.sender_id === session?.user.id ? 'You' : message.sender_name}</strong><p>{message.body}</p></div></div>)}
+      : <div className="chat-log" ref={logRef}>{messages.map(message => <div key={message.id} className={`recorded chat-bubble ${message.sender_id === session?.user.id ? 'mine' : 'theirs'}`}><div><strong>{message.sender_id === session?.user.id ? 'You' : message.sender_name}</strong><p>{message.body}</p></div></div>)}</div>}
     {error && <p role="alert" className="error">{error}</p>}
     <form className="form-row" onSubmit={submit}>
       <label>Your message<textarea value={body} onChange={event => setBody(event.target.value)} rows={2} maxLength={2000} placeholder="Ask a question about this order…" disabled={busy}/></label>
