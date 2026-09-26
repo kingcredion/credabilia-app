@@ -505,7 +505,13 @@ export function createDemoService(storage = window.localStorage) {
         audits_received:state.audits.filter(a=>state.listings.find(item=>item.id===a.listing_id)?.seller_id===state.userId).length,
       };
     },
-    async listings() { return state.listings.filter(item => item.status === 'active').map(item => { const current=state.audits.filter(a => a.listing_id === item.id && (a.listing_version||1) === (item.version||1)); const {avg,count}=sellerRatingStats(item.seller_id); return { ...item, ...credibilityScore(item,current), audit_count: current.length, seller_member_since:new Date().toISOString(), seller_sales_count:state.purchases.filter(p=>p.seller_id===item.seller_id).length, seller_rating_avg:avg, seller_rating_count:count }; }); },
+    async listings(after) {
+      const scored = state.listings.filter(item => item.status === 'active').map(item => { const current=state.audits.filter(a => a.listing_id === item.id && (a.listing_version||1) === (item.version||1)); const {avg,count}=sellerRatingStats(item.seller_id); return { ...item, ...credibilityScore(item,current), audit_count: current.length, seller_member_since:new Date().toISOString(), seller_sales_count:state.purchases.filter(p=>p.seller_id===item.seller_id).length, seller_rating_avg:avg, seller_rating_count:count }; })
+        .sort((a,b) => a.created_at === b.created_at ? (a.id < b.id ? 1 : -1) : (a.created_at < b.created_at ? 1 : -1));
+      if (!after) return scored;
+      const idx = scored.findIndex(item => item.created_at === after.created_at && item.id === after.id);
+      return idx === -1 ? [] : scored.slice(idx + 1);
+    },
     async myAudits() { requireUser(); return state.audits.filter(a => a.auditor_id === state.userId); },
     async getListingHistory(listingId) {
       return state.revisions.filter(r=>r.listing_id===listingId).map(r=>({...r,

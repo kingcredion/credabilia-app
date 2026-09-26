@@ -46,7 +46,7 @@ export function makeService() {
       return { ...unwrap(profile), ...unwrap(permission), ...unwrap(progress),
         stripe_charges_enabled: stripe?.charges_enabled || false, stripe_details_submitted: stripe?.details_submitted || false };
     },
-    async listings() { return signMedia(unwrap(await client.rpc('browse_listings_with_certificates'))); },
+    async listings(after) { return signMedia(unwrap(await client.rpc('browse_listings_with_certificates', after ? { p_after_created_at: after.created_at, p_after_id: after.id } : {}))); },
     async uploadImage(blob,kind) {
       const user=unwrap(await client.auth.getUser()).user;
       if(!user) throw new Error('Sign in to add photos.');

@@ -22,6 +22,9 @@ import { SupportChat } from './SupportChat.jsx';
 import { CATEGORIES, WORKSPACES, priceInCents } from './domain.js';
 
 const service = makeService();
+// Matches browse_listings()'s own per-call ceiling (supabase/migrations/202609300063_browse_pagination.sql) --
+// a page this size back means there may be more past it, worth offering "Load more" for.
+const LISTINGS_PAGE_SIZE = 300;
 const LABELS = { authentic: 'Looks consistent', uncertain: 'Need more evidence', concerns: 'I see concerns' };
 const HERO_IMAGES = {
   collector: { src: '/brand/king-credion-memorabilia-concept-v1.png', width: 1166, height: 1349, alt: 'King Credion holding a signed baseball beside a basketball and framed jersey' },
@@ -1528,6 +1531,7 @@ export default function App() {
   const [buyRequests, setBuyRequests] = useState([]), [sellerBuyRequests, setSellerBuyRequests] = useState([]);
   const [notifications, setNotifications] = useState([]), [focusPurchaseId, setFocusPurchaseId] = useState(null);
   const [focusAuditItemId, setFocusAuditItemId] = useState(null);
+  const [itemsHasMore, setItemsHasMore] = useState(false), [loadingMore, setLoadingMore] = useState(false);
   const [revision, setRevision] = useState(0);
   const refresh = () => setRevision(v => v + 1);
   useEffect(() => {
@@ -1552,7 +1556,7 @@ export default function App() {
     if (service.mode === 'unconfigured' || storefrontSlug || legalPage) return;
     let alive = true; setLoading(true);
     Promise.all([service.listings(), session ? service.profile(session.user.id) : null, session ? service.myAudits() : [], session ? service.myFavoriteIds() : [], session ? service.myPurchases() : [], session ? service.mySales() : [], session ? service.myNotifications() : [], session ? service.myOpenBuyRequests() : [], session ? service.myBuyRequests() : []])
-      .then(([listings, account, myAudits, favorites, myPurchases, mySales, myNotifications, myOpenBuyRequests, myBuyRequests]) => { if (alive) { setItems(listings); setProfile(account); setAudits(myAudits); setFavoriteIds(favorites); setPurchases(myPurchases); setSales(mySales); setNotifications(myNotifications); setBuyRequests(myOpenBuyRequests); setSellerBuyRequests(myBuyRequests); } })
+      .then(([listings, account, myAudits, favorites, myPurchases, mySales, myNotifications, myOpenBuyRequests, myBuyRequests]) => { if (alive) { setItems(listings); setItemsHasMore(listings.length >= LISTINGS_PAGE_SIZE); setProfile(account); setAudits(myAudits); setFavoriteIds(favorites); setPurchases(myPurchases); setSales(mySales); setNotifications(myNotifications); setBuyRequests(myOpenBuyRequests); setSellerBuyRequests(myBuyRequests); } })
       .catch(err => { if (alive) setError(err.message); }).finally(() => { if (alive) setLoading(false); });
     return () => { alive = false; };
   }, [session, revision, authReady]);
@@ -1617,6 +1621,16 @@ export default function App() {
   const collectionItems = workspace === 'collector' && collectionFilter === 'owned' ? purchases : filtered;
   const switchWorkspace = value => { setWorkspace(value); setSelectedId(null); setCategory('All items'); setQuery(''); setError(''); setCollectionFilter('all'); setSellerTab('active'); window.scrollTo({ top: 0 }); };
   function auditItem(id) { setFocusAuditItemId(id); switchWorkspace('auditor'); }
+  async function loadMore() {
+    if (!items.length) return;
+    setLoadingMore(true);
+    try {
+      const last = items[items.length - 1];
+      const more = await service.listings({ created_at: last.created_at, id: last.id });
+      setItems(list => [...list, ...more]);
+      setItemsHasMore(more.length >= LISTINGS_PAGE_SIZE);
+    } catch (err) { setError(err.message); } finally { setLoadingMore(false); }
+  }
   function focusNotification(n) {
     setModal(null);
     if (n.role === 'buyer') { setSelectedId(n.listing_id); }
@@ -1709,6 +1723,7 @@ export default function App() {
             {collectionFilter !== 'owned' && <div className="filters"><div className="categories" aria-label="Filter by category">{['All items', ...CATEGORIES].map(c => <button key={c} aria-pressed={category === c} className={category === c ? 'active' : ''} onClick={() => setCategory(c)}>{c}</button>)}</div><label className="search"><Search size={17}/><input aria-label="Search listings" value={query} onChange={e => setQuery(e.target.value)} placeholder="Find your next discovery"/></label></div>}
             {loading ? <p role="status" className="empty-state">Loading the collection…</p> : !collectionItems.length ? <div className="empty-state"><Layers size={34}/><h3>{workspace === 'seller' ? 'Your first listing starts here.' : collectionFilter === 'owned' ? 'Nothing purchased yet.' : collectionFilter === 'saved' ? 'Nothing saved yet.' : 'No items here yet.'}</h3><p>{workspace === 'seller' ? 'Add a piece and tell its story.' : collectionFilter === 'owned' ? 'Items you buy will show up here.' : collectionFilter === 'saved' ? 'Tap the heart on an item to save it here.' : 'Try a different category or search.'}</p>{workspace === 'seller' && <button className="primary" onClick={openCreate}>Create a listing <Plus size={17}/></button>}</div>
               : <div className="items-grid">{collectionItems.map(item => <button className="item-card" key={item.id} onClick={() => { setSelectedId(item.id); window.scrollTo({ top: 0 }); }} aria-label={`View ${item.title}`}><ItemArt kind={item.artwork} category={item.category} photo={item.media?.find(asset=>asset.kind==='item')?.url}/><div className="item-card-content"><div className="card-meta"><span>{item.category}</span>{collectionFilter === 'owned' ? <span>OWNED</span> : <><span>{item.listing_type==='auction' ? 'AUCTION' : item.sample ? 'SAMPLE' : 'NEW LISTING'}</span>{session && item.seller_id !== session.user.id && <span role="button" tabIndex={0} className="icon-button" aria-label={favoriteIds.includes(item.id) ? 'Remove from saved' : 'Save to collection'} onClick={event => { event.stopPropagation(); toggleFavorite(item.id); }}><Heart size={14} fill={favoriteIds.includes(item.id) ? 'currentColor' : 'none'}/></span>}</>}</div><h3>{item.title}</h3><p>{collectionFilter === 'owned' ? `Purchased ${new Date(item.purchased_at).toLocaleDateString()}` : item.seller_name}</p>{collectionFilter !== 'owned' && <CredibilityMeter score={item.credibility_score} compact/>}<div className="card-bottom"><strong>{money(item.price_cents)}</strong>{collectionFilter !== 'owned' && (item.listing_type==='auction' ? <span>{item.bid_count} {item.bid_count===1?'bid':'bids'} · {auctionTimeLeft(item.auction_ends_at)}</span> : <span><ClipboardCheck size={14}/>{item.audit_count || 0} audits</span>)}</div></div></button>)}</div>}
+            {collectionFilter !== 'owned' && itemsHasMore && <button type="button" className="text-button load-more" onClick={loadMore} disabled={loadingMore}>{loadingMore ? 'Loading…' : 'Load more'}</button>}
             </>}
           </section>{workspace === 'collector' && <section className="community-note"><div className="note-icon"><ShieldCheck size={25}/></div><div><h3>Confidence grows with evidence.</h3><p>A community opinion is a starting point. For valuable purchases, seek qualified authentication.</p></div></section>}
         </>}
