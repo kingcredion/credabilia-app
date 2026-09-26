@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { Copy } from 'lucide-react';
 import { ISSUERS, resolveIssuer } from './certificates.js';
 
 export function CertificateFields({value,onChange,disabled=false}) {
@@ -26,7 +27,7 @@ export default function CertificateDetails({item}) {
     <h3>Certificate details</h3><p><strong>{issuer.id==='other'?item.certificate_company:issuer.name}</strong></p>
     <p>Certificate number: <code>{item.certificate_number}</code></p>
     <p className="field-note">Provided by the seller. Compare the issuer's record with the item and its certificate.</p>
-    <div className="submit-row"><button type="button" className="text-button" onClick={copy}>Copy certificate number</button>
+    <div className="submit-row"><button type="button" className="text-button certificate-copy" onClick={copy}><Copy size={15}/>Copy certificate number</button>
       {issuer.lookup && <a className="primary compact" href={issuer.lookup} target="_blank" rel="noopener noreferrer">Look up this certificate ↗</a>}
     </div>
     {!issuer.lookup && <p className="field-note">An official lookup link hasn't been added for this issuer yet.</p>}
