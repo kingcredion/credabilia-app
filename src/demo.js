@@ -18,10 +18,20 @@ const DEMO_PICKUP_STATIONS = [
 export function createDemoService(storage = window.localStorage) {
   const key = 'credabilia-next-demo-v2';
   let listeners = new Set();
-  const fresh = () => ({ userId: null, listings: sampleListings(), audits: [], uploads: {}, xp: {}, names: {}, favorites: {}, purchases: [], revisions: [], slugs: {}, shippingAddresses: {}, messages: [], credits: [], supportMessages: [], refundRequests: [], buyRequests: [], sellerRatings: [], bids: [], reports: [], blocks: [] });
+  const fresh = () => ({ userId: null, listings: sampleListings(), audits: [], uploads: {}, xp: {}, names: {}, favorites: {}, purchases: [], revisions: [], slugs: {}, shippingAddresses: {}, messages: [], conversations: [], credits: [], supportMessages: [], refundRequests: [], buyRequests: [], sellerRatings: [], bids: [], reports: [], blocks: [] });
+
+  // Mirrors get_or_create_conversation(): one thread per (listing, buyer), findable either way.
+  function getOrCreateConversation(listingId, buyerId, sellerId) {
+    let conv = state.conversations.find(c => c.listing_id === listingId && c.buyer_id === buyerId);
+    if (!conv) {
+      conv = { id: crypto.randomUUID(), listing_id: listingId, buyer_id: buyerId, seller_id: sellerId, buyer_last_read_at: null, seller_last_read_at: null, created_at: new Date().toISOString() };
+      state.conversations.push(conv);
+    }
+    return conv;
+  }
   let state;
   try { const saved = JSON.parse(storage.getItem(key)); state = saved && Array.isArray(saved.listings) && Array.isArray(saved.audits) ? saved : fresh(); } catch { state = fresh(); }
-  state.uploads ||= {}; state.names ||= {}; state.favorites ||= {}; state.purchases ||= []; state.revisions ||= []; state.slugs ||= {}; state.shippingAddresses ||= {}; state.messages ||= []; state.credits ||= []; state.supportMessages ||= []; state.refundRequests ||= []; state.buyRequests ||= []; state.sellerRatings ||= []; state.bids ||= []; state.reports ||= []; state.blocks ||= [];
+  state.uploads ||= {}; state.names ||= {}; state.favorites ||= {}; state.purchases ||= []; state.revisions ||= []; state.slugs ||= {}; state.shippingAddresses ||= {}; state.messages ||= []; state.conversations ||= []; state.credits ||= []; state.supportMessages ||= []; state.refundRequests ||= []; state.buyRequests ||= []; state.sellerRatings ||= []; state.bids ||= []; state.reports ||= []; state.blocks ||= [];
   function sellerRatingStats(sellerId) {
     const ratings=state.sellerRatings.filter(r=>r.seller_id===sellerId);
     if(!ratings.length) return {avg:null,count:0};
@@ -159,7 +169,8 @@ export function createDemoService(storage = window.localStorage) {
       const sellerShippingCharge=item.free_shipping ? shippingCostCents : 0;
       const insured=hasParcel && wantInsurance!==false;
       const insuranceCostCents=insured ? 50 : 0;
-      const purchase={id:crypto.randomUUID(),listing_id:listingId,buyer_id:state.userId,seller_id:item.seller_id,price_cents:item.price_cents,
+      const conv=getOrCreateConversation(listingId,state.userId,item.seller_id);
+      const purchase={id:crypto.randomUUID(),listing_id:listingId,buyer_id:state.userId,seller_id:item.seller_id,price_cents:item.price_cents,conversation_id:conv.id,
         platform_fee_cents:platformFeeCents,seller_shipping_charge_cents:sellerShippingCharge,
         seller_payout_cents:item.price_cents-platformFeeCents-sellerShippingCharge,
         shipping_cost_cents:shippingCostCents,applied_credit_cents:creditToApply,
@@ -202,7 +213,7 @@ export function createDemoService(storage = window.localStorage) {
         return {id:item.id,purchase_id:p.id,title:item.title,description:item.description,category:item.category,evidence:item.evidence,price_cents:item.price_cents,attributes:item.attributes,tags:item.tags,certificate_issuer:item.certificate_issuer,certificate_number:item.certificate_number,certificate_company:item.certificate_company,media:item.media || [],purchased_at:p.created_at,shipping_cost_cents:p.shipping_cost_cents || 0,tracking_number:p.tracking_number || null,tracking_url:p.tracking_url || null,tracking_status:p.tracking_status || 'UNKNOWN',shipped_at:p.shipped_at || null,escrow_status:p.escrow_status || 'held',insured:!!p.insured,insurance_cost_cents:p.insurance_cost_cents || 0,
           fulfillment_method:p.fulfillment_method || 'ship',seller_marked_picked_up_at:p.seller_marked_picked_up_at || null,buyer_confirmed_pickup_at:p.buyer_confirmed_pickup_at || null,
           pickup_station:p.fulfillment_method==='pickup' ? (DEMO_PICKUP_STATIONS.find(s=>s.id===p.pickup_station_id) || null) : null,
-          refund_status:refund?.status || null,refund_reason:refund?.reason || null,refund_seller_response:refund?.seller_response || null,refund_request_id:refund?.id || null,offered_amount_cents:refund?.offered_amount_cents ?? null,return_tracking_number:refund?.return_tracking_number || null,return_tracking_url:refund?.return_tracking_url || null,return_label_url:refund?.return_label_url || null,return_shipped_at:refund?.return_shipped_at || null,return_tracking_status:refund?.return_tracking_status || 'UNKNOWN',message_count:state.messages.filter(m=>m.purchase_id===p.id).length,my_rating:rating?.rating ?? null,my_rating_comment:rating?.comment ?? null};
+          refund_status:refund?.status || null,refund_reason:refund?.reason || null,refund_seller_response:refund?.seller_response || null,refund_request_id:refund?.id || null,offered_amount_cents:refund?.offered_amount_cents ?? null,return_tracking_number:refund?.return_tracking_number || null,return_tracking_url:refund?.return_tracking_url || null,return_label_url:refund?.return_label_url || null,return_shipped_at:refund?.return_shipped_at || null,return_tracking_status:refund?.return_tracking_status || 'UNKNOWN',conversation_id:p.conversation_id || null,message_count:state.messages.filter(m=>m.conversation_id===p.conversation_id).length,my_rating:rating?.rating ?? null,my_rating_comment:rating?.comment ?? null};
       });
     },
     async rateSeller(purchaseId, rating, comment) {
@@ -232,7 +243,7 @@ export function createDemoService(storage = window.localStorage) {
           pickup_station:p.fulfillment_method==='pickup' ? (DEMO_PICKUP_STATIONS.find(s=>s.id===p.pickup_station_id) || null) : null,
           refund_status:refund?.status || null,refund_reason:refund?.reason || null,refund_seller_response:refund?.seller_response || null,refund_request_id:refund?.id || null,
           offered_amount_cents:refund?.offered_amount_cents ?? null,return_tracking_number:refund?.return_tracking_number || null,return_tracking_url:refund?.return_tracking_url || null,return_label_url:refund?.return_label_url || null,return_shipped_at:refund?.return_shipped_at || null,return_tracking_status:refund?.return_tracking_status || 'UNKNOWN',
-          message_count:state.messages.filter(m=>m.purchase_id===p.id).length,
+          conversation_id:p.conversation_id || null,message_count:state.messages.filter(m=>m.conversation_id===p.conversation_id).length,
           media:(item.media||[]).filter(asset=>asset.kind==='item')};
       });
     },
@@ -260,31 +271,78 @@ export function createDemoService(storage = window.localStorage) {
       Object.assign(purchase,shipped); save();
       return shipped;
     },
-    async getMessages(purchaseId) {
+    async getMessages(conversationId) {
       requireUser();
-      const purchase=state.purchases.find(p=>p.id===purchaseId && (p.buyer_id===state.userId || p.seller_id===state.userId));
-      if(!purchase) throw new Error('Purchase not found.');
-      return state.messages.filter(m=>m.purchase_id===purchaseId).map(m=>({...m,sender_name:state.names[m.sender_id] || DEMO_ACCOUNTS.find(user=>user.id===m.sender_id)?.display_name || 'Collector'}));
+      const conv=state.conversations.find(c=>c.id===conversationId && (c.buyer_id===state.userId || c.seller_id===state.userId));
+      if(!conv) throw new Error('Conversation not found.');
+      return state.messages.filter(m=>m.conversation_id===conversationId).map(m=>({...m,sender_name:state.names[m.sender_id] || DEMO_ACCOUNTS.find(user=>user.id===m.sender_id)?.display_name || 'Collector'}));
     },
-    async sendMessage(purchaseId, body) {
+    async sendMessage(conversationId, body) {
       requireUser();
-      const purchase=state.purchases.find(p=>p.id===purchaseId && (p.buyer_id===state.userId || p.seller_id===state.userId));
-      if(!purchase) throw new Error('Purchase not found.');
-      const other=purchase.buyer_id===state.userId ? purchase.seller_id : purchase.buyer_id;
+      const conv=state.conversations.find(c=>c.id===conversationId && (c.buyer_id===state.userId || c.seller_id===state.userId));
+      if(!conv) throw new Error('Conversation not found.');
+      const other=conv.buyer_id===state.userId ? conv.seller_id : conv.buyer_id;
       if((state.blocks || []).some(b=>(b.blocker_id===state.userId && b.blocked_id===other) || (b.blocker_id===other && b.blocked_id===state.userId))) throw new Error('You cannot message this user.');
       const clean=String(body || '').trim();
       if(!clean || clean.length>2000) throw new Error('Write a message between 1 and 2000 characters.');
-      const message={id:crypto.randomUUID(),purchase_id:purchaseId,sender_id:state.userId,body:clean,created_at:new Date().toISOString()};
+      const message={id:crypto.randomUUID(),conversation_id:conversationId,sender_id:state.userId,body:clean,created_at:new Date().toISOString()};
       state.messages.push(message); save();
       return {...message,sender_name:state.names[state.userId] || currentUser().display_name};
     },
-    async markMessagesRead(purchaseId) {
+    async markMessagesRead(conversationId) {
       requireUser();
-      const purchase=state.purchases.find(p=>p.id===purchaseId && (p.buyer_id===state.userId || p.seller_id===state.userId));
-      if(!purchase) throw new Error('Purchase not found.');
+      const conv=state.conversations.find(c=>c.id===conversationId && (c.buyer_id===state.userId || c.seller_id===state.userId));
+      if(!conv) throw new Error('Conversation not found.');
       const now=new Date().toISOString();
-      if(purchase.buyer_id===state.userId) purchase.buyer_last_read_at=now;
-      if(purchase.seller_id===state.userId) purchase.seller_last_read_at=now;
+      if(conv.buyer_id===state.userId) conv.buyer_last_read_at=now;
+      if(conv.seller_id===state.userId) conv.seller_last_read_at=now;
+      save();
+    },
+    async getOrCreateConversation(listingId) {
+      requireUser();
+      const item=state.listings.find(x=>x.id===listingId);
+      if(!item) throw new Error('Listing not found.');
+      if(item.seller_id===state.userId) throw new Error('You cannot message yourself about your own listing.');
+      if((state.blocks || []).some(b=>(b.blocker_id===state.userId && b.blocked_id===item.seller_id) || (b.blocker_id===item.seller_id && b.blocked_id===state.userId))) throw new Error('You cannot message this seller.');
+      const conv=getOrCreateConversation(listingId,state.userId,item.seller_id);
+      save();
+      return {id:conv.id,listing_id:item.id,listing_title:item.title,listing_status:item.status,listing_price_cents:item.price_cents,media:(item.media||[]).filter(asset=>asset.kind==='item').slice(0,1)};
+    },
+    async listConversations() {
+      requireUser();
+      return state.conversations.filter(c=>c.buyer_id===state.userId || c.seller_id===state.userId)
+        .filter(c=>{
+          const mine=c.buyer_id===state.userId;
+          const clearedAt=mine?c.buyer_cleared_at:c.seller_cleared_at;
+          if(!clearedAt) return true;
+          const m=state.messages.filter(x=>x.conversation_id===c.id);
+          const activityAt=m.length?m[m.length-1].created_at:c.created_at;
+          return activityAt>clearedAt;
+        })
+        .slice().sort((a,b)=>{
+          const lastOf=c=>{const m=state.messages.filter(x=>x.conversation_id===c.id); return m.length?m[m.length-1].created_at:c.created_at;};
+          return lastOf(b).localeCompare(lastOf(a));
+        })
+        .map(c=>{
+          const item=state.listings.find(x=>x.id===c.listing_id) || {};
+          const mine=c.buyer_id===state.userId;
+          const lastRead=mine?c.buyer_last_read_at:c.seller_last_read_at;
+          const convMessages=state.messages.filter(m=>m.conversation_id===c.id).sort((a,b)=>a.created_at<b.created_at?-1:1);
+          const last=convMessages[convMessages.length-1];
+          return {id:c.id,listing_id:item.id,listing_title:item.title,listing_status:item.status,listing_price_cents:item.price_cents,
+            role:mine?'buyer':'seller',counterparty_name:state.names[mine?c.seller_id:c.buyer_id] || DEMO_ACCOUNTS.find(u=>u.id===(mine?c.seller_id:c.buyer_id))?.display_name || 'Collector',
+            last_message_at:last?.created_at || null,last_message_body:last?.body || null,
+            unread:!!(last && last.sender_id!==state.userId && (!lastRead || last.created_at>lastRead)),
+            media:(item.media||[]).filter(asset=>asset.kind==='item').slice(0,1)};
+        });
+    },
+    async clearConversation(conversationId) {
+      requireUser();
+      const conv=state.conversations.find(c=>c.id===conversationId && (c.buyer_id===state.userId || c.seller_id===state.userId));
+      if(!conv) throw new Error('Conversation not found.');
+      const now=new Date().toISOString();
+      if(conv.buyer_id===state.userId) conv.buyer_cleared_at=now;
+      if(conv.seller_id===state.userId) conv.seller_cleared_at=now;
       save();
     },
     async myNotifications() {
@@ -294,25 +352,28 @@ export function createDemoService(storage = window.localStorage) {
         const item=state.listings.find(x=>x.id===p.listing_id);
         if(!item) continue;
         const refund=state.refundRequests.find(r=>r.purchase_id===p.id);
-        if(refund?.seller_id===state.userId && refund.status==='pending') notifications.push({kind:'refund_pending',role:'seller',purchase_id:p.id,listing_id:item.id,title:item.title,message:`Refund requested for "${item.title}"`});
-        if(refund?.buyer_id===state.userId && refund.status==='partial_offered') notifications.push({kind:'partial_offered',role:'buyer',purchase_id:p.id,listing_id:item.id,title:item.title,message:`Partial refund offered for "${item.title}"`});
-        if(refund?.buyer_id===state.userId && refund.status==='return_required' && !refund.return_shipped_at) notifications.push({kind:'return_required',role:'buyer',purchase_id:p.id,listing_id:item.id,title:item.title,message:`Ship "${item.title}" back to get your refund`});
-
-        const messages=state.messages.filter(m=>m.purchase_id===p.id);
-        if(p.seller_id===state.userId) {
-          const lastFromBuyer=messages.filter(m=>m.sender_id===p.buyer_id).reduce((max,m)=>m.created_at>max?m.created_at:max,'');
-          if(lastFromBuyer && (!p.seller_last_read_at || lastFromBuyer>p.seller_last_read_at)) notifications.push({kind:'message',role:'seller',purchase_id:p.id,listing_id:item.id,title:item.title,message:`New message about "${item.title}"`});
+        if(refund?.seller_id===state.userId && refund.status==='pending') notifications.push({kind:'refund_pending',role:'seller',purchase_id:p.id,listing_id:item.id,title:item.title,message:`Refund requested for "${item.title}"`,conversation_id:null});
+        if(refund?.buyer_id===state.userId && refund.status==='partial_offered') notifications.push({kind:'partial_offered',role:'buyer',purchase_id:p.id,listing_id:item.id,title:item.title,message:`Partial refund offered for "${item.title}"`,conversation_id:null});
+        if(refund?.buyer_id===state.userId && refund.status==='return_required' && !refund.return_shipped_at) notifications.push({kind:'return_required',role:'buyer',purchase_id:p.id,listing_id:item.id,title:item.title,message:`Ship "${item.title}" back to get your refund`,conversation_id:null});
+      }
+      for(const c of state.conversations) {
+        const item=state.listings.find(x=>x.id===c.listing_id);
+        if(!item) continue;
+        const messages=state.messages.filter(m=>m.conversation_id===c.id);
+        if(c.seller_id===state.userId) {
+          const lastFromBuyer=messages.filter(m=>m.sender_id===c.buyer_id).reduce((max,m)=>m.created_at>max?m.created_at:max,'');
+          if(lastFromBuyer && (!c.seller_last_read_at || lastFromBuyer>c.seller_last_read_at)) notifications.push({kind:'message',role:'seller',purchase_id:null,listing_id:item.id,title:item.title,message:`New message about "${item.title}"`,conversation_id:c.id});
         }
-        if(p.buyer_id===state.userId) {
-          const lastFromSeller=messages.filter(m=>m.sender_id===p.seller_id).reduce((max,m)=>m.created_at>max?m.created_at:max,'');
-          if(lastFromSeller && (!p.buyer_last_read_at || lastFromSeller>p.buyer_last_read_at)) notifications.push({kind:'message',role:'buyer',purchase_id:p.id,listing_id:item.id,title:item.title,message:`New message about "${item.title}"`});
+        if(c.buyer_id===state.userId) {
+          const lastFromSeller=messages.filter(m=>m.sender_id===c.seller_id).reduce((max,m)=>m.created_at>max?m.created_at:max,'');
+          if(lastFromSeller && (!c.buyer_last_read_at || lastFromSeller>c.buyer_last_read_at)) notifications.push({kind:'message',role:'buyer',purchase_id:null,listing_id:item.id,title:item.title,message:`New message about "${item.title}"`,conversation_id:c.id});
         }
       }
       for(const r of state.buyRequests) {
         const item=state.listings.find(x=>x.id===r.listing_id);
         if(!item) continue;
-        if(r.seller_id===state.userId && r.status==='pending') notifications.push({kind:'buy_request_pending',role:'seller',purchase_id:null,listing_id:item.id,title:item.title,message:`Confirm "${item.title}" is still available`});
-        if(r.buyer_id===state.userId && r.status==='confirmed') notifications.push({kind:'buy_request_confirmed',role:'buyer',purchase_id:null,listing_id:item.id,title:item.title,message:`"${item.title}" is confirmed available — complete your purchase`});
+        if(r.seller_id===state.userId && r.status==='pending') notifications.push({kind:'buy_request_pending',role:'seller',purchase_id:null,listing_id:item.id,title:item.title,message:`Confirm "${item.title}" is still available`,conversation_id:null});
+        if(r.buyer_id===state.userId && r.status==='confirmed') notifications.push({kind:'buy_request_confirmed',role:'buyer',purchase_id:null,listing_id:item.id,title:item.title,message:`"${item.title}" is confirmed available — complete your purchase`,conversation_id:null});
       }
       return notifications;
     },

@@ -59,18 +59,19 @@ function NotificationBell({ notifications, onNavigate, variant }) {
     </button>
     {open && <div className={bottomBar ? 'notif-panel bottom-nav-panel' : 'notif-panel'} role="menu">
       {!notifications.length ? <p className="notif-empty field-note">Nothing needs your attention.</p>
-        : notifications.map(n => <button key={`${n.purchase_id}-${n.listing_id}-${n.kind}`} type="button" className="notif-row" role="menuitem" onClick={() => { onNavigate(n); setOpen(false); }}>
+        : notifications.map(n => <button key={`${n.purchase_id}-${n.conversation_id}-${n.listing_id}-${n.kind}`} type="button" className="notif-row" role="menuitem" onClick={() => { onNavigate(n); setOpen(false); }}>
             {n.kind === 'message' ? <MessageCircle size={16}/> : <AlertCircle size={16}/>}<span>{n.message}</span>
           </button>)}
     </div>}
   </div>;
 }
 
-function BottomNav({ session, workspace, onSwitchWorkspace, notifications, onNavigateNotification, profile, onProfile, onSignIn, authReady }) {
+function BottomNav({ session, workspace, onSwitchWorkspace, profile, onProfile, onSignIn, authReady }) {
   const tabs = [
     { key: 'collector', label: 'Discover', Icon: Compass },
     { key: 'seller', label: 'Sell', Icon: Store },
     { key: 'auditor', label: 'Audit', Icon: ClipboardCheck },
+    { key: 'messages', label: 'Messages', Icon: MessageCircle },
   ];
   return <nav className="bottom-nav" aria-label="Main navigation">
     {tabs.map(tab => { const active = workspace === tab.key; return (
@@ -79,7 +80,6 @@ function BottomNav({ session, workspace, onSwitchWorkspace, notifications, onNav
       </button>
     ); })}
     {session ? <>
-      <NotificationBell notifications={notifications} onNavigate={onNavigateNotification} variant="bottombar"/>
       <button type="button" className="bottom-nav-item" onClick={onProfile}>
         <span className="bottom-nav-indicator"><span className="avatar bottom-nav-avatar">{profile?.display_name?.slice(0,1) || 'C'}</span></span><span>Profile</span>
       </button>
@@ -1052,7 +1052,7 @@ function PurchasedItemFulfillment({ item, onConfirmed }) {
   return <div className="evidence-box"><h3><Package size={18}/>Shipping</h3>{item.shipped_at ? <><p>Shipped {new Date(item.shipped_at).toLocaleDateString()}</p>{item.tracking_number && <p><a href={item.tracking_url} target="_blank" rel="noreferrer">Track: {item.tracking_number}</a></p>}{item.tracking_status && item.tracking_status !== 'UNKNOWN' && <p className="field-note">Status: {item.tracking_status}</p>}</> : <p className="field-note">The seller hasn't shipped this yet.</p>}<p className="field-note">{item.escrow_status === 'released' ? 'Payment released to the seller' : 'We hold your payment until delivery is confirmed'}{item.insured ? ' · Insured' : ''}</p></div>;
 }
 
-function SoldItemCard({ sale, session, onShipped, onRefundChanged, focusPurchaseId, onFocused }) {
+function SoldItemCard({ sale, session, onShipped, onRefundChanged, focusConversationId, onFocused }) {
   const [shipping, setShipping] = useState(false);
   const [needsParcel, setNeedsParcel] = useState(false);
   const [parcel, setParcel] = useState({ weight_oz: '', length_in: '', width_in: '', height_in: '' });
@@ -1122,9 +1122,29 @@ function SoldItemCard({ sale, session, onShipped, onRefundChanged, focusPurchase
           </div>
         : <p role="status" className="field-note">{busy ? 'Checking rates…' : ratesError || 'Could not get rates.'}</p>}
       <SellerRefundPanel sale={sale} onResolved={onRefundChanged}/>
-      <MessageThread purchaseId={sale.id} service={service} session={session} counterpartyLabel="buyer" messageCount={sale.message_count} autoOpen={focusPurchaseId === sale.id} onFocused={onFocused} onRead={onRefundChanged}/>
+      <MessageThread conversationId={sale.conversation_id} service={service} session={session} counterpartyLabel="buyer" messageCount={sale.message_count} autoOpen={focusConversationId === sale.conversation_id} onFocused={onFocused} onRead={onRefundChanged}/>
     </div>
   </div>;
+}
+
+function MessagesInbox({ conversations, session, service, focusConversationId, onFocused, selectedConversationId, onSelect, onOpenListing, onRead, onClear }) {
+  useEffect(() => { if (focusConversationId) { onSelect(focusConversationId); onFocused?.(); } }, [focusConversationId]);
+  if (!session) return <div className="empty-state"><MessageCircle size={34}/><h3>Sign in to see your messages.</h3><p>Conversations with buyers and sellers live here.</p></div>;
+  const selected = conversations.find(c => c.id === selectedConversationId);
+  if (selected) return <>
+    <div className="thread-header-row"><button className="back-button" onClick={() => onSelect(null)}><ArrowLeft size={17}/>Back to messages</button><button type="button" className="text-button" onClick={() => onClear(selected.id)}><X size={16}/>Clear</button></div>
+    <MessageThread key={selected.id} conversationId={selected.id} service={service} session={session} counterpartyLabel={selected.role === 'buyer' ? 'seller' : 'buyer'} forceOpen pinnedListing={selected} onOpenListing={onOpenListing} onRead={onRead}/>
+  </>;
+  if (!conversations.length) return <div className="empty-state"><MessageCircle size={34}/><h3>No conversations yet.</h3><p>Message a seller from any listing to start one.</p></div>;
+  return <div className="items-grid">{conversations.map(c => <button key={c.id} className="item-card conversation-row" onClick={() => onSelect(c.id)}>
+    <span role="button" tabIndex={0} className="icon-button conversation-clear" aria-label="Clear conversation" onClick={event => { event.stopPropagation(); onClear(c.id); }}><X size={14}/></span>
+    <ItemArt photo={c.media?.[0]?.url}/>
+    <div className="item-card-content">
+      <div className="card-meta"><span>{c.role === 'buyer' ? 'Seller' : 'Buyer'}: {c.counterparty_name}</span>{c.unread && <span className="unread-dot" aria-label="Unread"/>}</div>
+      <h3>{c.listing_status && c.listing_status !== 'active' ? 'No longer available' : c.listing_title}</h3>
+      <p>{c.last_message_body || 'No messages yet — say hello.'}</p>
+    </div>
+  </button>)}</div>;
 }
 
 function NotificationSettings() {
@@ -1529,8 +1549,9 @@ export default function App() {
   const [favoriteIds, setFavoriteIds] = useState([]), [purchases, setPurchases] = useState([]), [collectionFilter, setCollectionFilter] = useState('all');
   const [sales, setSales] = useState([]), [sellerTab, setSellerTab] = useState('active');
   const [buyRequests, setBuyRequests] = useState([]), [sellerBuyRequests, setSellerBuyRequests] = useState([]);
-  const [notifications, setNotifications] = useState([]), [focusPurchaseId, setFocusPurchaseId] = useState(null);
+  const [notifications, setNotifications] = useState([]);
   const [focusAuditItemId, setFocusAuditItemId] = useState(null);
+  const [conversations, setConversations] = useState([]), [focusConversationId, setFocusConversationId] = useState(null), [selectedConversationId, setSelectedConversationId] = useState(null);
   const [itemsHasMore, setItemsHasMore] = useState(false), [loadingMore, setLoadingMore] = useState(false);
   const [revision, setRevision] = useState(0);
   const refresh = () => setRevision(v => v + 1);
@@ -1555,8 +1576,8 @@ export default function App() {
   useEffect(() => {
     if (service.mode === 'unconfigured' || storefrontSlug || legalPage) return;
     let alive = true; setLoading(true);
-    Promise.all([service.listings(), session ? service.profile(session.user.id) : null, session ? service.myAudits() : [], session ? service.myFavoriteIds() : [], session ? service.myPurchases() : [], session ? service.mySales() : [], session ? service.myNotifications() : [], session ? service.myOpenBuyRequests() : [], session ? service.myBuyRequests() : []])
-      .then(([listings, account, myAudits, favorites, myPurchases, mySales, myNotifications, myOpenBuyRequests, myBuyRequests]) => { if (alive) { setItems(listings); setItemsHasMore(listings.length >= LISTINGS_PAGE_SIZE); setProfile(account); setAudits(myAudits); setFavoriteIds(favorites); setPurchases(myPurchases); setSales(mySales); setNotifications(myNotifications); setBuyRequests(myOpenBuyRequests); setSellerBuyRequests(myBuyRequests); } })
+    Promise.all([service.listings(), session ? service.profile(session.user.id) : null, session ? service.myAudits() : [], session ? service.myFavoriteIds() : [], session ? service.myPurchases() : [], session ? service.mySales() : [], session ? service.myNotifications() : [], session ? service.myOpenBuyRequests() : [], session ? service.myBuyRequests() : [], session ? service.listConversations() : []])
+      .then(([listings, account, myAudits, favorites, myPurchases, mySales, myNotifications, myOpenBuyRequests, myBuyRequests, myConversations]) => { if (alive) { setItems(listings); setItemsHasMore(listings.length >= LISTINGS_PAGE_SIZE); setProfile(account); setAudits(myAudits); setFavoriteIds(favorites); setPurchases(myPurchases); setSales(mySales); setNotifications(myNotifications); setBuyRequests(myOpenBuyRequests); setSellerBuyRequests(myBuyRequests); setConversations(myConversations); } })
       .catch(err => { if (alive) setError(err.message); }).finally(() => { if (alive) setLoading(false); });
     return () => { alive = false; };
   }, [session, revision, authReady]);
@@ -1619,8 +1640,26 @@ export default function App() {
     : collectionFilter === 'saved' ? items.filter(item => favoriteIds.includes(item.id)) : items;
   const filtered = eligible.filter(item => (category === 'All items' || item.category === category) && listingMatches(item, query));
   const collectionItems = workspace === 'collector' && collectionFilter === 'owned' ? purchases : filtered;
-  const switchWorkspace = value => { setWorkspace(value); setSelectedId(null); setCategory('All items'); setQuery(''); setError(''); setCollectionFilter('all'); setSellerTab('active'); window.scrollTo({ top: 0 }); };
+  const switchWorkspace = value => { setWorkspace(value); setSelectedId(null); setSelectedConversationId(null); setCategory('All items'); setQuery(''); setError(''); setCollectionFilter('all'); setSellerTab('active'); window.scrollTo({ top: 0 }); };
   function auditItem(id) { setFocusAuditItemId(id); switchWorkspace('auditor'); }
+  async function messageSeller(listingId) {
+    if (!session) { setModal('login'); return; }
+    setBusy(true); setError('');
+    try {
+      const conv = await service.getOrCreateConversation(listingId);
+      setConversations(await service.listConversations());
+      setFocusConversationId(conv.id);
+      switchWorkspace('messages');
+    } catch (err) { setError(err.message); } finally { setBusy(false); }
+  }
+  function openListingFromThread(listingId) { switchWorkspace('collector'); setSelectedId(listingId); }
+  async function clearConversation(conversationId) {
+    try {
+      await service.clearConversation(conversationId);
+      setConversations(list => list.filter(c => c.id !== conversationId));
+      setSelectedConversationId(current => current === conversationId ? null : current);
+    } catch (err) { setError(err.message); }
+  }
   async function loadMore() {
     if (!items.length) return;
     setLoadingMore(true);
@@ -1633,10 +1672,10 @@ export default function App() {
   }
   function focusNotification(n) {
     setModal(null);
+    if (n.kind === 'message') { setWorkspace('messages'); setSelectedId(null); setFocusConversationId(n.conversation_id); return; }
     if (n.role === 'buyer') { setSelectedId(n.listing_id); }
     else if (n.kind === 'buy_request_pending') { setWorkspace('seller'); setSellerTab('requests'); setSelectedId(null); }
     else { setWorkspace('seller'); setSellerTab('sold'); setSelectedId(null); }
-    setFocusPurchaseId(n.kind === 'message' ? n.purchase_id : null);
   }
   async function signIn(userId) { setBusy(true); setError(''); try { await service.signIn(userId); setModal(null); } catch (err) { setError(err.message); } finally { setBusy(false); } }
   async function signOut() { try { await service.signOut(); switchWorkspace('collector'); setNotice('You’re signed out.'); } catch (err) { setError(err.message); } }
@@ -1677,12 +1716,12 @@ export default function App() {
     <header className="topbar">
       <button className="brand" onClick={() => switchWorkspace('collector')} aria-label="Credabilia home"><Brand/></button>
       <nav aria-label="Main navigation"><button className={workspace === 'collector' ? 'nav-current' : ''} onClick={() => switchWorkspace('collector')}>Discover</button><button className={workspace === 'auditor' ? 'nav-current' : ''} onClick={() => switchWorkspace('auditor')}>Community audits</button></nav>
-      <div className="account-actions"><button className="text-button sell-top" onClick={openCreate}><Plus size={16}/>List an item</button><ThemeToggle/>{session && <button className="icon-button king-credion-button" aria-label="Ask King Credion" title="Ask King Credion" onClick={() => setModal('support')}><img src="/brand/king-credion-chat-icon-ai.png" alt="" style={{objectFit:'contain'}}/></button>}{session && <NotificationBell notifications={notifications} onNavigate={focusNotification}/>}{session ? <><button className="avatar" aria-label="Profile and settings" title={profile?.display_name} onClick={() => setModal('profile')}>{profile?.display_name?.slice(0,1) || 'C'}</button><button className="icon-button" aria-label="Sign out" title="Sign out" onClick={signOut}><LogOut size={18}/></button></> : <button className="primary compact" onClick={() => setModal('login')} disabled={!authReady}>Sign in <ArrowUpRight size={16}/></button>}</div>
+      <div className="account-actions"><ThemeToggle/>{session && <button className="icon-button king-credion-button" aria-label="Ask King Credion" title="Ask King Credion" onClick={() => setModal('support')}><img src="/brand/king-credion-chat-icon-ai.png" alt="" style={{objectFit:'contain'}}/></button>}{session && <NotificationBell notifications={notifications} onNavigate={focusNotification}/>}{session ? <><button className="avatar" aria-label="Profile and settings" title={profile?.display_name} onClick={() => setModal('profile')}>{profile?.display_name?.slice(0,1) || 'C'}</button><button className="icon-button" aria-label="Sign out" title="Sign out" onClick={signOut}><LogOut size={18}/></button></> : <button className="primary compact" onClick={() => setModal('login')} disabled={!authReady}>Sign in <ArrowUpRight size={16}/></button>}</div>
     </header>
     <div className="page-layout">
       <aside className="sidebar">
         <p className="eyebrow">YOUR WORKSPACE</p>
-        <div className="workspace-list" role="group" aria-label="Choose workspace">{WORKSPACES.map((value, index) => { const Icon = [Compass, Store, ClipboardCheck][index]; const label = { collector: 'Collect', seller: 'Sell', auditor: 'Audit' }[value]; return <button key={value} aria-pressed={workspace === value} onClick={() => switchWorkspace(value)} className={workspace === value ? 'workspace selected' : 'workspace'}><Icon size={19}/><span>{label}</span>{workspace === value && <span className="selected-dot"/>}</button>; })}</div>
+        <div className="workspace-list" role="group" aria-label="Choose workspace">{WORKSPACES.map((value, index) => { const Icon = [Compass, Store, ClipboardCheck, MessageCircle][index]; const label = { collector: 'Collect', seller: 'Sell', auditor: 'Audit', messages: 'Messages' }[value]; return <button key={value} aria-pressed={workspace === value} onClick={() => switchWorkspace(value)} className={workspace === value ? 'workspace selected' : 'workspace'}><Icon size={19}/><span>{label}</span>{workspace === value && <span className="selected-dot"/>}</button>; })}</div>
         <p className="workspace-note">One account.<br/>Every side of collecting.</p>
         <div className="learning-card"><BookOpen size={23}/><h3>Build your eye.</h3><p>Look closely. Ask questions. Let the evidence guide you.</p><button onClick={() => setModal('learn')}>A guide to auditing <ArrowUpRight size={15}/></button></div>
         <div className="progress-card"><span>PARTICIPATION XP</span><strong>{profile?.xp ?? '—'} <Sparkles size={17}/></strong><p>Learning and participation.<br/>Not an expertise rating.</p></div>
@@ -1696,17 +1735,21 @@ export default function App() {
           <section className="hero"><div className="hero-copy"><p className="eyebrow"><span className="small-line"/>OBSERVATION OVER ASSUMPTION</p><h1>Look closer.<br/><em>Share what you see.</em></h1><p>Help collectors make informed decisions. Review evidence, explain your reasoning, and keep learning.</p></div><div className="hero-mascot"><img src={HERO_IMAGES.auditor.src} width={HERO_IMAGES.auditor.width} height={HERO_IMAGES.auditor.height} alt={HERO_IMAGES.auditor.alt}/></div></section>
           <section className="community-note"><div className="note-icon"><BookOpen size={25}/></div><div><h3>Look closer before you decide.</h3><p>A quick guide to observing evidence, checking the story, and naming what's missing.</p></div><button className="icon-button" aria-label="Read the auditing guide" onClick={() => setModal('learn')}><ArrowUpRight size={24}/></button></section>
           <AuditQueue key={session?.user?.id || 'anon'} items={filtered} session={session} profile={profile} onNeedLogin={() => setModal('login')} onAudited={result => { setNotice(result.xp_earned ? 'Audit recorded. +5 participation XP.' : 'Your audit is already recorded.'); refresh(); }} focusItemId={focusAuditItemId} onFocused={() => setFocusAuditItemId(null)}/>
+        </> : workspace === 'messages' ? <>
+          <section className="hero"><div className="hero-copy"><p className="eyebrow"><span className="small-line"/>YOUR CONVERSATIONS</p><h1>Every chat.<br/><em>In one place.</em></h1><p>Message a seller from any listing to ask a question or arrange a meetup — every conversation stays tied to the item it's about.</p></div></section>
+          <MessagesInbox conversations={conversations} session={session} service={service} focusConversationId={focusConversationId} onFocused={() => setFocusConversationId(null)} selectedConversationId={selectedConversationId} onSelect={setSelectedConversationId} onOpenListing={openListingFromThread} onRead={refresh} onClear={clearConversation}/>
         </> : selected ? <>
           <button className="back-button" onClick={() => setSelectedId(null)}><ArrowLeft size={17}/>Back to listings</button>
           {own && profile?.can_sell && <button className="text-button" onClick={()=>setModal('edit')}>Edit listing</button>}
           {own && profile?.can_sell && <DeleteListingButton item={selected} onDeleted={()=>{setSelectedId(null);setNotice('Your listing has been deleted.');refresh();}}/>}
           {session && !own && <button className="text-button" onClick={()=>toggleFavorite(selected.id)}><Heart size={16} fill={favoriteIds.includes(selected.id) ? 'currentColor' : 'none'}/>{favoriteIds.includes(selected.id) ? 'Saved' : 'Save to collection'}</button>}
+          {session && !own && <button className="text-button" disabled={busy} onClick={()=>messageSeller(selected.id)}><MessageCircle size={16}/>Message seller</button>}
           {session && !own && <ReportButton targetType="listing" targetId={selected.id} label="Report listing"/>}
           {session && !own && <BlockSellerButton sellerId={selected.seller_id}/>}
           <div className="detail-grid"><div>{selected.media?.some(asset=>asset.kind==='item') ? <PhotoGallery key={selected.id} media={selected.media} title={selected.title}/> : <ItemArt kind={selected.artwork} category={selected.category} large/>}<PhotoGallery key={selected.id+'cert'} media={selected.media} kind="certificate" title={selected.title}/></div><section className="item-info"><span className="pill">{selected.category}</span><h1>{selected.title}</h1><p className="seller-name">Shared by {selected.seller_name}{selected.seller_rating_count > 0 && <> · <RatingStars value={selected.seller_rating_avg} count={selected.seller_rating_count}/></>} · Member since {new Date(selected.seller_member_since).getFullYear()}{selected.seller_sales_count > 0 && <> · {selected.seller_sales_count} {selected.seller_sales_count === 1 ? 'sale' : 'sales'}</>}</p><p className="detail-price">{money(selected.price_cents)}</p>{selected.listing_type==='auction' && <p className="field-note">{selected.bid_count} {selected.bid_count===1?'bid':'bids'} · {auctionTimeLeft(selected.auction_ends_at)}</p>}{session && !own && <>{service.mode==='live' && !selected.seller_charges_enabled && <p className="field-note">This seller hasn't finished payment setup yet.</p>}{myRequest?.status==='confirmed' ? <><p className="field-note">{selected.listing_type==='auction' ? 'You won this auction!' : 'The seller confirmed this is still available.'}</p><button className="primary" disabled={busy} onClick={()=>setModal('checkout-address')}>Continue to checkout<ArrowRight size={16}/></button></> : myRequest?.status==='pending' ? <p role="status" className="field-note">Waiting for the seller to confirm this item is still available…</p> : selected.listing_type==='auction' ? <AuctionBidBox item={selected} onBid={refresh}/> : <button className="primary" disabled={busy || (service.mode==='live' && !selected.seller_charges_enabled)} onClick={()=>requestToBuy(selected.id)}>{busy ? 'Processing…' : 'Ask to buy'}<ArrowRight size={16}/></button>}</>}<p>{selected.description}</p><ListingDetailSummary item={selected}/><div className="evidence-box"><h3><ShieldCheck size={18}/>Evidence notes</h3><p>{selected.evidence || 'No evidence has been provided yet. Ask for more information before reaching a conclusion.'}</p></div><CertificateDetails key={selected.id} item={selected}/><CredibilityDetails item={selected} session={session} own={own} auditedLabel={previousAudit ? LABELS[previousAudit.verdict] : null} onAudit={()=>auditItem(selected.id)}/><ItemHistory key={selected.id+selected.version} item={selected} service={service}/><TriviaPanel key={selected.id} item={selected} service={service} signedIn={!!session}/><p className="field-note">Community assessments are opinions, not professional authentication.</p></section></div>
         </> : ownedItem ? <>
           <button className="back-button" onClick={() => setSelectedId(null)}><ArrowLeft size={17}/>Back to listings</button>
-          <div className="detail-grid"><div>{ownedItem.media?.some(asset=>asset.kind==='item') ? <PhotoGallery key={ownedItem.id} media={ownedItem.media} title={ownedItem.title}/> : <ItemArt category={ownedItem.category} large/>}<PhotoGallery key={ownedItem.id+'cert'} media={ownedItem.media} kind="certificate" title={ownedItem.title}/></div><section className="item-info"><span className="pill">{ownedItem.category}</span><h1>{ownedItem.title}</h1><p className="seller-name">Purchased {new Date(ownedItem.purchased_at).toLocaleDateString()}</p><p className="detail-price">{money(ownedItem.price_cents)}</p><p>{ownedItem.description}</p><ListingDetailSummary item={ownedItem}/><PurchasedItemFulfillment item={ownedItem} onConfirmed={refresh}/><BuyerRefundPanel item={ownedItem} onRequested={refresh}/><SellerRatingForm item={ownedItem} onRated={refresh}/><MessageThread purchaseId={ownedItem.purchase_id} service={service} session={session} counterpartyLabel="seller" messageCount={ownedItem.message_count} autoOpen={focusPurchaseId === ownedItem.purchase_id} onFocused={() => setFocusPurchaseId(null)} onRead={refresh}/><CertificateDetails item={ownedItem}/><button className="primary" onClick={()=>setModal('relist')}><RefreshCw size={16}/>Relist this item</button></section></div>
+          <div className="detail-grid"><div>{ownedItem.media?.some(asset=>asset.kind==='item') ? <PhotoGallery key={ownedItem.id} media={ownedItem.media} title={ownedItem.title}/> : <ItemArt category={ownedItem.category} large/>}<PhotoGallery key={ownedItem.id+'cert'} media={ownedItem.media} kind="certificate" title={ownedItem.title}/></div><section className="item-info"><span className="pill">{ownedItem.category}</span><h1>{ownedItem.title}</h1><p className="seller-name">Purchased {new Date(ownedItem.purchased_at).toLocaleDateString()}</p><p className="detail-price">{money(ownedItem.price_cents)}</p><p>{ownedItem.description}</p><ListingDetailSummary item={ownedItem}/><PurchasedItemFulfillment item={ownedItem} onConfirmed={refresh}/><BuyerRefundPanel item={ownedItem} onRequested={refresh}/><SellerRatingForm item={ownedItem} onRated={refresh}/><MessageThread conversationId={ownedItem.conversation_id} service={service} session={session} counterpartyLabel="seller" messageCount={ownedItem.message_count} autoOpen={focusConversationId === ownedItem.conversation_id} onFocused={() => setFocusConversationId(null)} onRead={refresh}/><CertificateDetails item={ownedItem}/><button className="primary" onClick={()=>setModal('relist')}><RefreshCw size={16}/>Relist this item</button></section></div>
         </> : pendingBuy ? <>
           <button className="back-button" onClick={() => setSelectedId(null)}><ArrowLeft size={17}/>Back to listings</button>
           <div className="detail-grid"><div>{pendingBuy.media?.some(asset=>asset.kind==='item') ? <PhotoGallery key={pendingBuy.listing_id} media={pendingBuy.media} title={pendingBuy.title}/> : <ItemArt category={pendingBuy.category} large/>}</div><section className="item-info"><span className="pill">{pendingBuy.category}</span><h1>{pendingBuy.title}</h1><p className="detail-price">{money(pendingBuy.price_cents)}</p>{pendingBuy.status === 'confirmed' ? <><p className="field-note">The seller confirmed this is still available.</p><button className="primary" disabled={busy} onClick={()=>setModal('checkout-address')}>Continue to checkout<ArrowRight size={16}/></button></> : <p role="status" className="field-note">Waiting for the seller to confirm this item is still available…</p>}</section></div>
@@ -1717,12 +1760,12 @@ export default function App() {
             {workspace === 'seller' && session && <div className="categories" aria-label="Your listings"><button aria-pressed={sellerTab === 'active'} className={sellerTab === 'active' ? 'active' : ''} onClick={() => setSellerTab('active')}>Active</button><button aria-pressed={sellerTab === 'requests'} className={sellerTab === 'requests' ? 'active' : ''} onClick={() => setSellerTab('requests')}>Requests {sellerBuyRequests.length ? `(${sellerBuyRequests.length})` : ''}</button><button aria-pressed={sellerTab === 'sold'} className={sellerTab === 'sold' ? 'active' : ''} onClick={() => setSellerTab('sold')}>Sold {sales.length ? `(${sales.length})` : ''}</button></div>}
             {workspace === 'collector' && session && <div className="categories" aria-label="My collection"><button aria-pressed={collectionFilter === 'all'} className={collectionFilter === 'all' ? 'active' : ''} onClick={() => setCollectionFilter('all')}>All items</button><button aria-pressed={collectionFilter === 'saved'} className={collectionFilter === 'saved' ? 'active' : ''} onClick={() => setCollectionFilter('saved')}><Heart size={14}/> Saved</button><button aria-pressed={collectionFilter === 'owned'} className={collectionFilter === 'owned' ? 'active' : ''} onClick={() => setCollectionFilter('owned')}>Owned</button></div>}
             {workspace === 'seller' && sellerTab === 'sold' ? (!sales.length ? <div className="empty-state"><Layers size={34}/><h3>Nothing sold yet.</h3><p>Sales will show up here, ready to ship.</p></div>
-              : <div className="items-grid">{sales.map(sale => <SoldItemCard key={sale.id} sale={sale} session={session} onShipped={shipped => setSales(list => list.map(s => s.id === shipped.id ? shipped : s))} onRefundChanged={refresh} focusPurchaseId={focusPurchaseId} onFocused={() => setFocusPurchaseId(null)}/>)}</div>)
+              : <div className="items-grid">{sales.map(sale => <SoldItemCard key={sale.id} sale={sale} session={session} onShipped={shipped => setSales(list => list.map(s => s.id === shipped.id ? shipped : s))} onRefundChanged={refresh} focusConversationId={focusConversationId} onFocused={() => setFocusConversationId(null)}/>)}</div>)
               : workspace === 'seller' && sellerTab === 'requests' ? (!sellerBuyRequests.length ? <div className="empty-state"><Layers size={34}/><h3>No buy requests right now.</h3><p>When a buyer wants to purchase one of your active listings, it'll show up here for you to confirm.</p></div>
               : <div className="items-grid">{sellerBuyRequests.map(request => <BuyRequestCard key={request.id} request={request} onResolved={id => setSellerBuyRequests(list => list.filter(r => r.id !== id))}/>)}</div>) : <>
             {collectionFilter !== 'owned' && <div className="filters"><div className="categories" aria-label="Filter by category">{['All items', ...CATEGORIES].map(c => <button key={c} aria-pressed={category === c} className={category === c ? 'active' : ''} onClick={() => setCategory(c)}>{c}</button>)}</div><label className="search"><Search size={17}/><input aria-label="Search listings" value={query} onChange={e => setQuery(e.target.value)} placeholder="Find your next discovery"/></label></div>}
             {loading ? <p role="status" className="empty-state">Loading the collection…</p> : !collectionItems.length ? <div className="empty-state"><Layers size={34}/><h3>{workspace === 'seller' ? 'Your first listing starts here.' : collectionFilter === 'owned' ? 'Nothing purchased yet.' : collectionFilter === 'saved' ? 'Nothing saved yet.' : 'No items here yet.'}</h3><p>{workspace === 'seller' ? 'Add a piece and tell its story.' : collectionFilter === 'owned' ? 'Items you buy will show up here.' : collectionFilter === 'saved' ? 'Tap the heart on an item to save it here.' : 'Try a different category or search.'}</p>{workspace === 'seller' && <button className="primary" onClick={openCreate}>Create a listing <Plus size={17}/></button>}</div>
-              : <div className="items-grid">{collectionItems.map(item => <button className="item-card" key={item.id} onClick={() => { setSelectedId(item.id); window.scrollTo({ top: 0 }); }} aria-label={`View ${item.title}`}><ItemArt kind={item.artwork} category={item.category} photo={item.media?.find(asset=>asset.kind==='item')?.url}/><div className="item-card-content"><div className="card-meta"><span>{item.category}</span>{collectionFilter === 'owned' ? <span>OWNED</span> : <><span>{item.listing_type==='auction' ? 'AUCTION' : item.sample ? 'SAMPLE' : 'NEW LISTING'}</span>{session && item.seller_id !== session.user.id && <span role="button" tabIndex={0} className="icon-button" aria-label={favoriteIds.includes(item.id) ? 'Remove from saved' : 'Save to collection'} onClick={event => { event.stopPropagation(); toggleFavorite(item.id); }}><Heart size={14} fill={favoriteIds.includes(item.id) ? 'currentColor' : 'none'}/></span>}</>}</div><h3>{item.title}</h3><p>{collectionFilter === 'owned' ? `Purchased ${new Date(item.purchased_at).toLocaleDateString()}` : item.seller_name}</p>{collectionFilter !== 'owned' && <CredibilityMeter score={item.credibility_score} compact/>}<div className="card-bottom"><strong>{money(item.price_cents)}</strong>{collectionFilter !== 'owned' && (item.listing_type==='auction' ? <span>{item.bid_count} {item.bid_count===1?'bid':'bids'} · {auctionTimeLeft(item.auction_ends_at)}</span> : <span><ClipboardCheck size={14}/>{item.audit_count || 0} audits</span>)}</div></div></button>)}</div>}
+              : <div className="items-grid">{collectionItems.map(item => <button className="item-card" key={item.id} onClick={() => { setSelectedId(item.id); window.scrollTo({ top: 0 }); }} aria-label={`View ${item.title}`}><ItemArt kind={item.artwork} category={item.category} photo={item.media?.find(asset=>asset.kind==='item')?.url}/><div className="item-card-content"><div className="card-meta"><span>{item.category}</span>{collectionFilter === 'owned' ? <span>OWNED</span> : <><span>{item.listing_type==='auction' ? 'AUCTION' : item.sample ? 'SAMPLE' : 'NEW LISTING'}</span>{session && item.seller_id !== session.user.id && <span role="button" tabIndex={0} className="icon-button" aria-label={favoriteIds.includes(item.id) ? 'Remove from saved' : 'Save to collection'} onClick={event => { event.stopPropagation(); toggleFavorite(item.id); }}><Heart size={14} fill={favoriteIds.includes(item.id) ? 'currentColor' : 'none'}/></span>}{session && item.seller_id !== session.user.id && <span role="button" tabIndex={0} className="icon-button" aria-label="Message seller" onClick={event => { event.stopPropagation(); messageSeller(item.id); }}><MessageCircle size={14}/></span>}</>}</div><h3>{item.title}</h3><p>{collectionFilter === 'owned' ? `Purchased ${new Date(item.purchased_at).toLocaleDateString()}` : item.seller_name}</p>{collectionFilter !== 'owned' && <CredibilityMeter score={item.credibility_score} compact/>}<div className="card-bottom"><strong>{money(item.price_cents)}</strong>{collectionFilter !== 'owned' && (item.listing_type==='auction' ? <span>{item.bid_count} {item.bid_count===1?'bid':'bids'} · {auctionTimeLeft(item.auction_ends_at)}</span> : <span><ClipboardCheck size={14}/>{item.audit_count || 0} audits</span>)}</div></div></button>)}</div>}
             {collectionFilter !== 'owned' && itemsHasMore && <button type="button" className="text-button load-more" onClick={loadMore} disabled={loadingMore}>{loadingMore ? 'Loading…' : 'Load more'}</button>}
             </>}
           </section>{workspace === 'collector' && <section className="community-note"><div className="note-icon"><ShieldCheck size={25}/></div><div><h3>Confidence grows with evidence.</h3><p>A community opinion is a starting point. For valuable purchases, seek qualified authentication.</p></div></section>}
@@ -1730,7 +1773,7 @@ export default function App() {
         <footer><span>© {new Date().getFullYear()} Credabilia LLC · 732 S 6th St, Ste 7531, Las Vegas, NV 89101</span><img className="footer-tagline" src="/brand/the-memorabilia-kingdom-gold-quill-v1.png" alt="The Memorabilia Kingdom" width="2172" height="724"/><span className="footer-legal"><a href="tel:+18667500255">1 (866) 750-0255</a><a href="/help">Help</a><a href="/terms">Terms</a><a href="/privacy">Privacy</a></span></footer>
       </main>
     </div>
-    <BottomNav session={session} workspace={workspace} onSwitchWorkspace={switchWorkspace} notifications={notifications} onNavigateNotification={focusNotification} profile={profile} authReady={authReady} onProfile={() => setModal('profile')} onSignIn={() => setModal('login')}/>
+    <BottomNav session={session} workspace={workspace} onSwitchWorkspace={switchWorkspace} profile={profile} authReady={authReady} onProfile={() => setModal('profile')} onSignIn={() => setModal('login')}/>
     {modal === 'login' && <Modal title="Welcome to Credabilia" onClose={() => setModal(null)}><p className="muted">One account to collect, sell, and share your perspective.</p>{service.mode === 'demo' ? <><div className="evidence-box"><h3>Try the local preview</h3><p>These two separate practice accounts stay in this browser. Each can switch between all three workspaces. Real sign-in is available when the Supabase project is connected.</p></div><div className="form-stack">{DEMO_ACCOUNTS.map(account => <button key={account.id} className="primary full-width" onClick={() => signIn(account.id)} disabled={busy}>{busy ? 'Opening…' : `Continue as ${account.display_name}`}<ArrowRight size={18}/></button>)}</div></> : <><button className="primary full-width" onClick={() => signIn()} disabled={busy}>{busy ? 'Opening…' : 'Continue with Google'}<ArrowRight size={18}/></button><p className="field-note">or</p><EmailLogin/><p className="field-note">By continuing, you agree to Credabilia's <a href="/terms" target="_blank" rel="noreferrer">Terms of Service</a> and <a href="/privacy" target="_blank" rel="noreferrer">Privacy Policy</a>.</p></>}<p className="field-note">Your sign-in method does not determine your workspace. You can switch between all three after signing in.</p></Modal>}
     {modal === 'checkout-address' && (selected || pendingBuy) && <CheckoutAddress item={selected || pendingBuy} profile={profile} busy={busy} onClose={() => setModal(null)} onConfirm={(address, applyCreditCents, wantInsurance, fulfillmentMethod) => { const id = selected?.id || pendingBuy?.listing_id; setModal(null); buyNow(id, address, applyCreditCents, wantInsurance, fulfillmentMethod); }}/>}
     {modal === 'create' && <CreateListing onClose={() => setModal(null)} onCreated={id => { setModal(null); setNotice('Your listing is published.'); setSelectedId(id); refresh(); }}/>}

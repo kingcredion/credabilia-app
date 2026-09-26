@@ -207,9 +207,12 @@ export function makeService() {
       if(error) { let detail; try {detail=await error.context?.json();} catch {} throw new Error(detail?.error || 'Could not buy this label right now.'); }
       return data;
     },
-    async getMessages(purchaseId) { return unwrap(await client.rpc('get_messages', { p_purchase_id: purchaseId })); },
-    async sendMessage(purchaseId, body) { return unwrap(await client.rpc('send_message', { p_purchase_id: purchaseId, p_body: body })); },
-    async markMessagesRead(purchaseId) { return unwrap(await client.rpc('mark_messages_read', { p_purchase_id: purchaseId })); },
+    async getMessages(conversationId) { return unwrap(await client.rpc('get_messages', { p_conversation_id: conversationId })); },
+    async sendMessage(conversationId, body) { return unwrap(await client.rpc('send_message', { p_conversation_id: conversationId, p_body: body })); },
+    async markMessagesRead(conversationId) { return unwrap(await client.rpc('mark_messages_read', { p_conversation_id: conversationId })); },
+    async getOrCreateConversation(listingId) { return (await signMedia([unwrap(await client.rpc('get_or_create_conversation', { p_listing_id: listingId }))]))[0]; },
+    async listConversations() { return signMedia(unwrap(await client.rpc('list_conversations'))); },
+    async clearConversation(conversationId) { unwrap(await client.rpc('clear_conversation', { p_conversation_id: conversationId })); },
     async myNotifications() { return unwrap(await client.rpc('my_notifications')); },
     async getSupportMessages() { return unwrap(await client.rpc('get_support_messages')); },
     async sendSupportMessage(body) {

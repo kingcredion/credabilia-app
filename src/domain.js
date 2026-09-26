@@ -1,6 +1,6 @@
 import { listingDetails } from './listingDetails.js';
 import { certificateInput } from './certificates.js';
-export const WORKSPACES = ['collector', 'seller', 'auditor'];
+export const WORKSPACES = ['collector', 'seller', 'auditor', 'messages'];
 export const CATEGORIES = ['Sports', 'Comics', 'Art', 'Entertainment', 'History'];
 export const VERDICTS = ['authentic', 'uncertain', 'concerns'];
 export const DEMO_USER = { id: '11111111-1111-4111-8111-111111111111', display_name: 'Alex Morgan', can_sell: true, can_audit: true };

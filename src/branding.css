@@ -4,7 +4,7 @@
 .brand { flex-shrink: 0; }
 .brand .brand-lockup { display: flex; flex-direction: row; align-items: center; gap: 8px; align-self: center; margin: 0; }
 .brand .brand-logo { display: block; width: 150px; height: auto; }
-.brand .brand-tagline { display: block; align-self: center; margin-top: 0; width: 150px; height: auto; }
+.brand .brand-tagline { display: block; align-self: center; margin-top: 0; width: 252px; height: auto; }
 .topbar nav { margin-left: 30px; }
 .hero-tag svg { color: var(--brand-teal); }
 .hero-mascot {
@@ -34,7 +34,7 @@
 }
 @media (max-width: 600px) {
   .brand .brand-logo { width: 125px; height: auto; }
-  .brand .brand-tagline { width: 190px; }
+  .brand .brand-tagline { width: 180px; }
   .topbar { gap: 12px; }
   .hero-mascot { padding: 0 24px 18px; }
   .hero-mascot img { width: 225px; height: 260px; }
@@ -43,6 +43,12 @@
    the header's icon row (theme/King Credion/notifications/avatar/sign-out) is added back in. */
 @media (max-width: 400px) {
   .brand .brand-logo { width: 95px; height: auto; }
-  .brand .brand-tagline { width: 130px; }
+  .brand .brand-tagline { width: 145px; }
   .topbar { gap: 8px; }
+  /* The notification bell now lives in the topbar at every width (no longer hidden below
+     850px -- see styles.css), so three icons must fit here instead of two. Shrinking them
+     slightly is what makes room for the bigger tagline above without clipping the bell off
+     the edge of the screen. */
+  .account-actions .icon-button, .account-actions .king-credion-button { width: 30px; height: 30px; }
+  .account-actions .king-credion-button img { width: 22px; height: 22px; }
 }
