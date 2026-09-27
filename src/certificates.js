@@ -8,7 +8,7 @@ export const ISSUERS = [
   { id:'uda', name:'Upper Deck Authenticated', rating:88, aliases:[], lookup:null },
   { id:'fanatics', name:'Fanatics Authentic', rating:87, aliases:[], lookup:null },
   { id:'steiner', name:'Steiner Sports', rating:85, aliases:[], lookup:null },
-  { id:'tristar', name:'TriStar Productions', rating:84, aliases:[], lookup:null },
+  { id:'tristar', name:'TriStar Productions', rating:84, aliases:[], lookup:'https://www.tristarauthentic.com/' },
   { id:'mlb', name:'MLB Authenticated', rating:89, aliases:[], lookup:null },
   { id:'credabilia', name:'Credabilia', rating:100, aliases:[], lookup:null },
   { id:'other', name:'Other', rating:50, aliases:[], lookup:null },
