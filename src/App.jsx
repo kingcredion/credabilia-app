@@ -746,11 +746,11 @@ function CheckoutAddress({ item, profile, busy, onClose, onConfirm }) {
       <button type="button" aria-pressed={isPickup} className={isPickup ? 'active' : ''} onClick={() => setFulfillmentMethod('pickup')}>Local pickup</button>
     </div>}
     {isPickup
-      ? <p className="muted">Meet the seller in person to pick up "{item.title}" — no shipping needed.</p>
+      ? <div className="muted pickup-safety-copy"><p>Meet the seller in person to pick up "{item.title}" — no shipping needed.</p><p><strong>Recommended:</strong> use the designated safe-exchange location below. You may arrange another public meeting place with the seller through Credabilia messages, but Credabilia does not verify or supervise alternate locations.</p><p>Payment stays online through Credabilia so the transaction record and buyer protections remain in place. Never send payment outside Credabilia.</p></div>
       : <p className="muted">Where should "{item.title}" be shipped? This is for this order only — your saved default lives in Profile settings.</p>}
     <form className="form-stack" onSubmit={submit}>
       {isPickup
-        ? <div className="evidence-box"><h3>{item.pickup_station?.jurisdiction}</h3><p>{[item.pickup_station?.city, item.pickup_station?.state, item.pickup_station?.country].filter(Boolean).join(', ')}</p>{item.pickup_station?.notes && <p className="field-note">{item.pickup_station.notes}</p>}</div>
+        ? <div className="evidence-box"><h3>Recommended safe-exchange location</h3><p>{item.pickup_station?.jurisdiction}</p><p>{[item.pickup_station?.city, item.pickup_station?.state, item.pickup_station?.country].filter(Boolean).join(', ')}</p>{item.pickup_station?.notes && <p className="field-note">{item.pickup_station.notes}</p>}<p className="field-note">This is a recommended public meeting location. Confirm the details with the seller in Credabilia messages before meeting.</p></div>
         : <ShippingAddressFields value={address} onChange={setAddress} disabled={busy} onVerifiedChange={setVerified}/>}
       {!!balance && <label className="certificate-confirm"><input type="checkbox" checked={applyCredit} onChange={event => setApplyCredit(event.target.checked)} disabled={busy}/><img src="/brand/credion-coin-simple-v1.png" alt="" className="coin-icon"/>Apply {money(Math.min(balance, coinCap))} in Credion Coins to this order (you have {money(balance)} available)</label>}
       {!isPickup && <label className="certificate-confirm"><input type="checkbox" checked={wantInsurance} onChange={event => setWantInsurance(event.target.checked)} disabled={busy}/>Insure this item for shipping (covers loss or damage in transit — exact cost shown at payment)</label>}
