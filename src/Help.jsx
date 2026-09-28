@@ -41,7 +41,7 @@ export function HelpPage() {
 
     <h3>What are Credion Coins?</h3>
     <div className="coin-faq">
-      <img src="/brand/credion-coin-detailed-v1.png" alt="A gold Credion Coin featuring King Credion's crowned face" className="coin-detailed"/>
+      <img src="/brand/credion-coin-detailed-v1-optimized.webp" alt="A gold Credion Coin featuring King Credion's crowned face" className="coin-detailed"/>
       <p>Credion Coins are credit Credabilia awards for participation — like being a top auditor in a given month. At checkout, you can apply them toward the item's price, up to 50% of that price.</p>
     </div>
 

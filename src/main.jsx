@@ -14,4 +14,4 @@ class ErrorBoundary extends React.Component {
     return this.props.children;
   }
 }
-createRoot(document.getElementById('root')).render(<ErrorBoundary><App /></ErrorBoundary>);
+createRoot(document.getElementById('root')).render(<ErrorBoundary><React.Suspense fallback={<main className="setup" role="status">Loading Credabilia…</main>}><App /></React.Suspense></ErrorBoundary>);

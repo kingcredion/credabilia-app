@@ -13,7 +13,7 @@ export function RatingStars({ value, count, size = 14 }) {
 }
 
 export function ItemArt({ kind = 'generic', category, large = false, photo }) {
-  if(photo) return <img className="listing-cover" src={photo} alt={`${category} item photo`}/>;
+  if(photo) return <img className="listing-cover" loading={large ? "eager" : "lazy"} decoding="async" src={photo} alt={`${category} item photo`}/>;
   return <div className={`item-art ${kind} ${large ? 'large' : ''}`} aria-label={`${category} illustration`} role="img">
     {kind === 'baseball' ? <div className="baseball-ball"><span className="seam one"/><span className="seam two"/><i>Heritage</i></div>
       : kind === 'comic' ? <div className="comic-book"><small>ORBIT PRESS · 001</small><strong>ASTRAL<br/>EXPLORER</strong><div className="planet"/><span>INTO THE UNKNOWN</span></div>
