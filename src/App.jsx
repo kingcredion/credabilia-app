@@ -28,9 +28,9 @@ const service = makeService();
 const LISTINGS_PAGE_SIZE = 300;
 const LABELS = { authentic: 'Looks consistent', uncertain: 'Need more evidence', concerns: 'I see concerns' };
 const HERO_IMAGES = {
-  collector: { src: '/brand/king-credion-memorabilia-concept-v1-optimized.webp', width: 1166, height: 1349, alt: 'King Credion holding a signed baseball beside a basketball and framed jersey' },
-  seller: { src: '/brand/king-credion-sell-shop-v2.webp', width: 800, height: 800, alt: 'King Credion welcoming shoppers to a royal market stall with a signed baseball, trading card, and framed jersey' },
-  auditor: { src: '/brand/king-credion-audit-hero-v1-optimized.webp', width: 1254, height: 1254, alt: 'King Credion inspecting a certificate of authenticity with a magnifying glass beside a signed baseball' },
+  collector: { src: '/brand/screen-face-v1/collect.webp', width: 800, height: 800, alt: 'King Credion holding a signed baseball beside a basketball and framed jersey' },
+  seller: { src: '/brand/screen-face-v1/sell.webp', width: 800, height: 800, alt: 'King Credion welcoming shoppers to a royal market stall with a signed baseball, trading card, and framed jersey' },
+  auditor: { src: '/brand/screen-face-v1/audit.webp', width: 800, height: 800, alt: 'King Credion inspecting a certificate of authenticity with a magnifying glass beside a signed baseball' },
 };
 
 function Modal({ title, children, onClose }) {
@@ -201,7 +201,7 @@ function PickupConfirmationGate({ purchases, onResolved }) {
     catch (err) { setError(err.message); setBusy(false); }
   }
   return <dialog ref={dialogRef} onCancel={event => event.preventDefault()} aria-labelledby="pickup-gate-title" className="pickup-gate">
-    <img src="/brand/king-credion-local-pickup-v1-optimized.webp" alt="" className="pickup-gate-hero"/>
+    <img src="/brand/screen-face-v1/pickup.webp" alt="" className="pickup-gate-hero"/>
     <h2 id="pickup-gate-title">Did you pick up "{current.title}"?</h2>
     <p className="muted">The seller marked this handed off at {current.pickup_station?.jurisdiction}{current.pickup_station?.city ? ` — ${current.pickup_station.city}` : ''}. Confirming releases payment to the seller.</p>
     {!showDispute ? <div className="submit-row">
@@ -476,7 +476,7 @@ function CreateListing({ onClose, onCreated, relistFrom }) {
   </Modal>;
   if (!relistFrom && step==='photo') return <Modal title="Create a listing" onClose={close}>
     <div className="ai-photo-step">
-      <img src="/brand/king-credion-scan-baseball-v1-optimized.webp" alt="" className="ai-photo-step-hero"/>
+      <img src="/brand/screen-face-v1/scan.webp" alt="" className="ai-photo-step-hero"/>
       <p className="muted">AI reads your photo and drafts the listing for you — title, description, category, even a signature close-up if it spots one. Add a photo to get started; you can always fill in details yourself.</p>
       <img src="/brand/credabilia-jersey-photo-guide-v1-optimized.webp" alt="Example: a photo cropped too close to the item versus one showing the full item with space around it" className="ai-photo-guide"/>
       <label>Add your main photo<input type="file" accept="image/jpeg,image/png,image/webp" disabled={processingPhoto} onChange={uploadMainPhoto}/></label>
@@ -766,7 +766,7 @@ function CheckoutAddress({ item, profile, busy, onClose, onConfirm }) {
       {isPickup
         ? <div className="evidence-box"><h3>Recommended safe-exchange location</h3><p>{item.pickup_station?.jurisdiction}</p><p>{[item.pickup_station?.city, item.pickup_station?.state, item.pickup_station?.country].filter(Boolean).join(', ')}</p>{item.pickup_station?.notes && <p className="field-note">{item.pickup_station.notes}</p>}<p className="field-note">This is a recommended public meeting location. Confirm the details with the seller in Credabilia messages before meeting.</p></div>
         : <ShippingAddressFields value={address} onChange={setAddress} disabled={busy} onVerifiedChange={setVerified}/>}
-      {!!balance && <label className="certificate-confirm"><input type="checkbox" checked={applyCredit} onChange={event => setApplyCredit(event.target.checked)} disabled={busy}/><img src="/brand/credion-coin-simple-v1-optimized.webp" alt="" className="coin-icon"/>Apply {money(Math.min(balance, coinCap))} in Credion Coins to this order (you have {money(balance)} available)</label>}
+      {!!balance && <label className="certificate-confirm"><input type="checkbox" checked={applyCredit} onChange={event => setApplyCredit(event.target.checked)} disabled={busy}/><img src="/brand/screen-face-v1/coin-simple.webp" alt="" className="coin-icon"/>Apply {money(Math.min(balance, coinCap))} in Credion Coins to this order (you have {money(balance)} available)</label>}
       {!isPickup && <label className="certificate-confirm"><input type="checkbox" checked={wantInsurance} onChange={event => setWantInsurance(event.target.checked)} disabled={busy}/>Insure this item for shipping (covers loss or damage in transit — exact cost shown at payment)</label>}
       {error && <p role="alert" className="error">{error}</p>}
       <button className="primary" disabled={busy || (!isPickup && !verified)}>{busy ? 'Processing…' : 'Continue to payment'}<ArrowRight size={16}/></button>
@@ -1724,7 +1724,7 @@ export default function App() {
     <header className="topbar">
       <button className="brand" onClick={() => switchWorkspace('collector')} aria-label="Credabilia home"><Brand/></button>
       <nav aria-label="Main navigation"><button className={workspace === 'collector' ? 'nav-current' : ''} onClick={() => switchWorkspace('collector')}>Discover</button><button className={workspace === 'auditor' ? 'nav-current' : ''} onClick={() => switchWorkspace('auditor')}>Community audits</button></nav>
-      <div className="account-actions"><ThemeToggle/>{session && <button className="icon-button king-credion-button" aria-label="Ask King Credion" title="Ask King Credion" onClick={() => setModal('support')}><img src="/brand/king-credion-chat-icon-ai-optimized.webp" alt="" style={{objectFit:'contain'}}/></button>}{session && <NotificationBell notifications={notifications} onNavigate={focusNotification}/>}{session ? <><button className="avatar" aria-label="Profile and settings" title={profile?.display_name} onClick={() => setModal('profile')}>{profile?.display_name?.slice(0,1) || 'C'}</button><button className="icon-button" aria-label="Sign out" title="Sign out" onClick={signOut}><LogOut size={18}/></button></> : <button className="primary compact" onClick={() => setModal('login')} disabled={!authReady}>Sign in <ArrowUpRight size={16}/></button>}</div>
+      <div className="account-actions"><ThemeToggle/>{session && <button className="icon-button king-credion-button" aria-label="Ask King Credion" title="Ask King Credion" onClick={() => setModal('support')}><img src="/brand/screen-face-v1/chat.webp" alt="" style={{objectFit:'contain'}}/></button>}{session && <NotificationBell notifications={notifications} onNavigate={focusNotification}/>}{session ? <><button className="avatar" aria-label="Profile and settings" title={profile?.display_name} onClick={() => setModal('profile')}>{profile?.display_name?.slice(0,1) || 'C'}</button><button className="icon-button" aria-label="Sign out" title="Sign out" onClick={signOut}><LogOut size={18}/></button></> : <button className="primary compact" onClick={() => setModal('login')} disabled={!authReady}>Sign in <ArrowUpRight size={16}/></button>}</div>
     </header>
     <div className="page-layout">
       <aside className="sidebar">
@@ -1744,7 +1744,7 @@ export default function App() {
           <section className="community-note"><div className="note-icon"><BookOpen size={25}/></div><div><h3>Look closer before you decide.</h3><p>A quick guide to observing evidence, checking the story, and naming what's missing.</p></div><button className="icon-button" aria-label="Read the auditing guide" onClick={() => setModal('learn')}><ArrowUpRight size={24}/></button></section>
           <AuditQueue key={session?.user?.id || 'anon'} items={filtered} session={session} profile={profile} onNeedLogin={() => setModal('login')} onAudited={result => { setNotice(result.xp_earned ? 'Audit recorded. +5 participation XP.' : 'Your audit is already recorded.'); refresh(); }} focusItemId={focusAuditItemId} onFocused={() => setFocusAuditItemId(null)}/>
         </> : workspace === 'messages' ? <>
-          {!selectedConversationId && <section className="hero messages-hero"><div className="hero-copy"><p className="eyebrow"><span className="small-line"/>YOUR CONVERSATIONS</p><h1>Every chat.<br/><em>In one place.</em></h1><p>Message a seller from any listing to ask a question or arrange a meetup — every conversation stays tied to the item it's about.</p></div><div className="hero-mascot"><img src="/brand/king-credion-messages-hero-v1.webp" width="480" height="720" alt="King Credion with a royal messenger pigeon carrying a sealed scroll" decoding="async"/></div></section>}
+          {!selectedConversationId && <section className="hero messages-hero"><div className="hero-copy"><p className="eyebrow"><span className="small-line"/>YOUR CONVERSATIONS</p><h1>Every chat.<br/><em>In one place.</em></h1><p>Message a seller from any listing to ask a question or arrange a meetup — every conversation stays tied to the item it's about.</p></div><div className="hero-mascot"><img src="/brand/screen-face-v1/messages.webp" width="800" height="800" alt="King Credion with a royal messenger pigeon carrying a sealed scroll" decoding="async"/></div></section>}
           <MessagesInbox conversations={conversations} session={session} service={service} focusConversationId={focusConversationId} onFocused={() => setFocusConversationId(null)} selectedConversationId={selectedConversationId} onSelect={setSelectedConversationId} onOpenListing={openListingFromThread} onRead={refresh} onClear={clearConversation}/>
         </> : selected ? <>
           <button className="back-button" onClick={() => setSelectedId(null)}><ArrowLeft size={17}/>Back to listings</button>

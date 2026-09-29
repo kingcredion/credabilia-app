@@ -28,17 +28,17 @@ export function SupportChat({ service }) {
 
   return <div className="form-stack">
     {!messages?.length && <div className="support-welcome">
-      <img src="/brand/king-credion-support-optimized.webp" alt="King Credion, wearing his crown and a headset, seated at a laptop"/>
+      <img src="/brand/screen-face-v1/support.webp" alt="King Credion, wearing his crown and a headset, seated at a laptop"/>
       <h3>Hi, I'm King Credion. How can I help?</h3>
       <p className="field-note">I'm an AI support assistant. Ask about fees, escrow, shipping insurance, audits, or your own orders.</p>
     </div>}
     {messages === undefined ? <p role="status" className="field-note">Loading…</p>
       : <div className="chat-log" ref={logRef}>
           {messages.map(message => <div key={message.id} className={`support-message ${message.role === 'user' ? 'mine' : 'theirs'}`}>
-              {message.role === 'assistant' && <img className="support-avatar" src="/brand/king-credion-chat-icon-ai-optimized.webp" alt=""/>}
+              {message.role === 'assistant' && <img className="support-avatar" src="/brand/screen-face-v1/chat.webp" alt=""/>}
               <div className="recorded"><div><strong>{message.role === 'assistant' ? 'King Credion' : message.role === 'operator' ? 'Credabilia Team' : 'You'}</strong><p>{message.body}</p></div></div>
             </div>)}
-          {busy && <div className="support-message theirs"><img className="support-avatar" src="/brand/king-credion-chat-icon-ai-optimized.webp" alt=""/><div className="recorded typing-dots"><span/><span/><span/></div></div>}
+          {busy && <div className="support-message theirs"><img className="support-avatar" src="/brand/screen-face-v1/chat.webp" alt=""/><div className="recorded typing-dots"><span/><span/><span/></div></div>}
         </div>}
     {error && <p role="alert" className="error">{error}</p>}
     <form className="form-row" onSubmit={submit}>
