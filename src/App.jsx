@@ -407,6 +407,13 @@ function CreateListing({ onClose, onCreated, relistFrom }) {
     if(relistFrom.title) form.elements.namedItem('title').value=relistFrom.title;
     if(relistFrom.description) form.elements.namedItem('description').value=relistFrom.description;
     if(relistFrom.evidence) form.elements.namedItem('evidence').value=relistFrom.evidence;
+    // Prefill the previous package measurements for review; repackaging may change them.
+    // Start at the recorded item price, with optional markup shortcuts below.
+    if(relistFrom.weight_oz) form.elements.namedItem('weight_oz').value=relistFrom.weight_oz;
+    if(relistFrom.length_in) form.elements.namedItem('length_in').value=relistFrom.length_in;
+    if(relistFrom.width_in) form.elements.namedItem('width_in').value=relistFrom.width_in;
+    if(relistFrom.height_in) form.elements.namedItem('height_in').value=relistFrom.height_in;
+    if(relistFrom.price_cents) form.elements.namedItem('price').value=(relistFrom.price_cents/100).toFixed(2);
     if(relistFrom.certificate_issuer) setCertificate({certificate_issuer:relistFrom.certificate_issuer,certificate_number:relistFrom.certificate_number,certificate_company:relistFrom.certificate_company});
     setPendingDraft({attributes:relistFrom.attributes||{},tags:relistFrom.tags||[]});
     const photos=(relistFrom.media||[]).filter(asset=>asset.url);
@@ -497,6 +504,11 @@ function CreateListing({ onClose, onCreated, relistFrom }) {
         <label>Category<select name="category" value={listingCategory} onChange={event=>setListingCategory(event.target.value)}>{CATEGORIES.map(c => <option key={c}>{c}</option>)}</select></label>
         <label>{listingType==='auction' ? 'Starting bid (USD)' : 'Price (USD)'}<input name="price" type="number" min="1" max="1000000" step="0.01" placeholder="125.00" required/></label>
       </div>
+      {relistFrom && Number.isFinite(relistFrom.price_cents) && <div className="categories" aria-label="Add a markup">
+        <span className="field-note">Original item price: {money(relistFrom.price_cents)} · Add a markup: </span>
+        {[0,10,25,50].map(pct => <button key={pct} type="button" onClick={()=>{const field=formRef.current.elements.namedItem('price'); field.value=(Math.round(relistFrom.price_cents*(100+pct)/100)/100).toFixed(2);}}>{pct===0 ? 'Same price' : `+${pct}%`}</button>)}
+      </div>}
+      {relistFrom && <p className="field-note">Markup is based on the original item price, before selling fees, shipping, and other costs. You can enter any price above.</p>}
       {listingType==='auction' && <label>Auction length<select name="auction_days" defaultValue="5"><option value="3">3 days</option><option value="5">5 days</option><option value="7">7 days</option></select></label>}
       <label>Description<textarea name="description" minLength={20} maxLength={4000} rows={3} placeholder="Condition, history, and the details a collector should know…" required/></label>
       {service.detailsEnabled && <ListingDetailFields key={listingCategory} category={listingCategory}/>}
@@ -509,6 +521,7 @@ function CreateListing({ onClose, onCreated, relistFrom }) {
         <label>Width (in)<input name="width_in" type="number" min="1" step="0.1" required/></label>
         <label>Height (in)<input name="height_in" type="number" min="1" step="0.1" required/></label>
       </div>
+      {relistFrom && <label className="certificate-confirm"><input type="checkbox" required disabled={working}/>I checked the weight and dimensions for my current packaging.</label>}
       <label className="certificate-confirm"><input type="checkbox" name="free_shipping"/>Offer free shipping (you cover the cost)</label>
       {service.detailsEnabled && <label className="certificate-confirm"><input type="checkbox" name="pickup_enabled" checked={pickupEnabled} onChange={event=>setPickupEnabled(event.target.checked)} disabled={working}/>Offer local pickup at a safe-trade station</label>}
       {service.detailsEnabled && pickupEnabled && <PickupStationPicker value={pickupStationId} onSelect={setPickupStationId} disabled={working}/>}
