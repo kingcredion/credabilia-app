@@ -29,7 +29,7 @@ const LISTINGS_PAGE_SIZE = 300;
 const LABELS = { authentic: 'Looks consistent', uncertain: 'Need more evidence', concerns: 'I see concerns' };
 const HERO_IMAGES = {
   collector: { src: '/brand/king-credion-memorabilia-concept-v1-optimized.webp', width: 1166, height: 1349, alt: 'King Credion holding a signed baseball beside a basketball and framed jersey' },
-  seller: { src: '/brand/king-credion-sell-hero-v1-optimized.webp', width: 1254, height: 1254, alt: 'King Credion as a vendor at a display booth with a signed jersey, basketball, and trading card' },
+  seller: { src: '/brand/king-credion-sell-shop-v2.webp', width: 800, height: 800, alt: 'King Credion welcoming shoppers to a royal market stall with a signed baseball, trading card, and framed jersey' },
   auditor: { src: '/brand/king-credion-audit-hero-v1-optimized.webp', width: 1254, height: 1254, alt: 'King Credion inspecting a certificate of authenticity with a magnifying glass beside a signed baseball' },
 };
 
@@ -1731,7 +1731,7 @@ export default function App() {
           <section className="community-note"><div className="note-icon"><BookOpen size={25}/></div><div><h3>Look closer before you decide.</h3><p>A quick guide to observing evidence, checking the story, and naming what's missing.</p></div><button className="icon-button" aria-label="Read the auditing guide" onClick={() => setModal('learn')}><ArrowUpRight size={24}/></button></section>
           <AuditQueue key={session?.user?.id || 'anon'} items={filtered} session={session} profile={profile} onNeedLogin={() => setModal('login')} onAudited={result => { setNotice(result.xp_earned ? 'Audit recorded. +5 participation XP.' : 'Your audit is already recorded.'); refresh(); }} focusItemId={focusAuditItemId} onFocused={() => setFocusAuditItemId(null)}/>
         </> : workspace === 'messages' ? <>
-          <section className="hero"><div className="hero-copy"><p className="eyebrow"><span className="small-line"/>YOUR CONVERSATIONS</p><h1>Every chat.<br/><em>In one place.</em></h1><p>Message a seller from any listing to ask a question or arrange a meetup — every conversation stays tied to the item it's about.</p></div></section>
+          {!selectedConversationId && <section className="hero messages-hero"><div className="hero-copy"><p className="eyebrow"><span className="small-line"/>YOUR CONVERSATIONS</p><h1>Every chat.<br/><em>In one place.</em></h1><p>Message a seller from any listing to ask a question or arrange a meetup — every conversation stays tied to the item it's about.</p></div><div className="hero-mascot"><img src="/brand/king-credion-messages-hero-v1.webp" width="480" height="720" alt="King Credion with a royal messenger pigeon carrying a sealed scroll" decoding="async"/></div></section>}
           <MessagesInbox conversations={conversations} session={session} service={service} focusConversationId={focusConversationId} onFocused={() => setFocusConversationId(null)} selectedConversationId={selectedConversationId} onSelect={setSelectedConversationId} onOpenListing={openListingFromThread} onRead={refresh} onClear={clearConversation}/>
         </> : selected ? <>
           <button className="back-button" onClick={() => setSelectedId(null)}><ArrowLeft size={17}/>Back to listings</button>

@@ -52,3 +52,6 @@
   .account-actions .icon-button, .account-actions .king-credion-button { width: 30px; height: 30px; }
   .account-actions .king-credion-button img { width: 22px; height: 22px; }
 }
+
+.messages-hero .hero-mascot img { width: auto; height: 300px; max-width: 100%; border-radius: 20px; }
+@media (max-width: 600px) { .messages-hero .hero-mascot img { height: 170px; } }
