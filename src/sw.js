@@ -7,6 +7,15 @@ import { registerRoute, NavigationRoute } from 'workbox-routing';
 precacheAndRoute(self.__WB_MANIFEST);
 registerRoute(new NavigationRoute(createHandlerBoundToURL('/index.html')));
 
+// registerType:'autoUpdate' (vite.config.js) only actually updates anyone if the new worker
+// activates promptly -- without these, a newly installed worker sits in "waiting" until every
+// open tab is fully closed, so a plain refresh (or even several) can keep serving a stale,
+// already-fixed-in-a-later-deploy bundle indefinitely. skipWaiting activates it as soon as it's
+// installed; clients.claim() then hands control of already-open tabs to it immediately too,
+// instead of only new navigations.
+self.skipWaiting();
+self.addEventListener('activate', event => { event.waitUntil(self.clients.claim()); });
+
 self.addEventListener('push', event => {
   let data = {};
   try { data = event.data?.json() || {}; } catch {}
