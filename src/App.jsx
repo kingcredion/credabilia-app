@@ -219,10 +219,10 @@ function PickupConfirmationGate({ purchases, onResolved }) {
   </dialog>;
 }
 
-function CreateListing({ onClose, onCreated, relistFrom }) {
-  const [step,setStep]=useState(relistFrom ? 'form' : 'photo');
+function CreateListing({ onClose, onCreated, relistFrom, bulkPhoto, bulkProgress }) {
+  const [step,setStep]=useState(relistFrom || bulkPhoto ? 'form' : 'photo');
   const [processingPhoto,setProcessingPhoto]=useState(false);
-  const [draftPrompt,setDraftPrompt]=useState(() => relistFrom ? null : loadListingDraft());
+  const [draftPrompt,setDraftPrompt]=useState(() => relistFrom || bulkPhoto ? null : loadListingDraft());
   const [resuming,setResuming]=useState(false);
   const [discarding,setDiscarding]=useState(false);
   const [pendingResume,setPendingResume]=useState(null);
@@ -285,41 +285,52 @@ function CreateListing({ onClose, onCreated, relistFrom }) {
     setDraftApplied(!!(result.title||result.description||result.category||Object.keys(result.attributes||{}).length||result.tags?.length));
     setDraftNote(hasContent ? '' : "Our analysis didn't bring back much from this photo — fill in the details below.");
   }
-  // Step 1: a single main photo. AI drafting and background removal run in parallel right after
-  // upload so both are done (or have visibly failed) by the time the seller reaches the full form --
+  // AI drafting and background removal run in parallel right after a main photo lands (whether from
+  // the manual single-item upload below, or a bulk-queued photo already uploaded by BulkListing) --
   // Photoroom availability still isn't required to publish (see submit()'s own fallback below), this
   // is just the first, best-effort attempt, done up front instead of silently mid-form.
+  async function processMainPhoto(asset) {
+    setMedia([asset]);
+    const [draftResult,bgResult]=await Promise.allSettled([
+      service.draftListing({notes:'',photoPath:asset.path}),
+      service.removeBackground(asset.path),
+    ]);
+    let currentPhoto=asset;
+    if(bgResult.status==='fulfilled') { currentPhoto=bgResult.value; setMedia([currentPhoto]); }
+    if(draftResult.status==='fulfilled') {
+      const result=draftResult.value;
+      applyDraftResult(result);
+      if(result.signature?.found && result.signature.box) {
+        // Best-effort and silent -- a failed auto-crop just means no signature photo got added,
+        // same as if none was detected; the seller can still add one manually.
+        try {
+          const cropped=await cropSignatureFromPhoto(currentPhoto.url,result.signature.box);
+          const sigAsset=await service.uploadImage(cropped,'signature');
+          setMedia(prev=>[...prev.filter(x=>x.kind!=='signature'),sigAsset]);
+        } catch {}
+      }
+    } else {
+      setDraftNote("Our analysis didn't bring back much from this photo — fill in the details below.");
+    }
+  }
+  // Step 1 of the single-item flow: pick a main photo, then run the shared pipeline above.
   async function uploadMainPhoto(event) {
     const file=event.target.files?.[0]; event.target.value='';
     if(!file || processingPhoto) return;
     setProcessingPhoto(true);setError('');
     try {
       const asset=await service.uploadImage(await prepareImage(file),'item');
-      setMedia([asset]);
-      const [draftResult,bgResult]=await Promise.allSettled([
-        service.draftListing({notes:'',photoPath:asset.path}),
-        service.removeBackground(asset.path),
-      ]);
-      let currentPhoto=asset;
-      if(bgResult.status==='fulfilled') { currentPhoto=bgResult.value; setMedia([currentPhoto]); }
-      if(draftResult.status==='fulfilled') {
-        const result=draftResult.value;
-        applyDraftResult(result);
-        if(result.signature?.found && result.signature.box) {
-          // Best-effort and silent -- a failed auto-crop just means no signature photo got added,
-          // same as if none was detected; the seller can still add one manually.
-          try {
-            const cropped=await cropSignatureFromPhoto(currentPhoto.url,result.signature.box);
-            const sigAsset=await service.uploadImage(cropped,'signature');
-            setMedia(prev=>[...prev.filter(x=>x.kind!=='signature'),sigAsset]);
-          } catch {}
-        }
-      } else {
-        setDraftNote("Our analysis didn't bring back much from this photo — fill in the details below.");
-      }
+      await processMainPhoto(asset);
     } catch(err) { setError(err.message); }
     finally { setProcessingPhoto(false); setStep('form'); }
   }
+  // Bulk mode: BulkListing already uploaded this photo and hands it straight in -- run the same
+  // drafting/background-removal pipeline once, on mount, instead of waiting for a file input.
+  useEffect(() => {
+    if(!bulkPhoto) return;
+    setProcessingPhoto(true); setError('');
+    processMainPhoto(bulkPhoto).catch(err=>setError(err.message)).finally(()=>setProcessingPhoto(false));
+  }, []);
   // Manual re-run from inside the full form (after adding notes, or swapping the main photo) --
   // failures surface like any other action here, unlike the quiet step-1 attempt above.
   async function draftListing() {
@@ -435,8 +446,8 @@ function CreateListing({ onClose, onCreated, relistFrom }) {
     // background-removal call. Relist is excluded: it re-copies a fresh set of photos every time
     // it's opened (its own useEffect above) and never gets a resume prompt, so its copies would
     // just orphan silently in storage instead -- keep the original delete-on-close for that path.
-    if(!relistFrom && media.length) saveListingDraft({media,listingCategory,listingType,notes,certificate,signatureAi,form:readFormValues(formRef.current)});
-    else if(relistFrom) for(const asset of media) await service.removeImage(asset.path).catch(()=>{});
+    if(!relistFrom && !bulkPhoto && media.length) saveListingDraft({media,listingCategory,listingType,notes,certificate,signatureAi,form:readFormValues(formRef.current)});
+    else if(relistFrom || bulkPhoto) for(const asset of media) await service.removeImage(asset.path).catch(()=>{});
     onClose();
   }
   async function submit(event) {
@@ -464,7 +475,7 @@ function CreateListing({ onClose, onCreated, relistFrom }) {
       onCreated(id);
     } catch (err) { setError(err.message); setBusy(false); }
   }
-  if (!relistFrom && draftPrompt) return <Modal title="Resume your listing?" onClose={close}>
+  if (!relistFrom && !bulkPhoto && draftPrompt) return <Modal title="Resume your listing?" onClose={close}>
     <div className="ai-photo-step">
       <p className="muted">You have an unfinished listing from earlier, with its photo and any AI-drafted details already saved. Pick up where you left off, or discard it and start fresh.</p>
       <div className="submit-row">
@@ -474,7 +485,7 @@ function CreateListing({ onClose, onCreated, relistFrom }) {
       {error && <p role="alert" className="error">{error}</p>}
     </div>
   </Modal>;
-  if (!relistFrom && step==='photo') return <Modal title="Create a listing" onClose={close}>
+  if (!relistFrom && !bulkPhoto && step==='photo') return <Modal title="Create a listing" onClose={close}>
     <div className="ai-photo-step">
       <img src="/brand/screen-face-v1/scan.webp" alt="" className="ai-photo-step-hero"/>
       <p className="muted">AI reads your photo and drafts the listing for you — title, description, category, even a signature close-up if it spots one. Add a photo to get started; you can always fill in details yourself.</p>
@@ -484,8 +495,9 @@ function CreateListing({ onClose, onCreated, relistFrom }) {
       {error && <p role="alert" className="error">{error}</p>}
     </div>
   </Modal>;
-  return <Modal title={relistFrom ? 'Relist this item' : 'Create a listing'} onClose={close}>
-    <p className="muted">{relistFrom ? 'Details, tags and certificate info carried over from your purchase. Review everything and set your own price.' : 'Review what AI filled in and add anything it missed.'}</p>
+  return <Modal title={relistFrom ? 'Relist this item' : bulkPhoto ? `Create a listing (${bulkProgress.index+1} of ${bulkProgress.total})` : 'Create a listing'} onClose={close}>
+    <p className="muted">{relistFrom ? 'Details, tags and certificate info carried over from your purchase. Review everything and set your own price.' : bulkPhoto ? "Review what AI filled in for this photo, set a price and package size, then publish and move to the next item. Closing this skips it — its photo won't be published." : 'Review what AI filled in and add anything it missed.'}</p>
+    {bulkPhoto && processingPhoto && <p role="status" className="field-note">Analyzing this photo…</p>}
     {copyingPhotos && <p role="status" className="field-note">Copying photos to your own listing…</p>}
     {draftApplied && <p className="field-note bg-removed-ok">AI filled in the details from your photo — review everything before publishing. <button type="button" className="text-button" onClick={()=>setDraftApplied(false)}>Dismiss</button></p>}
     {draftNote && <p className="field-note">{draftNote} <button type="button" className="text-button" onClick={()=>setDraftNote('')}>Dismiss</button></p>}
@@ -531,9 +543,54 @@ function CreateListing({ onClose, onCreated, relistFrom }) {
       <CertificateFields value={certificate} onChange={value=>{setCertificate(value);setConfirmed(false);}} disabled={working}/>
       {certificate.certificate_issuer && <label className="certificate-confirm"><input type="checkbox" checked={confirmed} onChange={event=>setConfirmed(event.target.checked)} required disabled={working}/>I checked the company and number against my certificate.</label>}
       {error && <p role="alert" className="error">{error}</p>}
-      <button className="primary" disabled={working}>{busy ? 'Publishing…' : relistFrom ? 'Publish relisted item' : 'Publish listing'}<ArrowRight size={17}/></button>
+      <button className="primary" disabled={working}>{busy ? 'Publishing…' : relistFrom ? 'Publish relisted item' : bulkPhoto ? 'Publish and next' : 'Publish listing'}<ArrowRight size={17}/></button>
     </form>
   </Modal>;
+}
+
+// Bulk listing: upload one photo per item up front, then step through the exact same CreateListing
+// form once per photo (full reuse -- AI drafting, background removal, validation, publish -- nothing
+// duplicated), advancing to the next item on publish instead of closing. Closing an individual item's
+// card mid-review skips just that one photo; the queue and progress live here, one level up.
+function BulkListing({ onClose, onAllDone }) {
+  const [phase,setPhase]=useState('pick'); // 'pick' | 'uploading' | 'review' | 'done'
+  const [queue,setQueue]=useState([]);
+  const [index,setIndex]=useState(0);
+  const [uploadProgress,setUploadProgress]=useState({done:0,total:0});
+  const [published,setPublished]=useState(0), [skipped,setSkipped]=useState(0);
+  const [error,setError]=useState('');
+  async function pickFiles(event) {
+    const files=Array.from(event.target.files||[]); event.target.value='';
+    if(!files.length) return;
+    setPhase('uploading'); setError(''); setUploadProgress({done:0,total:files.length});
+    const uploaded=[];
+    for(const file of files) {
+      try { uploaded.push(await service.uploadImage(await prepareImage(file),'item')); }
+      catch(err) { setError(`Could not upload ${file.name}: ${err.message}`); }
+      setUploadProgress(p=>({...p,done:p.done+1}));
+    }
+    if(!uploaded.length) { setPhase('pick'); return; }
+    setQueue(uploaded); setIndex(0); setPublished(0); setSkipped(0); setPhase('review');
+  }
+  function advance() { setIndex(i => { const next=i+1; if(next>=queue.length) setPhase('done'); return next; }); }
+  if(phase==='pick') return <Modal title="Bulk list items" onClose={onClose}>
+    <div className="ai-photo-step">
+      <p className="muted">Upload a photo for each item you want to list — each photo becomes its own listing. You'll review AI's draft, set a price and package size, and publish one at a time before moving to the next.</p>
+      <label>Add photos<input type="file" accept="image/jpeg,image/png,image/webp" multiple onChange={pickFiles}/></label>
+      {error && <p role="alert" className="error">{error}</p>}
+    </div>
+  </Modal>;
+  if(phase==='uploading') return <Modal title="Bulk list items" onClose={()=>{}}>
+    <div className="ai-photo-step"><p role="status" className="field-note">Uploading photo {uploadProgress.done} of {uploadProgress.total}…</p>{error && <p role="alert" className="error">{error}</p>}</div>
+  </Modal>;
+  if(phase==='done') return <Modal title="Bulk listing complete" onClose={onAllDone}>
+    <div className="ai-photo-step">
+      <p className="muted">{published} {published===1 ? 'item' : 'items'} published{skipped ? `, ${skipped} skipped` : ''}.</p>
+      <button className="primary" onClick={onAllDone}>Done<ArrowRight size={16}/></button>
+    </div>
+  </Modal>;
+  return <CreateListing key={queue[index].path} bulkPhoto={queue[index]} bulkProgress={{index,total:queue.length}}
+    onClose={()=>{setSkipped(n=>n+1);advance();}} onCreated={()=>{setPublished(n=>n+1);advance();}}/>;
 }
 
 function EditListing({item:currentItem,onClose,onSaved}) {
@@ -1723,6 +1780,7 @@ export default function App() {
   async function signIn(userId) { setBusy(true); setError(''); try { await service.signIn(userId); setModal(null); } catch (err) { setError(err.message); } finally { setBusy(false); } }
   async function signOut() { try { await service.signOut(); switchWorkspace('collector'); setNotice('You’re signed out.'); } catch (err) { setError(err.message); } }
   function openCreate() { if (!session) setModal('login'); else if (profile?.can_sell) setModal('create'); else setError('Your account does not have selling permission.'); }
+  function openBulkCreate() { if (!session) setModal('login'); else if (profile?.can_sell) setModal('bulk-create'); else setError('Your account does not have selling permission.'); }
   async function toggleFavorite(listingId) {
     if (!session) { setModal('login'); return; }
     try { const now = await service.toggleFavorite(listingId); setFavoriteIds(ids => now ? [...ids, listingId] : ids.filter(id => id !== listingId)); }
@@ -1797,7 +1855,7 @@ export default function App() {
           <button className="back-button" onClick={() => setSelectedId(null)}><ArrowLeft size={17}/>Back to listings</button>
           <div className="detail-grid"><div>{pendingBuy.media?.some(asset=>asset.kind==='item') ? <PhotoGallery key={pendingBuy.listing_id} media={pendingBuy.media} title={pendingBuy.title}/> : <ItemArt category={pendingBuy.category} large/>}</div><section className="item-info"><span className="pill">{pendingBuy.category}</span><h1>{pendingBuy.title}</h1><p className="detail-price">{money(pendingBuy.price_cents)}</p>{pendingBuy.status === 'confirmed' ? <><p className="field-note">The seller confirmed this is still available.</p><button className="primary" disabled={busy} onClick={()=>setModal('checkout-address')}>Continue to checkout<ArrowRight size={16}/></button></> : <p role="status" className="field-note">Waiting for the seller to confirm this item is still available…</p>}</section></div>
         </> : <>
-          <section className="hero"><div className="hero-copy"><p className="eyebrow"><span className="small-line"/>{workspace === 'collector' ? 'FOR THE CURIOUS COLLECTOR' : workspace === 'seller' ? 'YOUR NEXT GREAT FIND STARTS HERE' : 'OBSERVATION OVER ASSUMPTION'}</p><h1>{workspace === 'collector' ? <>Good finds.<br/><em>Better informed.</em></> : workspace === 'seller' ? <>Your collection.<br/><em>A new chapter.</em></> : <>Look closer.<br/><em>Share what you see.</em></>}</h1><p>{workspace === 'collector' ? 'Discover pieces with a story. Explore the evidence. Collect with a community that cares about the details.' : workspace === 'seller' ? 'Give every piece the context it deserves. Share its story, its condition, and what you know.' : 'Help collectors make informed decisions. Review evidence, explain your reasoning, and keep learning.'}</p><button className="primary" onClick={workspace === 'seller' ? openCreate : () => document.getElementById('listings').scrollIntoView({ behavior: 'smooth' })}>{workspace === 'seller' ? 'Create a listing' : workspace === 'auditor' ? 'Explore the audit queue' : 'Explore the collection'}<ArrowUpRight size={18}/></button></div><div className="hero-mascot"><img key={workspace} src={HERO_IMAGES[workspace].src} width={HERO_IMAGES[workspace].width} height={HERO_IMAGES[workspace].height} alt={HERO_IMAGES[workspace].alt} fetchPriority={workspace === 'collector' ? 'high' : 'auto'} /></div></section>
+          <section className="hero"><div className="hero-copy"><p className="eyebrow"><span className="small-line"/>{workspace === 'collector' ? 'FOR THE CURIOUS COLLECTOR' : workspace === 'seller' ? 'YOUR NEXT GREAT FIND STARTS HERE' : 'OBSERVATION OVER ASSUMPTION'}</p><h1>{workspace === 'collector' ? <>Good finds.<br/><em>Better informed.</em></> : workspace === 'seller' ? <>Your collection.<br/><em>A new chapter.</em></> : <>Look closer.<br/><em>Share what you see.</em></>}</h1><p>{workspace === 'collector' ? 'Discover pieces with a story. Explore the evidence. Collect with a community that cares about the details.' : workspace === 'seller' ? 'Give every piece the context it deserves. Share its story, its condition, and what you know.' : 'Help collectors make informed decisions. Review evidence, explain your reasoning, and keep learning.'}</p><button className="primary" onClick={workspace === 'seller' ? openCreate : () => document.getElementById('listings').scrollIntoView({ behavior: 'smooth' })}>{workspace === 'seller' ? 'Create a listing' : workspace === 'auditor' ? 'Explore the audit queue' : 'Explore the collection'}<ArrowUpRight size={18}/></button>{workspace === 'seller' && <button className="text-button" onClick={openBulkCreate}><Layers size={16}/>Bulk list items</button>}</div><div className="hero-mascot"><img key={workspace} src={HERO_IMAGES[workspace].src} width={HERO_IMAGES[workspace].width} height={HERO_IMAGES[workspace].height} alt={HERO_IMAGES[workspace].alt} fetchPriority={workspace === 'collector' ? 'high' : 'auto'} /></div></section>
           <div className="values-strip"><span><Search size={16}/>Discover the details</span><span><ClipboardCheck size={16}/>Share your perspective</span><span><BookOpen size={16}/>Keep learning</span></div>
           <section id="listings" className="listings-section"><div className="section-heading"><div><p className="eyebrow">{workspace === 'auditor' ? 'A FRESH PERSPECTIVE' : 'THE COLLECTION'}</p><h2>{workspace === 'seller' ? (sellerTab === 'sold' ? 'Sold items' : sellerTab === 'requests' ? 'Buy requests' : 'Your listings') : workspace === 'auditor' ? 'Ready for a closer look' : collectionFilter === 'owned' ? 'Items you own' : collectionFilter === 'saved' ? 'Items you saved' : 'Discover something worth keeping'}</h2></div><span className="item-count">{workspace === 'seller' && sellerTab === 'sold' ? sales.length : workspace === 'seller' && sellerTab === 'requests' ? sellerBuyRequests.length : collectionItems.length} {(workspace === 'seller' && sellerTab === 'sold' ? sales.length : workspace === 'seller' && sellerTab === 'requests' ? sellerBuyRequests.length : collectionItems.length) === 1 ? 'item' : 'items'}</span></div>
             {workspace === 'seller' && session && <div className="categories" aria-label="Your listings"><button aria-pressed={sellerTab === 'active'} className={sellerTab === 'active' ? 'active' : ''} onClick={() => setSellerTab('active')}>Active</button><button aria-pressed={sellerTab === 'requests'} className={sellerTab === 'requests' ? 'active' : ''} onClick={() => setSellerTab('requests')}>Requests {sellerBuyRequests.length ? `(${sellerBuyRequests.length})` : ''}</button><button aria-pressed={sellerTab === 'sold'} className={sellerTab === 'sold' ? 'active' : ''} onClick={() => setSellerTab('sold')}>Sold {sales.length ? `(${sales.length})` : ''}</button></div>}
@@ -1820,6 +1878,7 @@ export default function App() {
     {modal === 'login' && <Modal title="Welcome to Credabilia" onClose={() => setModal(null)}><p className="muted">One account to collect, sell, and share your perspective.</p>{service.mode === 'demo' ? <><div className="evidence-box"><h3>Try the local preview</h3><p>These two separate practice accounts stay in this browser. Each can switch between all three workspaces. Real sign-in is available when the Supabase project is connected.</p></div><div className="form-stack">{DEMO_ACCOUNTS.map(account => <button key={account.id} className="primary full-width" onClick={() => signIn(account.id)} disabled={busy}>{busy ? 'Opening…' : `Continue as ${account.display_name}`}<ArrowRight size={18}/></button>)}</div></> : <><button className="primary full-width" onClick={() => signIn()} disabled={busy}>{busy ? 'Opening…' : 'Continue with Google'}<ArrowRight size={18}/></button><p className="field-note">or</p><EmailLogin/><p className="field-note">By continuing, you agree to Credabilia's <a href="/terms" target="_blank" rel="noreferrer">Terms of Service</a> and <a href="/privacy" target="_blank" rel="noreferrer">Privacy Policy</a>.</p></>}<p className="field-note">Your sign-in method does not determine your workspace. You can switch between all three after signing in.</p></Modal>}
     {modal === 'checkout-address' && (selected || pendingBuy) && <CheckoutAddress item={selected || pendingBuy} profile={profile} busy={busy} onClose={() => setModal(null)} onConfirm={(address, applyCreditCents, wantInsurance, fulfillmentMethod) => { const id = selected?.id || pendingBuy?.listing_id; setModal(null); buyNow(id, address, applyCreditCents, wantInsurance, fulfillmentMethod); }}/>}
     {modal === 'create' && <CreateListing onClose={() => setModal(null)} onCreated={id => { setModal(null); setNotice('Your listing is published.'); setSelectedId(id); refresh(); }}/>}
+    {modal === 'bulk-create' && <BulkListing onClose={() => setModal(null)} onAllDone={() => { setModal(null); setNotice('Bulk listing complete.'); refresh(); }}/>}
     {modal === 'relist' && ownedItem && <CreateListing relistFrom={ownedItem} onClose={() => setModal(null)} onCreated={id => { setModal(null); setNotice('Your relisted item is published.'); switchWorkspace('seller'); setSelectedId(id); refresh(); }}/>}
     {modal === 'edit' && selected && own && <EditListing key={selected.id} item={selected} onClose={()=>setModal(null)} onSaved={()=>{setModal(null);setNotice('Your listing changes are saved.');refresh();}}/>}
     {modal === 'profile' && <Modal title="Profile and settings" onClose={() => setModal(null)}><ProfileSettings profile={profile} session={session} onSaved={() => { setModal(null); setNotice('Your profile is saved.'); refresh(); }} onSignOut={() => { setModal(null); signOut(); }}/></Modal>}

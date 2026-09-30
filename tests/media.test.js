@@ -28,7 +28,7 @@ test('private staging, photo ownership, atomic publishing, immutable evidence an
     // migration also drags in an unrelated checkout/payments chain this test doesn't need; the
     // wrapper below only needs the table to exist for its LEFT JOIN.
     await db.exec('create table public.stripe_accounts(user_id uuid primary key references public.profiles(id),charges_enabled boolean not null default false);');
-    for(const file of ['202609300027_credibility_low_default.sql','202609300029_background_removal_png_uploads.sql','202609300030_require_background_removed_main_photo.sql','202609300031_fix_browse_listings_media_regression.sql']) await db.exec(await readFile(new URL('../supabase/migrations/'+file,import.meta.url),'utf8'));
+    for(const file of ['202609300027_credibility_low_default.sql','202609300029_background_removal_png_uploads.sql','202609300030_require_background_removed_main_photo.sql','202609300031_fix_browse_listings_media_regression.sql','202609300040_admin_operators.sql','202609300053_operator_quota_exemption.sql','202609300069_raise_seller_quotas.sql']) await db.exec(await readFile(new URL('../supabase/migrations/'+file,import.meta.url),'utf8'));
     await db.query('insert into auth.users(id) values($1),($2)',[seller,other]);
     async function as(user,role='authenticated'){await db.exec('reset role');await db.query("select set_config('request.jwt.claim.sub',$1,false)",[user]);await db.exec('set role '+role);}
     const upload=()=>db.query("insert into storage.objects(bucket_id,name) values('listing-media',$1)",[path]);
@@ -46,7 +46,7 @@ test('private staging, photo ownership, atomic publishing, immutable evidence an
     assert.equal((await db.query('select * from public.listings')).rows.length,1);
     assert.equal((await db.query('delete from storage.objects returning *')).rows.length,0);
     assert.equal((await db.query("update storage.objects set name='changed' returning *")).rows.length,0);
-    for(let i=0;i<5;i++) await db.query('select public.consume_certificate_read()');
+    for(let i=0;i<40;i++) await db.query('select public.consume_certificate_read()');
     await assert.rejects(db.query('select public.consume_certificate_read()'),/limit reached/);
     await assert.rejects(db.query('delete from public.certificate_read_usage'),/permission denied/);
     await as('','anon');

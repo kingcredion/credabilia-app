@@ -88,14 +88,14 @@ test('database enforces listing draft quota and selling permission',async()=>{
       create table auth.users(id uuid primary key,raw_user_meta_data jsonb default '{}');
       create function auth.uid() returns uuid language sql stable as $$select nullif(current_setting('request.jwt.claim.sub',true),'')::uuid$$;
       grant usage on schema public,auth to anon,authenticated;`);
-    for(const file of ['202609100001_foundation.sql','202609160008_listing_draft.sql']) await db.exec(await readFile(new URL('../supabase/migrations/'+file,import.meta.url),'utf8'));
+    for(const file of ['202609100001_foundation.sql','202609160008_listing_draft.sql','202609300040_admin_operators.sql','202609300053_operator_quota_exemption.sql','202609300069_raise_seller_quotas.sql']) await db.exec(await readFile(new URL('../supabase/migrations/'+file,import.meta.url),'utf8'));
     await db.query('insert into auth.users(id) values($1),($2)',[seller,other]);
     await db.query('update public.account_permissions set can_sell=false where user_id=$1',[other]);
     async function as(user,role='authenticated'){await db.exec('reset role');await db.query("select set_config('request.jwt.claim.sub',$1,false)",[user]);await db.exec('set role '+role);}
     await as(other);
     await assert.rejects(db.query('select public.consume_listing_draft()'),/Selling permission required/);
     await as(seller);
-    for(let i=0;i<5;i++) await db.query('select public.consume_listing_draft()');
+    for(let i=0;i<40;i++) await db.query('select public.consume_listing_draft()');
     await assert.rejects(db.query('select public.consume_listing_draft()'),/limit reached/);
     await assert.rejects(db.query('delete from public.listing_draft_usage'),/permission denied/);
   } finally { await db.close(); }

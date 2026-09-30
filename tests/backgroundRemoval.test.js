@@ -15,11 +15,11 @@ test('consume_background_removal requires selling permission and enforces a 5/ho
       create table storage.objects(id uuid primary key default gen_random_uuid(),bucket_id text,name text,unique(bucket_id,name));
       alter table storage.objects enable row level security;
       grant usage on schema public,auth,storage to anon,authenticated;grant select,insert,delete,update on storage.objects to anon,authenticated;`);
-    for(const file of ['202609100001_foundation.sql','202609100002_certificates.sql','202609100003_credibility.sql','202609100004_media.sql','202609100005_extraction_quota.sql','202609300028_background_removal_quota.sql']) await db.exec(await readFile(new URL('../supabase/migrations/'+file,import.meta.url),'utf8'));
+    for(const file of ['202609100001_foundation.sql','202609100002_certificates.sql','202609100003_credibility.sql','202609100004_media.sql','202609100005_extraction_quota.sql','202609300028_background_removal_quota.sql','202609300040_admin_operators.sql','202609300053_operator_quota_exemption.sql','202609300069_raise_seller_quotas.sql']) await db.exec(await readFile(new URL('../supabase/migrations/'+file,import.meta.url),'utf8'));
     await db.query('insert into auth.users(id) values($1),($2)',[seller,other]);
     async function as(user,role='authenticated'){await db.exec('reset role');await db.query("select set_config('request.jwt.claim.sub',$1,false)",[user]);await db.exec('set role '+role);}
     await as('','anon');await assert.rejects(db.query('select public.consume_background_removal()'),/permission denied|Selling permission required/);
-    await as(seller);for(let i=0;i<5;i++) await db.query('select public.consume_background_removal()');
+    await as(seller);for(let i=0;i<40;i++) await db.query('select public.consume_background_removal()');
     await as(seller);await assert.rejects(db.query('select public.consume_background_removal()'),/limit reached/);
     await as(seller);await assert.rejects(db.query('delete from public.background_removal_usage'),/permission denied/);
   }finally{await db.close();}
