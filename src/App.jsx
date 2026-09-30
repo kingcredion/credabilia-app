@@ -1556,6 +1556,10 @@ export default function App() {
   // /terms, /privacy, and /help are standalone, no-login-required pages -- checked before
   // storefrontSlug so they can never be shadowed by a seller's store name (also reserved server-side).
   const legalPage = window.location.pathname === '/terms' ? 'terms' : window.location.pathname === '/privacy' ? 'privacy' : window.location.pathname === '/help' ? 'help' : null;
+  // /item/<id> gives each listing its own shareable, bookmarkable, back-button-friendly URL --
+  // parsed once here (same pattern as storefrontSlug/legalPage above) and reconciled against the
+  // loaded `items`/`buyRequests` once they're fetched, below.
+  const itemPathId = (() => { const segments = window.location.pathname.split('/').filter(Boolean); return segments.length === 2 && segments[0] === 'item' ? segments[1] : null; })();
   const [session, setSession] = useState(null), [authReady, setAuthReady] = useState(false), [profile, setProfile] = useState(null);
   const [workspace, setWorkspace] = useState('collector'), [items, setItems] = useState([]), [audits, setAudits] = useState([]);
   const [category, setCategory] = useState('All items'), [query, setQuery] = useState(''), [selectedId, setSelectedId] = useState(null);
@@ -1623,14 +1627,45 @@ export default function App() {
   useEffect(() => {
     if (appliedItemParam.current || !items.length) return;
     const params = new URLSearchParams(window.location.search);
-    const itemId = params.get('item');
+    // Prefer the new /item/<id> path; fall back to the older ?item= query param still used by
+    // already-sent push notifications and any bookmarked/shared links from before this existed.
+    const itemId = itemPathId || params.get('item');
     if (itemId) {
       appliedItemParam.current = true;
       // A listing under an open buy request is 'pending', not 'active', so it won't be in items --
       // check buyRequests too so a push notification's deep link still resolves after a fresh load.
-      if (items.some(item => item.id === itemId) || buyRequests.some(r => r.listing_id === itemId)) { setSelectedId(itemId); window.history.replaceState({}, '', window.location.pathname); }
+      if (items.some(item => item.id === itemId) || buyRequests.some(r => r.listing_id === itemId)) {
+        setSelectedId(itemId);
+        if (!itemPathId) window.history.replaceState({}, '', `/item/${itemId}`); // upgrade an old ?item= link to the real path
+      } else if (itemPathId) {
+        window.history.replaceState({}, '', '/'); // stale/bad direct link -- fall back to browse rather than show a dead detail view
+      } else {
+        window.history.replaceState({}, '', window.location.pathname); // old behavior: just strip the query param
+      }
     }
   }, [items]);
+  // Keeps the address bar in sync with whichever item is open, from every entry point (item-card
+  // click, notification, relist redirect, etc.) without touching each of those call sites --
+  // they all already just call setSelectedId. Skipped on the storefront/legal-page branches below,
+  // which never touch selectedId and would otherwise have this overwrite their own URL with '/'.
+  useEffect(() => {
+    if (!authReady || storefrontSlug || legalPage) return;
+    // A direct /item/<id> load must wait for the deep-link effect above to resolve it (items has
+    // to fetch first) before this starts managing the URL -- otherwise this fires first with
+    // selectedId still null and immediately overwrites the good incoming URL with '/'.
+    if (itemPathId && !appliedItemParam.current) return;
+    const target = selectedId ? `/item/${selectedId}` : '/';
+    if (window.location.pathname !== target) window.history.pushState(null, '', target);
+  }, [selectedId, authReady, items]);
+  // Restores native browser back/forward support for item views.
+  useEffect(() => {
+    const onPopState = () => {
+      const segments = window.location.pathname.split('/').filter(Boolean);
+      setSelectedId(segments.length === 2 && segments[0] === 'item' ? segments[1] : null);
+    };
+    window.addEventListener('popstate', onPopState);
+    return () => window.removeEventListener('popstate', onPopState);
+  }, []);
   if (service.mode === 'unconfigured') return <main className="setup"><div className="brand"><Brand/></div><h1>The new foundation is ready to connect.</h1><p>Configure your Supabase project URL and public publishable key to enable email sign-in. Local development also includes a separate sample workspace.</p><p>See README.md for the Supabase setup steps. No real accounts are active in this build yet.</p></main>;
   if (legalPage === 'terms') return <TermsPage/>;
   if (legalPage === 'privacy') return <PrivacyPage/>;
