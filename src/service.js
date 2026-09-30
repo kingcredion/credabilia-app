@@ -135,7 +135,7 @@ export function makeService() {
     },
     async placeBid(listingId, amountCents) { return unwrap(await client.rpc('place_bid', { p_listing_id: listingId, p_amount_cents: amountCents })); },
     async editListing(item,input,mediaTouched) {
-      const v=listingInput(input);
+      const v=listingInput(input,{requirePackage:false});
       unwrap(await client.rpc('edit_listing',{p_id:item.id,p_title:v.title,p_description:v.description,p_category:v.category,p_price_cents:v.price_cents,p_evidence:v.evidence,
         p_issuer:v.certificate_issuer,p_number:v.certificate_number,p_company:v.certificate_company,
         p_media:mediaTouched?mediaInput(input.media):null,p_expected:editableFields(item)}));

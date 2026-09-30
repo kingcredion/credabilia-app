@@ -609,7 +609,7 @@ export function createDemoService(storage = window.localStorage) {
       if(!item || item.seller_id!==state.userId || !currentUser().can_sell) throw new Error('You can only edit your own listing.');
       if(item.status!=='active') throw new Error('Only active listings can be edited.');
       if(JSON.stringify(editableFields(item))!==JSON.stringify(editableFields(original))) throw new Error('This listing changed. Reopen it before editing.');
-      const value=editableFields(listingInput(input));
+      const value=editableFields(listingInput(input,{requirePackage:false}));
       if(value.category!==item.category && Object.keys(item.attributes || {}).length) throw new Error('Category changes for items with structured details are not available yet.');
       const version=item.version||1;
       const certificate={certificate_issuer:input.certificate_issuer||null,certificate_number:input.certificate_number||null,certificate_company:input.certificate_company||null};

@@ -5,7 +5,10 @@ export const CATEGORIES = ['Sports', 'Comics', 'Art', 'Entertainment', 'History'
 export const VERDICTS = ['authentic', 'uncertain', 'concerns'];
 export const DEMO_USER = { id: '11111111-1111-4111-8111-111111111111', display_name: 'Alex Morgan', can_sell: true, can_audit: true };
 
-export function listingInput(input) {
+// requirePackage covers weight/dims/pickup -- fields only ever collected at create time (edit_listing
+// never accepts or stores them, and EditListing's form has no inputs for them), so the edit path opts
+// out rather than failing validation on fields it never asked the seller for.
+export function listingInput(input, { requirePackage = true } = {}) {
   const title = String(input.title || '').trim();
   const description = String(input.description || '').trim();
   const evidence = String(input.evidence || '').trim();
@@ -14,11 +17,15 @@ export function listingInput(input) {
   if (evidence.length > 2000) throw new Error('Evidence notes must be under 2,000 characters.');
   if (!CATEGORIES.includes(input.category)) throw new Error('Choose a category.');
   if (!Number.isSafeInteger(input.price_cents) || input.price_cents < 100 || input.price_cents > 100000000) throw new Error('Enter a price between $1 and $1,000,000.');
-  const weight_oz = Number(input.weight_oz), length_in = Number(input.length_in), width_in = Number(input.width_in), height_in = Number(input.height_in);
-  if (![weight_oz, length_in, width_in, height_in].every(n => Number.isFinite(n) && n > 0)) throw new Error('Enter a valid package weight and size, so buyers can see a real shipping cost.');
-  const pickup_enabled = !!input.pickup_enabled;
-  if (pickup_enabled && !input.pickup_station_id) throw new Error('Choose a pickup location.');
-  return { title, description, evidence, category: input.category, price_cents: input.price_cents, weight_oz, length_in, width_in, height_in, free_shipping: !!input.free_shipping, pickup_enabled, pickup_station_id: pickup_enabled ? input.pickup_station_id : null, ...certificateInput(input), ...listingDetails(input, input.category) };
+  let packageFields = {};
+  if (requirePackage) {
+    const weight_oz = Number(input.weight_oz), length_in = Number(input.length_in), width_in = Number(input.width_in), height_in = Number(input.height_in);
+    if (![weight_oz, length_in, width_in, height_in].every(n => Number.isFinite(n) && n > 0)) throw new Error('Enter a valid package weight and size, so buyers can see a real shipping cost.');
+    const pickup_enabled = !!input.pickup_enabled;
+    if (pickup_enabled && !input.pickup_station_id) throw new Error('Choose a pickup location.');
+    packageFields = { weight_oz, length_in, width_in, height_in, free_shipping: !!input.free_shipping, pickup_enabled, pickup_station_id: pickup_enabled ? input.pickup_station_id : null };
+  }
+  return { title, description, evidence, category: input.category, price_cents: input.price_cents, ...packageFields, ...certificateInput(input), ...listingDetails(input, input.category) };
 }
 
 export function auditInput(input) {
