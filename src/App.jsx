@@ -583,7 +583,17 @@ function BulkListing({ onClose, onAllDone }) {
     if(!uploaded.length) { setPhase('pick'); return; }
     setQueue(uploaded); setIndex(0); setPublished(0); setSkipped(0); setPhase('review');
   }
-  function advance() { setIndex(i => { const next=i+1; if(next>=queue.length) { clearBulkDraft(); setPhase('done'); } return next; }); }
+  // Reads `index` from this render's closure rather than a functional setIndex updater -- advance()
+  // only ever runs from a click-driven callback (onCreated/onClose below), never rapid-fire, so
+  // there's no stale-closure risk, and this avoids calling setPhase as a side effect *inside*
+  // another setter's updater function (an impure updater that could let `index` reach queue.length
+  // in a render where `phase` hasn't flipped to 'done' yet, crashing the final `queue[index].path`
+  // read below with exactly the "Cannot read properties of undefined" bug this replaces).
+  function advance() {
+    const next = index + 1;
+    if (next >= queue.length) { clearBulkDraft(); setPhase('done'); }
+    else setIndex(next);
+  }
   // "Save and exit" (vs. the X on an item card, which skips+deletes just that one photo): persists
   // the current item plus everything still queued behind it -- their photos stay in storage
   // untouched, ready to re-sign and re-draft (same cost model as a fresh upload) on resume.
@@ -635,6 +645,9 @@ function BulkListing({ onClose, onAllDone }) {
       <button className="primary" onClick={onAllDone}>Done<ArrowRight size={16}/></button>
     </div>
   </Modal>;
+  // Defensive: index should never reach here out of range (advance() checks before setting it),
+  // but rendering nothing for one frame beats a hard crash if some future change reintroduces the gap.
+  if (!queue[index]) return null;
   return <CreateListing key={queue[index].path} bulkPhoto={queue[index]} bulkProgress={{index,total:queue.length}}
     onClose={()=>{setSkipped(n=>n+1);advance();}} onCreated={()=>{setPublished(n=>n+1);advance();}} onPause={pause}/>;
 }
