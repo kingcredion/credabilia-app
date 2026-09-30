@@ -219,7 +219,7 @@ function PickupConfirmationGate({ purchases, onResolved }) {
   </dialog>;
 }
 
-function CreateListing({ onClose, onCreated, relistFrom, bulkPhoto, bulkProgress, onPause }) {
+function CreateListing({ onClose, onCreated, relistFrom, bulkPhoto, bulkProgress, onPause, previousItems, onEditPrevious }) {
   const [step,setStep]=useState(relistFrom || bulkPhoto ? 'form' : 'photo');
   const [processingPhoto,setProcessingPhoto]=useState(false);
   const [draftPrompt,setDraftPrompt]=useState(() => relistFrom || bulkPhoto ? null : loadListingDraft());
@@ -503,6 +503,7 @@ function CreateListing({ onClose, onCreated, relistFrom, bulkPhoto, bulkProgress
   // instant before the AI draft overwrites it.
   return <Modal title={relistFrom ? 'Relist this item' : bulkPhoto ? `Create a listing (${bulkProgress.index+1} of ${bulkProgress.total})` : 'Create a listing'} onClose={close}>
     {bulkPhoto && <div className="bulk-progress-bar" aria-hidden="true"><div className="bulk-progress-fill" style={{width:`${(bulkProgress.index/bulkProgress.total)*100}%`}}/></div>}
+    {bulkPhoto && previousItems?.length>0 && <div className="bulk-back-nav"><span className="field-note">Already published in this session: </span>{previousItems.map(p => <button key={p.id} type="button" className="text-button" onClick={()=>onEditPrevious(p.id)}>Edit item {p.n}</button>)}</div>}
     <p className="muted">{relistFrom ? 'Details, tags and certificate info carried over from your purchase. Review everything and set your own price.' : bulkPhoto ? "King Credion is reading this photo in the background — fields fill in as they're ready. Set a price and package size, then publish and move to the next item. Closing this (X) skips just this item — its photo won't be published. To stop here and come back later, use \"Save and exit\" below instead." : 'Review what AI filled in and add anything it missed.'}</p>
     {copyingPhotos && <p role="status" className="field-note">Copying photos to your own listing…</p>}
     {draftApplied && <p className="field-note bg-removed-ok">AI filled in the details from your photo — review everything before publishing. <button type="button" className="text-button" onClick={()=>setDraftApplied(false)}>Dismiss</button></p>}
@@ -573,6 +574,20 @@ function BulkListing({ onClose, onAllDone }) {
   const [uploadProgress,setUploadProgress]=useState({done:0,total:0});
   const [published,setPublished]=useState(0), [skipped,setSkipped]=useState(0);
   const [error,setError]=useState('');
+  // Lets a seller jump back mid-session to fix an already-published item without losing their place
+  // in the queue -- tracks just {id,n} per publish (n = 1-based position) since that's all the nav
+  // needs; the full listing is only fetched on demand when "Edit item N" is actually clicked.
+  const [publishedItems,setPublishedItems]=useState([]);
+  const [editingId,setEditingId]=useState(null), [editItem,setEditItem]=useState(null), [editError,setEditError]=useState('');
+  async function editPrevious(id) {
+    setEditingId(id); setEditItem(null); setEditError('');
+    try {
+      const list=await service.listings();
+      const found=list.find(item=>item.id===id);
+      if(!found) throw new Error('Could not load that listing right now -- try again in a moment.');
+      setEditItem(found);
+    } catch(err) { setEditError(err.message); }
+  }
   async function pickFiles(event) {
     const files=Array.from(event.target.files||[]); event.target.value='';
     if(!files.length) return;
@@ -653,8 +668,19 @@ function BulkListing({ onClose, onAllDone }) {
   // Defensive: index should never reach here out of range (advance() checks before setting it),
   // but rendering nothing for one frame beats a hard crash if some future change reintroduces the gap.
   if (!queue[index]) return null;
-  return <CreateListing key={queue[index].path} bulkPhoto={queue[index]} bulkProgress={{index,total:queue.length}}
-    onClose={()=>{setSkipped(n=>n+1);advance();}} onCreated={()=>{setPublished(n=>n+1);advance();}} onPause={pause}/>;
+  return <>
+    <CreateListing key={queue[index].path} bulkPhoto={queue[index]} bulkProgress={{index,total:queue.length}}
+      onClose={()=>{setSkipped(n=>n+1);advance();}}
+      onCreated={id=>{setPublishedItems(list=>[...list,{id,n:index+1}]);setPublished(n=>n+1);advance();}}
+      onPause={pause} previousItems={publishedItems} onEditPrevious={editPrevious}/>
+    {editingId && !editItem && <Modal title="Loading listing…" onClose={()=>{setEditingId(null);setEditError('');}}>
+      <div className="ai-photo-step">
+        {!editError && <p role="status" className="field-note">Loading…</p>}
+        {editError && <p role="alert" className="error">{editError}</p>}
+      </div>
+    </Modal>}
+    {editItem && <EditListing key={editItem.id} item={editItem} onClose={()=>{setEditingId(null);setEditItem(null);}} onSaved={()=>{setEditingId(null);setEditItem(null);}}/>}
+  </>;
 }
 
 function EditListing({item:currentItem,onClose,onSaved}) {
