@@ -503,11 +503,12 @@ function CreateListing({ onClose, onCreated, relistFrom, bulkPhoto, bulkProgress
   // instant before the AI draft overwrites it.
   return <Modal title={relistFrom ? 'Relist this item' : bulkPhoto ? `Create a listing (${bulkProgress.index+1} of ${bulkProgress.total})` : 'Create a listing'} onClose={close}>
     {bulkPhoto && <div className="bulk-progress-bar" aria-hidden="true"><div className="bulk-progress-fill" style={{width:`${(bulkProgress.index/bulkProgress.total)*100}%`}}/></div>}
-    {bulkPhoto && processingPhoto && <div className="bulk-scan-overlay" role="status" aria-label="King Credion is drafting this listing"><img src="/brand/screen-face-v1/scan.webp" alt=""/><p>Reading this photo…</p></div>}
     <p className="muted">{relistFrom ? 'Details, tags and certificate info carried over from your purchase. Review everything and set your own price.' : bulkPhoto ? "King Credion is reading this photo in the background — fields fill in as they're ready. Set a price and package size, then publish and move to the next item. Closing this (X) skips just this item — its photo won't be published. To stop here and come back later, use \"Save and exit\" below instead." : 'Review what AI filled in and add anything it missed.'}</p>
     {copyingPhotos && <p role="status" className="field-note">Copying photos to your own listing…</p>}
     {draftApplied && <p className="field-note bg-removed-ok">AI filled in the details from your photo — review everything before publishing. <button type="button" className="text-button" onClick={()=>setDraftApplied(false)}>Dismiss</button></p>}
     {draftNote && <p className="field-note">{draftNote} <button type="button" className="text-button" onClick={()=>setDraftNote('')}>Dismiss</button></p>}
+    <div className="bulk-form-wrap">
+    {bulkPhoto && processingPhoto && <div className="bulk-scan-overlay" role="status" aria-label="King Credion is drafting this listing"><img src="/brand/screen-face-v1/scan.webp" alt=""/><p>Reading this photo…</p></div>}
     <form ref={formRef} onSubmit={submit} className="form-stack">
       <label>Item title<input name="title" placeholder="What are you sharing?" minLength={4} maxLength={120} required autoFocus/></label>
       <label>Signed by <span className="optional">optional</span><input name="attribute:subject" placeholder="e.g. Mike Tyson" maxLength={120}/></label>
@@ -556,6 +557,7 @@ function CreateListing({ onClose, onCreated, relistFrom, bulkPhoto, bulkProgress
         {bulkPhoto && onPause && <button type="button" className="text-button" disabled={working} onClick={()=>onPause(bulkPhoto)}>Save and exit</button>}
       </div>
     </form>
+    </div>
   </Modal>;
 }
 
