@@ -8,6 +8,11 @@
 @media(max-width:400px){.account-actions{gap:4px}}
 @media(prefers-reduced-motion:reduce){*{scroll-behavior:auto!important;transition:none!important}}
 .load-more{display:flex;margin:24px auto 0;padding:10px 18px;border:1px solid var(--border);border-radius:7px}
+.item-card.king-collection{position:relative;border-color:var(--brand-gold);box-shadow:0 0 0 1px var(--brand-gold),0 8px 24px -6px var(--brand-gold)}
+.item-card.king-collection:hover{box-shadow:0 0 0 1px var(--brand-gold),0 12px 30px -4px var(--brand-gold)}
+.king-badge{display:inline-flex;align-items:center;gap:5px;font-size:9px;font-weight:700;letter-spacing:.4px;color:#7a5a12;background:linear-gradient(120deg,#fdf0c8,#f4d888);border:1px solid var(--brand-gold);border-radius:30px;padding:5px 10px}
+.item-card .king-badge{position:absolute;top:10px;left:10px;z-index:1}
+.item-info .king-badge{margin-left:10px;vertical-align:middle}
 .chat-log{display:flex;flex-direction:column;gap:10px;max-height:360px;overflow-y:auto;scroll-behavior:smooth;padding:2px 4px 2px 2px;margin:6px 0}
 .chat-bubble{max-width:82%}
 .chat-bubble.mine{align-self:flex-end}
