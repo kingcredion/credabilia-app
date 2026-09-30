@@ -70,7 +70,7 @@
 .bulk-progress-bar{height:4px;background:var(--border-faint);border-radius:2px;overflow:hidden;margin-bottom:16px}
 .bulk-progress-fill{height:100%;background:var(--brand-teal);transition:width .3s ease}
 .bulk-scan-overlay{position:absolute;inset:0;z-index:5;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px}
-.bulk-scan-overlay img{width:150px;height:150px;object-fit:contain;animation:scan-pulse 1.6s ease-in-out infinite;filter:drop-shadow(0 6px 16px rgba(0,0,0,.35))}
+.bulk-scan-overlay img{width:450px;height:450px;max-width:90%;object-fit:contain;animation:scan-pulse 1.6s ease-in-out infinite;filter:drop-shadow(0 6px 16px rgba(0,0,0,.35))}
 .bulk-scan-overlay p{font-size:13px;font-weight:600;color:var(--text);background:var(--surface);padding:4px 10px;border-radius:20px;margin:0;box-shadow:0 2px 8px rgba(0,0,0,.15)}
 @media(prefers-reduced-motion:reduce){.bulk-scan-overlay img{animation:none}}
 .pickup-gate{border:1px solid var(--border);border-radius:14px;padding:30px;max-width:480px;width:calc(100% - 30px);color:var(--text);box-shadow:0 25px 100px var(--shadow-dialog);text-align:center;display:flex;flex-direction:column;align-items:center;gap:14px}.pickup-gate::backdrop{background:var(--overlay);backdrop-filter:blur(3px)}.pickup-gate-hero{width:100%;max-width:360px;border-radius:10px;object-fit:contain}.pickup-gate h2{font-size:19px;margin:0}.pickup-gate .form-stack,.pickup-gate .submit-row{width:100%}
