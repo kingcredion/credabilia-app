@@ -495,15 +495,14 @@ function CreateListing({ onClose, onCreated, relistFrom, bulkPhoto, bulkProgress
       {error && <p role="alert" className="error">{error}</p>}
     </div>
   </Modal>;
-  if (bulkPhoto && processingPhoto) return <Modal title={`Create a listing (${bulkProgress.index+1} of ${bulkProgress.total})`} onClose={close}>
-    <div className="ai-photo-step">
-      <img src="/brand/screen-face-v1/scan.webp" alt="" className="ai-photo-step-hero scanning"/>
-      <p className="muted">King Credion is reading this photo — drafting the title and description, and checking for a signature…</p>
-      {error && <p role="alert" className="error">{error}</p>}
-    </div>
-  </Modal>;
+  // Bulk mode no longer blocks the form behind a separate "scanning" screen -- the form is always
+  // visible (and usable) right away; a small floating King Credion badge over the dialog is the
+  // only thing that shows while AI drafts this item in the background, clearing on its own once
+  // processMainPhoto's effect finishes. Simpler render tree, one fewer state-dependent branch to
+  // keep in sync with the queue/index bookkeeping in BulkListing above.
   return <Modal title={relistFrom ? 'Relist this item' : bulkPhoto ? `Create a listing (${bulkProgress.index+1} of ${bulkProgress.total})` : 'Create a listing'} onClose={close}>
-    <p className="muted">{relistFrom ? 'Details, tags and certificate info carried over from your purchase. Review everything and set your own price.' : bulkPhoto ? "Review what AI filled in for this photo, set a price and package size, then publish and move to the next item. Closing this (X) skips just this item — its photo won't be published. To stop here and come back later, use \"Save and exit\" below instead." : 'Review what AI filled in and add anything it missed.'}</p>
+    {bulkPhoto && processingPhoto && <div className="bulk-scan-badge" role="status" aria-label="King Credion is drafting this listing"><img src="/brand/screen-face-v1/scan.webp" alt=""/></div>}
+    <p className="muted">{relistFrom ? 'Details, tags and certificate info carried over from your purchase. Review everything and set your own price.' : bulkPhoto ? "King Credion is reading this photo in the background — fields fill in as they're ready. Set a price and package size, then publish and move to the next item. Closing this (X) skips just this item — its photo won't be published. To stop here and come back later, use \"Save and exit\" below instead." : 'Review what AI filled in and add anything it missed.'}</p>
     {copyingPhotos && <p role="status" className="field-note">Copying photos to your own listing…</p>}
     {draftApplied && <p className="field-note bg-removed-ok">AI filled in the details from your photo — review everything before publishing. <button type="button" className="text-button" onClick={()=>setDraftApplied(false)}>Dismiss</button></p>}
     {draftNote && <p className="field-note">{draftNote} <button type="button" className="text-button" onClick={()=>setDraftNote('')}>Dismiss</button></p>}
@@ -631,7 +630,8 @@ function BulkListing({ onClose, onAllDone }) {
   </Modal>;
   if(phase==='pick') return <Modal title="Bulk list items" onClose={onClose}>
     <div className="ai-photo-step">
-      <p className="muted">Upload a photo for each item you want to list — each photo becomes its own listing. You'll review AI's draft, set a price and package size, and publish one at a time before moving to the next.</p>
+      <img src="/brand/screen-face-v1/scan.webp" alt="" className="ai-photo-step-hero"/>
+      <p className="muted">Upload a photo for each item you want to list — each photo becomes its own listing. You'll land straight on each item's form with a little King Credion badge floating in the corner while it drafts the title and description in the background — no separate waiting screen. Set a price and package size, publish, and move to the next.</p>
       <label>Add photos<input type="file" accept="image/jpeg,image/png,image/webp" multiple onChange={pickFiles}/></label>
       {error && <p role="alert" className="error">{error}</p>}
     </div>
