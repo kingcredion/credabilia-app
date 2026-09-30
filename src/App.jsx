@@ -507,9 +507,9 @@ function CreateListing({ onClose, onCreated, relistFrom, bulkPhoto, bulkProgress
     {copyingPhotos && <p role="status" className="field-note">Copying photos to your own listing…</p>}
     {draftApplied && <p className="field-note bg-removed-ok">AI filled in the details from your photo — review everything before publishing. <button type="button" className="text-button" onClick={()=>setDraftApplied(false)}>Dismiss</button></p>}
     {draftNote && <p className="field-note">{draftNote} <button type="button" className="text-button" onClick={()=>setDraftNote('')}>Dismiss</button></p>}
-    <div className="bulk-form-wrap">
-    {bulkPhoto && processingPhoto && <div className="bulk-scan-overlay" role="status" aria-label="King Credion is drafting this listing"><img src="/brand/screen-face-v1/scan.webp" alt=""/><p>Reading this photo…</p></div>}
     <form ref={formRef} onSubmit={submit} className="form-stack">
+      <div className="bulk-form-wrap">
+      {bulkPhoto && processingPhoto && <div className="bulk-scan-overlay" role="status" aria-label="King Credion is drafting this listing"><img src="/brand/screen-face-v1/scan.webp" alt=""/><p>Reading this photo…</p></div>}
       <label>Item title<input name="title" placeholder="What are you sharing?" minLength={4} maxLength={120} required autoFocus/></label>
       <label>Signed by <span className="optional">optional</span><input name="attribute:subject" placeholder="e.g. Mike Tyson" maxLength={120}/></label>
       <MediaPicker service={service} media={media} onChange={next=>{setMedia(next);setSuggestion(null);setConfirmed(false);setSignatureAi(null);}} busy={working} onBusy={setUploading} onError={setError}/>
@@ -518,6 +518,7 @@ function CreateListing({ onClose, onCreated, relistFrom, bulkPhoto, bulkProgress
         {reviewingSignature && <p role="status" className="field-note">Reviewing signature…</p>}
         {signatureAi && <p className="field-note">{LABELS_AI[signatureAi.label]} — {signatureAi.note}</p>}
       </div>}
+      </div>
       <label>Notes for AI <span className="optional">optional</span><textarea value={notes} onChange={event=>setNotes(event.target.value)} rows={3} maxLength={2000} placeholder="Add anything the photo won't show — who made it, when, condition, provenance…" disabled={working}/></label>
       <button type="button" className="text-button" onClick={draftListing} disabled={working || !media.some(asset=>asset.kind==='item')}>{drafting ? 'Drafting…' : 'Regenerate with AI'}</button>
       {!relistFrom && <div className="categories" aria-label="Listing type"><button type="button" aria-pressed={listingType==='fixed'} className={listingType==='fixed' ? 'active' : ''} onClick={()=>setListingType('fixed')}>Fixed price</button><button type="button" aria-pressed={listingType==='auction'} className={listingType==='auction' ? 'active' : ''} onClick={()=>setListingType('auction')}>Auction</button></div>}
@@ -557,7 +558,6 @@ function CreateListing({ onClose, onCreated, relistFrom, bulkPhoto, bulkProgress
         {bulkPhoto && onPause && <button type="button" className="text-button" disabled={working} onClick={()=>onPause(bulkPhoto)}>Save and exit</button>}
       </div>
     </form>
-    </div>
   </Modal>;
 }
 
