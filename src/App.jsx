@@ -3,7 +3,7 @@ import { ListingDetailFields, ListingDetailSummary } from './ListingDetails.jsx'
 import { listingMatches } from './listingDetails.js';
 import { MediaPicker, PhotoGallery } from './ListingMedia.jsx';
 import { mainPhotoBackgroundRemoved, prepareImage } from './media.js';
-import { saveListingDraft, loadListingDraft, clearListingDraft, readFormValues } from './listingDraft.js';
+import { saveListingDraft, loadListingDraft, clearListingDraft, readFormValues, saveBulkDraft, loadBulkDraft, clearBulkDraft } from './listingDraft.js';
 import { certificateSuggestion } from './certificates.js';
 import CredibilityDetails, { CredibilityMeter } from './CredibilityDetails.jsx';
 import { TriviaPanel } from './Trivia.jsx';
@@ -219,7 +219,7 @@ function PickupConfirmationGate({ purchases, onResolved }) {
   </dialog>;
 }
 
-function CreateListing({ onClose, onCreated, relistFrom, bulkPhoto, bulkProgress }) {
+function CreateListing({ onClose, onCreated, relistFrom, bulkPhoto, bulkProgress, onPause }) {
   const [step,setStep]=useState(relistFrom || bulkPhoto ? 'form' : 'photo');
   const [processingPhoto,setProcessingPhoto]=useState(false);
   const [draftPrompt,setDraftPrompt]=useState(() => relistFrom || bulkPhoto ? null : loadListingDraft());
@@ -503,7 +503,7 @@ function CreateListing({ onClose, onCreated, relistFrom, bulkPhoto, bulkProgress
     </div>
   </Modal>;
   return <Modal title={relistFrom ? 'Relist this item' : bulkPhoto ? `Create a listing (${bulkProgress.index+1} of ${bulkProgress.total})` : 'Create a listing'} onClose={close}>
-    <p className="muted">{relistFrom ? 'Details, tags and certificate info carried over from your purchase. Review everything and set your own price.' : bulkPhoto ? "Review what AI filled in for this photo, set a price and package size, then publish and move to the next item. Closing this skips it — its photo won't be published." : 'Review what AI filled in and add anything it missed.'}</p>
+    <p className="muted">{relistFrom ? 'Details, tags and certificate info carried over from your purchase. Review everything and set your own price.' : bulkPhoto ? "Review what AI filled in for this photo, set a price and package size, then publish and move to the next item. Closing this (X) skips just this item — its photo won't be published. To stop here and come back later, use \"Save and exit\" below instead." : 'Review what AI filled in and add anything it missed.'}</p>
     {copyingPhotos && <p role="status" className="field-note">Copying photos to your own listing…</p>}
     {draftApplied && <p className="field-note bg-removed-ok">AI filled in the details from your photo — review everything before publishing. <button type="button" className="text-button" onClick={()=>setDraftApplied(false)}>Dismiss</button></p>}
     {draftNote && <p className="field-note">{draftNote} <button type="button" className="text-button" onClick={()=>setDraftNote('')}>Dismiss</button></p>}
@@ -550,7 +550,10 @@ function CreateListing({ onClose, onCreated, relistFrom, bulkPhoto, bulkProgress
       <CertificateFields value={certificate} onChange={value=>{setCertificate(value);setConfirmed(false);}} disabled={working}/>
       {certificate.certificate_issuer && <label className="certificate-confirm"><input type="checkbox" checked={confirmed} onChange={event=>setConfirmed(event.target.checked)} required disabled={working}/>I checked the company and number against my certificate.</label>}
       {error && <p role="alert" className="error">{error}</p>}
-      <button className="primary" disabled={working}>{busy ? 'Publishing…' : relistFrom ? 'Publish relisted item' : bulkPhoto ? 'Publish and next' : 'Publish listing'}<ArrowRight size={17}/></button>
+      <div className="submit-row">
+        <button className="primary" disabled={working}>{busy ? 'Publishing…' : relistFrom ? 'Publish relisted item' : bulkPhoto ? 'Publish and next' : 'Publish listing'}<ArrowRight size={17}/></button>
+        {bulkPhoto && onPause && <button type="button" className="text-button" disabled={working} onClick={()=>onPause(bulkPhoto)}>Save and exit</button>}
+      </div>
     </form>
   </Modal>;
 }
@@ -560,7 +563,8 @@ function CreateListing({ onClose, onCreated, relistFrom, bulkPhoto, bulkProgress
 // duplicated), advancing to the next item on publish instead of closing. Closing an individual item's
 // card mid-review skips just that one photo; the queue and progress live here, one level up.
 function BulkListing({ onClose, onAllDone }) {
-  const [phase,setPhase]=useState('pick'); // 'pick' | 'uploading' | 'review' | 'done'
+  const [phase,setPhase]=useState(() => loadBulkDraft() ? 'resume-prompt' : 'pick');
+  const [resuming,setResuming]=useState(false), [discarding,setDiscarding]=useState(false);
   const [queue,setQueue]=useState([]);
   const [index,setIndex]=useState(0);
   const [uploadProgress,setUploadProgress]=useState({done:0,total:0});
@@ -579,7 +583,42 @@ function BulkListing({ onClose, onAllDone }) {
     if(!uploaded.length) { setPhase('pick'); return; }
     setQueue(uploaded); setIndex(0); setPublished(0); setSkipped(0); setPhase('review');
   }
-  function advance() { setIndex(i => { const next=i+1; if(next>=queue.length) setPhase('done'); return next; }); }
+  function advance() { setIndex(i => { const next=i+1; if(next>=queue.length) { clearBulkDraft(); setPhase('done'); } return next; }); }
+  // "Save and exit" (vs. the X on an item card, which skips+deletes just that one photo): persists
+  // the current item plus everything still queued behind it -- their photos stay in storage
+  // untouched, ready to re-sign and re-draft (same cost model as a fresh upload) on resume.
+  function pause(currentAsset) {
+    const remaining=[currentAsset, ...queue.slice(index+1)];
+    saveBulkDraft({items:remaining,published,skipped});
+    onClose();
+  }
+  async function resumeBulkDraft() {
+    const draft=loadBulkDraft();
+    if(!draft) return;
+    setResuming(true); setError('');
+    try {
+      const signed=await service.signMediaUrls(draft.items);
+      setQueue(signed); setIndex(0); setPublished(draft.published||0); setSkipped(draft.skipped||0); setPhase('review');
+    } catch(err) { setError(err.message); } finally { setResuming(false); }
+  }
+  async function discardBulkDraft() {
+    const draft=loadBulkDraft();
+    if(!draft) return;
+    setDiscarding(true);
+    await Promise.all(draft.items.map(asset=>service.removeImage(asset.path).catch(()=>{})));
+    clearBulkDraft();
+    setDiscarding(false); setPhase('pick');
+  }
+  if(phase==='resume-prompt') return <Modal title="Resume bulk listing?" onClose={onClose}>
+    <div className="ai-photo-step">
+      <p className="muted">You have an unfinished bulk listing session from earlier, with its photos already uploaded. Pick up where you left off, or discard it and start fresh.</p>
+      <div className="submit-row">
+        <button type="button" className="primary" onClick={resumeBulkDraft} disabled={resuming||discarding}>{resuming ? 'Resuming…' : 'Resume'}</button>
+        <button type="button" className="text-button" onClick={discardBulkDraft} disabled={resuming||discarding}>{discarding ? 'Discarding…' : 'Discard and start over'}</button>
+      </div>
+      {error && <p role="alert" className="error">{error}</p>}
+    </div>
+  </Modal>;
   if(phase==='pick') return <Modal title="Bulk list items" onClose={onClose}>
     <div className="ai-photo-step">
       <p className="muted">Upload a photo for each item you want to list — each photo becomes its own listing. You'll review AI's draft, set a price and package size, and publish one at a time before moving to the next.</p>
@@ -597,7 +636,7 @@ function BulkListing({ onClose, onAllDone }) {
     </div>
   </Modal>;
   return <CreateListing key={queue[index].path} bulkPhoto={queue[index]} bulkProgress={{index,total:queue.length}}
-    onClose={()=>{setSkipped(n=>n+1);advance();}} onCreated={()=>{setPublished(n=>n+1);advance();}}/>;
+    onClose={()=>{setSkipped(n=>n+1);advance();}} onCreated={()=>{setPublished(n=>n+1);advance();}} onPause={pause}/>;
 }
 
 function EditListing({item:currentItem,onClose,onSaved}) {

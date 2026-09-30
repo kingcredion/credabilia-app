@@ -19,6 +19,19 @@ export function loadListingDraft() {
 export function clearListingDraft() {
   try { localStorage.removeItem(DRAFT_KEY); } catch {}
 }
+const BULK_DRAFT_KEY = 'credabilia-bulk-draft';
+// Bulk sessions can run long (a whole haul of photos) -- "Save and exit" persists whatever wasn't
+// published yet (the in-progress item plus everything still queued behind it) so closing the tab
+// or navigating away doesn't silently orphan already-uploaded photos or lose the running count.
+export function saveBulkDraft({ items, published, skipped }) {
+  try { localStorage.setItem(BULK_DRAFT_KEY, JSON.stringify({ items: items.map(({ path, kind }) => ({ path, kind })), published, skipped })); } catch {}
+}
+export function loadBulkDraft() {
+  try { return JSON.parse(localStorage.getItem(BULK_DRAFT_KEY) || 'null'); } catch { return null; }
+}
+export function clearBulkDraft() {
+  try { localStorage.removeItem(BULK_DRAFT_KEY); } catch {}
+}
 // Reads the plain (non-category-conditional) uncontrolled fields plus every attribute:* input
 // present for the current category -- the same shape saveListingDraft's `form` expects, and the
 // same shape the resume effect writes back with.
