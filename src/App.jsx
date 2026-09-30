@@ -633,7 +633,8 @@ function BulkListing({ onClose, onAllDone }) {
   if(phase==='pick') return <Modal title="Bulk list items" onClose={onClose}>
     <div className="ai-photo-step">
       <img src="/brand/screen-face-v1/scan.webp" alt="" className="ai-photo-step-hero"/>
-      <p className="muted">Upload a photo for each item you want to list — each photo becomes its own listing. You'll land straight on each item's form with a little King Credion badge floating in the corner while it drafts the title and description in the background — no separate waiting screen. Set a price and package size, publish, and move to the next.</p>
+      <p className="muted">AI reads each photo and drafts the listing for you — title, description, category, even a signature close-up if it spots one. Each photo becomes its own listing, and you can review and edit anything before publishing it.</p>
+      <img src="/brand/credabilia-jersey-photo-guide-v1-optimized.webp" alt="Example: a photo cropped too close to the item versus one showing the full item with space around it" className="ai-photo-guide"/>
       <label>Add photos<input type="file" accept="image/jpeg,image/png,image/webp" multiple onChange={pickFiles}/></label>
       {error && <p role="alert" className="error">{error}</p>}
     </div>
