@@ -496,11 +496,11 @@ function CreateListing({ onClose, onCreated, relistFrom, bulkPhoto, bulkProgress
     </div>
   </Modal>;
   // Bulk mode no longer blocks the form behind a separate "scanning" screen -- the form is always
-  // present underneath (and instantly usable once loading clears) right away; a full-card overlay
-  // (King Credion centered, dimming everything behind it) is the only thing that shows while AI
-  // drafts this item in the background, clearing on its own once processMainPhoto's effect
-  // finishes. Deliberately still blocks interaction while it's up (not pointer-events:none) so a
-  // seller can't type into a field the instant before the AI draft overwrites it.
+  // present and fully visible underneath; just the King Credion PNG (its own transparent
+  // background, no card/backdrop behind it) floats centered over the card while AI drafts this
+  // item, clearing on its own once processMainPhoto's effect finishes. Deliberately still blocks
+  // interaction while it's up (not pointer-events:none) so a seller can't type into a field the
+  // instant before the AI draft overwrites it.
   return <Modal title={relistFrom ? 'Relist this item' : bulkPhoto ? `Create a listing (${bulkProgress.index+1} of ${bulkProgress.total})` : 'Create a listing'} onClose={close}>
     {bulkPhoto && <div className="bulk-progress-bar" aria-hidden="true"><div className="bulk-progress-fill" style={{width:`${(bulkProgress.index/bulkProgress.total)*100}%`}}/></div>}
     {bulkPhoto && processingPhoto && <div className="bulk-scan-overlay" role="status" aria-label="King Credion is drafting this listing"><img src="/brand/screen-face-v1/scan.webp" alt=""/><p>Reading this photo…</p></div>}
