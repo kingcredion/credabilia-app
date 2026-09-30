@@ -1,10 +1,10 @@
 import React from 'react';
 import { DETAIL_FIELDS, detailKeys } from './listingDetails.js';
 
-export function ListingDetailFields({category}) {
+export function ListingDetailFields({category, exclude=[]}) {
   return <details><summary>Item details and search tags (optional)</summary>
     <p className="field-note">Add only details you know. These are seller-provided descriptions, not authentication.</p>
-    <div className="form-stack">{detailKeys(category).map(key => <label key={key}>{DETAIL_FIELDS[key]}<input name={'attribute:' + key} maxLength={120}/></label>)}
+    <div className="form-stack">{detailKeys(category).filter(key => !exclude.includes(key)).map(key => <label key={key}>{DETAIL_FIELDS[key]}<input name={'attribute:' + key} maxLength={120}/></label>)}
       <label>Search tags<input name="tags" placeholder="baseball, jersey, chicago" maxLength={334}/></label>
       <p className="field-note">Up to eight descriptive tags, separated by commas. Tags do not affect credibility.</p>
     </div>
