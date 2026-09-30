@@ -496,12 +496,14 @@ function CreateListing({ onClose, onCreated, relistFrom, bulkPhoto, bulkProgress
     </div>
   </Modal>;
   // Bulk mode no longer blocks the form behind a separate "scanning" screen -- the form is always
-  // visible (and usable) right away; a small floating King Credion badge over the dialog is the
-  // only thing that shows while AI drafts this item in the background, clearing on its own once
-  // processMainPhoto's effect finishes. Simpler render tree, one fewer state-dependent branch to
-  // keep in sync with the queue/index bookkeeping in BulkListing above.
+  // present underneath (and instantly usable once loading clears) right away; a full-card overlay
+  // (King Credion centered, dimming everything behind it) is the only thing that shows while AI
+  // drafts this item in the background, clearing on its own once processMainPhoto's effect
+  // finishes. Deliberately still blocks interaction while it's up (not pointer-events:none) so a
+  // seller can't type into a field the instant before the AI draft overwrites it.
   return <Modal title={relistFrom ? 'Relist this item' : bulkPhoto ? `Create a listing (${bulkProgress.index+1} of ${bulkProgress.total})` : 'Create a listing'} onClose={close}>
-    {bulkPhoto && processingPhoto && <div className="bulk-scan-badge" role="status" aria-label="King Credion is drafting this listing"><img src="/brand/screen-face-v1/scan.webp" alt=""/></div>}
+    {bulkPhoto && <div className="bulk-progress-bar" aria-hidden="true"><div className="bulk-progress-fill" style={{width:`${(bulkProgress.index/bulkProgress.total)*100}%`}}/></div>}
+    {bulkPhoto && processingPhoto && <div className="bulk-scan-overlay" role="status" aria-label="King Credion is drafting this listing"><img src="/brand/screen-face-v1/scan.webp" alt=""/><p>Reading this photo…</p></div>}
     <p className="muted">{relistFrom ? 'Details, tags and certificate info carried over from your purchase. Review everything and set your own price.' : bulkPhoto ? "King Credion is reading this photo in the background — fields fill in as they're ready. Set a price and package size, then publish and move to the next item. Closing this (X) skips just this item — its photo won't be published. To stop here and come back later, use \"Save and exit\" below instead." : 'Review what AI filled in and add anything it missed.'}</p>
     {copyingPhotos && <p role="status" className="field-note">Copying photos to your own listing…</p>}
     {draftApplied && <p className="field-note bg-removed-ok">AI filled in the details from your photo — review everything before publishing. <button type="button" className="text-button" onClick={()=>setDraftApplied(false)}>Dismiss</button></p>}
