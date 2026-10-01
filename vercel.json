@@ -10,28 +10,6 @@
       ],
       "destination": "https://credabilia.com/$1",
       "permanent": true
-    },
-    {
-      "source": "/(.*)",
-      "has": [
-        {
-          "type": "host",
-          "value": "credabilia.app"
-        }
-      ],
-      "destination": "https://credabilia.com/$1",
-      "permanent": true
-    },
-    {
-      "source": "/(.*)",
-      "has": [
-        {
-          "type": "host",
-          "value": "www.credabilia.app"
-        }
-      ],
-      "destination": "https://credabilia.com/$1",
-      "permanent": true
     }
   ],
   "rewrites": [
