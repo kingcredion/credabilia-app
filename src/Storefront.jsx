@@ -12,7 +12,7 @@ export function Storefront({ slug, service, onBack }) {
     return () => { alive = false; };
   }, [slug]);
   return <div className="app">
-    <header className="topbar">
+    <header className="topbar storefront-topbar">
       <button className="brand" onClick={onBack} aria-label="Credabilia home"><Brand/></button>
       <button className="primary compact" onClick={onBack}>Join Credabilia <ArrowUpRight size={16}/></button>
     </header>
