@@ -517,7 +517,7 @@ function CreateListing({ onClose, onCreated, relistFrom, bulkPhoto, bulkProgress
       <label>Signed by <span className="optional">optional</span><input name="attribute:subject" placeholder="e.g. Mike Tyson" maxLength={120}/></label>
       <MediaPicker service={service} media={media} onChange={next=>{setMedia(next);setSuggestion(null);setConfirmed(false);setSignatureAi(null);}} busy={working} onBusy={setUploading} onError={setError}/>
       {signaturePhoto ? <div className="evidence-box"><h3>Signature AI opinion</h3>
-        <p className="field-note">If AI spotted this automatically and it isn't actually a signature, remove the photo above in the Signature close-up section.</p>
+        <p className="field-note-caution">If AI spotted this automatically and it isn't actually a signature, remove the photo above in the Signature close-up section.</p>
         {reviewingSignature && <p role="status" className="field-note">Reviewing signature…</p>}
         {signatureAi && <p className="field-note">{LABELS_AI[signatureAi.label]} — {signatureAi.note}</p>}
       </div> : <p className="field-note">Signed and unsigned collectibles are both welcome — leave the signature close-up blank if this item isn't signed.</p>}
