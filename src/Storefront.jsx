@@ -11,6 +11,12 @@ export function Storefront({ slug, service, onBack }) {
     service.getStorefront(slug).then(result => { if (alive) setStore(result); }).catch(err => { if (alive) setError(err.message); });
     return () => { alive = false; };
   }, [slug]);
+  // Share-link previews (crawlers) get real per-page meta from the Vercel routing middleware --
+  // this just keeps the browser tab title honest for an actual visitor, who never sees that HTML.
+  useEffect(() => {
+    if (store) document.title = `${store.display_name} | Credabilia Storefront`;
+    return () => { document.title = 'Credabilia | The Memorabilia Kingdom'; };
+  }, [store]);
   return <div className="app">
     <header className="topbar storefront-topbar">
       <button className="brand" onClick={onBack} aria-label="Credabilia home"><Brand/></button>

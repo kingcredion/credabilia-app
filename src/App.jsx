@@ -1845,6 +1845,12 @@ export default function App() {
     const target = selectedId ? `/item/${selectedId}` : '/';
     if (window.location.pathname !== target) window.history.pushState(null, '', target);
   }, [selectedId, authReady, items]);
+  // Share-link previews (crawlers) get real per-page meta from the Vercel routing middleware --
+  // this just keeps the browser tab title honest for an actual visitor, who never sees that HTML.
+  useEffect(() => {
+    const item = selectedId && items.find(x => x.id === selectedId);
+    document.title = item ? `${item.title} | Credabilia` : 'Credabilia | The Memorabilia Kingdom';
+  }, [selectedId, items]);
   // Restores native browser back/forward support for item views.
   useEffect(() => {
     const onPopState = () => {
