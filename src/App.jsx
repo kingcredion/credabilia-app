@@ -236,6 +236,7 @@ function CreateListing({ onClose, onCreated, relistFrom, bulkPhoto, bulkProgress
   const [copyingPhotos,setCopyingPhotos]=useState(false);
   const [signatureAi,setSignatureAi]=useState(null),[reviewingSignature,setReviewingSignature]=useState(false);
   const [pickupEnabled,setPickupEnabled]=useState(false),[pickupStationId,setPickupStationId]=useState('');
+  const [fit,setFit]=useState(null); // {fit:'clear'|'unsure'|'unrelated', reason} from the last AI draft, or null if never drafted
   const formRef=useRef(null);
   const working=busy||uploading||analyzing||drafting||copyingPhotos||reviewingSignature||processingPhoto||resuming||discarding;
   const certificates=media.filter(asset=>asset.kind==='certificate');
@@ -284,6 +285,7 @@ function CreateListing({ onClose, onCreated, relistFrom, bulkPhoto, bulkProgress
     const hasContent=result.title||result.description||result.category||Object.keys(result.attributes||{}).length||result.tags?.length||result.signature?.found;
     setDraftApplied(!!(result.title||result.description||result.category||Object.keys(result.attributes||{}).length||result.tags?.length));
     setDraftNote(hasContent ? '' : "Our analysis didn't bring back much from this photo — fill in the details below.");
+    setFit(result.fit && result.fit!=='clear' ? {fit:result.fit,reason:result.fit_reason} : null);
   }
   // AI drafting and background removal run in parallel right after a main photo lands (whether from
   // the manual single-item upload below, or a bulk-queued photo already uploaded by BulkListing) --
@@ -468,11 +470,11 @@ function CreateListing({ onClose, onCreated, relistFrom, bulkPhoto, bulkProgress
       }
       const form = Object.fromEntries(new FormData(event.currentTarget));
       const attributes = Object.fromEntries(Object.entries(form).filter(([key])=>key.startsWith('attribute:')).map(([key,value])=>[key.slice(10),value]));
-      const id = await service.createListing({ ...form, attributes, ...certificate, media: finalMedia, price_cents: priceInCents(form.price), listing_type: listingType, auction_days: form.auction_days, signature_ai_label: signatureAi?.label, signature_ai_note: signatureAi?.note });
+      const id = await service.createListing({ ...form, attributes, ...certificate, media: finalMedia, price_cents: priceInCents(form.price), listing_type: listingType, auction_days: form.auction_days, signature_ai_label: signatureAi?.label, signature_ai_note: signatureAi?.note, needs_review: fit?.fit==='unrelated' || fit?.fit==='unsure', needs_review_reason: fit?.reason||null });
       clearListingDraft();
       // Best-effort: the listing is already published, so a failure here shouldn't block the seller — but it should be visible for debugging.
       if (relistFrom?.purchase_id) service.markListingRelisted(id, relistFrom.purchase_id).catch(err => console.warn('Could not record relist provenance:', err.message));
-      onCreated(id);
+      onCreated(id, fit);
     } catch (err) { setError(err.message); setBusy(false); }
   }
   if (!relistFrom && !bulkPhoto && draftPrompt) return <Modal title="Resume your listing?" onClose={close}>
@@ -488,7 +490,7 @@ function CreateListing({ onClose, onCreated, relistFrom, bulkPhoto, bulkProgress
   if (!relistFrom && !bulkPhoto && step==='photo') return <Modal title="Create a listing" onClose={close}>
     <div className="ai-photo-step">
       <img src="/brand/screen-face-v1/scan.webp" alt="" className="ai-photo-step-hero"/>
-      <p className="muted">AI reads your photo and drafts the listing for you — title, description, category, even a signature close-up if it spots one. Add a photo to get started; you can always fill in details yourself.</p>
+      <p className="muted">AI reads your photo and drafts the listing for you — title, description, category, even a signature close-up if it spots one. Add a photo to get started; you can always fill in details yourself. Signed and unsigned collectibles are both welcome.</p>
       <img src="/brand/credabilia-jersey-photo-guide-v1-optimized.webp" alt="Example: a photo cropped too close to the item versus one showing the full item with space around it" className="ai-photo-guide"/>
       <label>Add your main photo<input type="file" accept="image/jpeg,image/png,image/webp" disabled={processingPhoto} onChange={uploadMainPhoto}/></label>
       {processingPhoto && <p role="status" className="field-note">Analyzing your photo…</p>}
@@ -503,7 +505,7 @@ function CreateListing({ onClose, onCreated, relistFrom, bulkPhoto, bulkProgress
   // instant before the AI draft overwrites it.
   return <Modal title={relistFrom ? 'Relist this item' : bulkPhoto ? `Create a listing (${bulkProgress.index+1} of ${bulkProgress.total})` : 'Create a listing'} onClose={close}>
     {bulkPhoto && <div className="bulk-progress-bar" aria-hidden="true"><div className="bulk-progress-fill" style={{width:`${(bulkProgress.index/bulkProgress.total)*100}%`}}/></div>}
-    {bulkPhoto && previousItems?.length>0 && <div className="bulk-back-nav"><span className="field-note">Already published in this session: </span>{previousItems.map(p => <button key={p.id} type="button" className="text-button" onClick={()=>onEditPrevious(p.id)}>Edit item {p.n}</button>)}</div>}
+    {bulkPhoto && previousItems?.length>0 && <div className="bulk-back-nav"><span className="field-note">Already published in this session: </span>{previousItems.map(p => <button key={p.id} type="button" className="text-button" onClick={()=>onEditPrevious(p.id)}>Edit item {p.n}{p.fit ? ' (needs review)' : ''}</button>)}</div>}
     <p className="muted">{relistFrom ? 'Details, tags and certificate info carried over from your purchase. Review everything and set your own price.' : bulkPhoto ? "King Credion is reading this photo in the background — fields fill in as they're ready. Set a price and package size, then publish and move to the next item. Closing this (X) skips just this item — its photo won't be published. To stop here and come back later, use \"Save and exit\" below instead." : 'Review what AI filled in and add anything it missed.'}</p>
     {copyingPhotos && <p role="status" className="field-note">Copying photos to your own listing…</p>}
     {draftApplied && <p className="field-note bg-removed-ok">AI filled in the details from your photo — review everything before publishing. <button type="button" className="text-button" onClick={()=>setDraftApplied(false)}>Dismiss</button></p>}
@@ -514,11 +516,12 @@ function CreateListing({ onClose, onCreated, relistFrom, bulkPhoto, bulkProgress
       <label>Item title<input name="title" placeholder="What are you sharing?" minLength={4} maxLength={120} required autoFocus/></label>
       <label>Signed by <span className="optional">optional</span><input name="attribute:subject" placeholder="e.g. Mike Tyson" maxLength={120}/></label>
       <MediaPicker service={service} media={media} onChange={next=>{setMedia(next);setSuggestion(null);setConfirmed(false);setSignatureAi(null);}} busy={working} onBusy={setUploading} onError={setError}/>
-      {signaturePhoto && <div className="evidence-box"><h3>Signature AI opinion</h3>
+      {signaturePhoto ? <div className="evidence-box"><h3>Signature AI opinion</h3>
         <p className="field-note">If AI spotted this automatically and it isn't actually a signature, remove the photo above in the Signature close-up section.</p>
         {reviewingSignature && <p role="status" className="field-note">Reviewing signature…</p>}
         {signatureAi && <p className="field-note">{LABELS_AI[signatureAi.label]} — {signatureAi.note}</p>}
-      </div>}
+      </div> : <p className="field-note">Signed and unsigned collectibles are both welcome — leave the signature close-up blank if this item isn't signed.</p>}
+      {fit && <p className="field-note">This may need a quick review before it's visible to buyers — {fit.reason || "it didn't clearly look like a collectible."} You can still publish; add more detail above first if that would help.</p>}
       </div>
       <label>Notes for AI <span className="optional">optional</span><textarea value={notes} onChange={event=>setNotes(event.target.value)} rows={3} maxLength={2000} placeholder="Add anything the photo won't show — who made it, when, condition, provenance…" disabled={working}/></label>
       <button type="button" className="text-button" onClick={draftListing} disabled={working || !media.some(asset=>asset.kind==='item')}>{drafting ? 'Drafting…' : 'Regenerate with AI'}</button>
@@ -650,7 +653,7 @@ function BulkListing({ onClose, onAllDone }) {
   if(phase==='pick') return <Modal title="Bulk list items" onClose={onClose}>
     <div className="ai-photo-step">
       <img src="/brand/screen-face-v1/scan.webp" alt="" className="ai-photo-step-hero"/>
-      <p className="muted">AI reads each photo and drafts the listing for you — title, description, category, even a signature close-up if it spots one. Each photo becomes its own listing, and you can review and edit anything before publishing it.</p>
+      <p className="muted">AI reads each photo and drafts the listing for you — title, description, category, even a signature close-up if it spots one. Each photo becomes its own listing, and you can review and edit anything before publishing it. Signed and unsigned collectibles are both welcome.</p>
       <img src="/brand/credabilia-jersey-photo-guide-v1-optimized.webp" alt="Example: a photo cropped too close to the item versus one showing the full item with space around it" className="ai-photo-guide"/>
       <label>Add photos<input type="file" accept="image/jpeg,image/png,image/webp" multiple onChange={pickFiles}/></label>
       {error && <p role="alert" className="error">{error}</p>}
@@ -671,7 +674,7 @@ function BulkListing({ onClose, onAllDone }) {
   return <>
     <CreateListing key={queue[index].path} bulkPhoto={queue[index]} bulkProgress={{index,total:queue.length}}
       onClose={()=>{setSkipped(n=>n+1);advance();}}
-      onCreated={id=>{setPublishedItems(list=>[...list,{id,n:index+1}]);setPublished(n=>n+1);advance();}}
+      onCreated={(id,itemFit)=>{setPublishedItems(list=>[...list,{id,n:index+1,fit:itemFit}]);setPublished(n=>n+1);advance();}}
       onPause={pause} previousItems={publishedItems} onEditPrevious={editPrevious}/>
     {editingId && !editItem && <Modal title="Loading listing…" onClose={()=>{setEditingId(null);setEditError('');}}>
       <div className="ai-photo-step">
@@ -728,13 +731,27 @@ function EditListing({item:currentItem,onClose,onSaved}) {
           } catch { /* Photoroom unavailable right now -- save with the original photo; the retry-background-removal job picks it up automatically. */ }
         }
       }
-      await service.editListing(item,{...form,...certificate,media:finalMedia,price_cents:priceInCents(form.price)},mediaTouched);
+      // Only re-run the suitability check for a listing that's actually held on it -- a normal edit
+      // (price, typo fix) on an already-active listing shouldn't pay for an extra AI call. Text-only
+      // (no photoPath): the main photo may already be background-removed (.png) by now, which
+      // draft-listing's photo path can't read (it only accepts the original .jpg at create time) --
+      // the seller's own title/description/evidence is exactly the clarifying context this recheck
+      // needs anyway, matching "ask what makes it collectible" rather than re-reading the image.
+      let fit=null;
+      if(item.status==='needs_review') {
+        try {
+          const result=await service.draftListing({notes:[form.title,form.description,form.evidence].filter(Boolean).join('\n')});
+          fit={needs_review:result.fit==='unrelated'||result.fit==='unsure',needs_review_reason:result.fit_reason||null};
+        } catch { /* AI unavailable -- leave it exactly as held as it already was rather than guessing. */ }
+      }
+      await service.editListing(item,{...form,...certificate,media:finalMedia,price_cents:priceInCents(form.price)},mediaTouched,fit);
       onSaved();
     }
     catch(err){setError(err.message);setSaving(false);}
   }
   return <Modal title="Edit listing" onClose={()=>{if(!working)onClose();}}>
     <p className="muted">Update any detail — title, category, price, description, evidence, certificate or photos.</p>
+    {item.status==='needs_review' && <p className="field-note">This listing is held from public view pending review — {item.needs_review_reason || "it didn't clearly look like a collectible."} Saving will re-check it automatically.</p>}
     {reviewed && <p className="field-note">This listing has been audited. Changing anything other than price will archive the current reviews in the item's history and reset the score to neutral — nothing is deleted.</p>}
     <form className="form-stack" onSubmit={submit}>
       <label>Item title<input name="title" defaultValue={item.title} required minLength={4} maxLength={120}/></label>
@@ -1474,6 +1491,28 @@ function AdminSignatureLibrary() {
   </div>;
 }
 
+function AdminListingReview() {
+  const [list, setList] = useState(undefined), [error, setError] = useState(''), [busyId, setBusyId] = useState(null), [reasonDraft, setReasonDraft] = useState({});
+  function load() { service.adminListNeedsReviewListings().then(setList).catch(err => setError(err.message)); }
+  useEffect(() => { load(); }, []);
+  async function approve(id) { setBusyId(id); setError(''); try { await service.adminApproveListing(id); load(); } catch (err) { setError(err.message); } finally { setBusyId(null); } }
+  async function reject(id) { setBusyId(id); setError(''); try { await service.adminRejectListing(id, reasonDraft[id]); load(); } catch (err) { setError(err.message); } finally { setBusyId(null); } }
+  if (error) return <p role="alert" className="error">{error}</p>;
+  if (list === undefined) return <p role="status">Loading…</p>;
+  if (!list.length) return <p className="field-note">Nothing pending review.</p>;
+  return <div className="items-grid">{list.map(item => <div key={item.id} className="item-card evidence-box">
+    {item.media?.find(asset=>asset.kind==='item')?.url ? <img src={item.media.find(asset=>asset.kind==='item').url} alt={item.title} className="admin-signature-photo"/> : <p className="field-note">Photo unavailable</p>}
+    <p><strong>{item.title}</strong></p>
+    <p className="field-note">By {item.seller_name} · {item.category}</p>
+    <p className="field-note">AI flagged: {item.needs_review_reason || 'No reason given.'}</p>
+    <div className="form-row">
+      <button type="button" className="text-button" disabled={busyId === item.id} onClick={() => approve(item.id)}>{busyId === item.id ? 'Approving…' : 'Approve'}</button>
+      <button type="button" className="text-button danger-button" disabled={busyId === item.id} onClick={() => reject(item.id)}>{busyId === item.id ? 'Rejecting…' : 'Reject'}</button>
+    </div>
+    <label>Rejection note <span className="optional">optional</span><input value={reasonDraft[item.id] || ''} onChange={event => setReasonDraft(d => ({ ...d, [item.id]: event.target.value }))} maxLength={300}/></label>
+  </div>)}</div>;
+}
+
 function AdminDashboard() {
   const [tab, setTab] = useState('disputes');
   return <div className="form-stack">
@@ -1483,12 +1522,14 @@ function AdminDashboard() {
       <button aria-pressed={tab === 'support'} className={tab === 'support' ? 'active' : ''} onClick={() => setTab('support')}>Support</button>
       <button aria-pressed={tab === 'users'} className={tab === 'users' ? 'active' : ''} onClick={() => setTab('users')}>Users</button>
       <button aria-pressed={tab === 'signatures'} className={tab === 'signatures' ? 'active' : ''} onClick={() => setTab('signatures')}>Signature library</button>
+      <button aria-pressed={tab === 'listings'} className={tab === 'listings' ? 'active' : ''} onClick={() => setTab('listings')}>Listing review</button>
     </div>
     {tab === 'disputes' && <AdminDisputes/>}
     {tab === 'reports' && <AdminReports/>}
     {tab === 'support' && <AdminSupport/>}
     {tab === 'users' && <AdminUsers/>}
     {tab === 'signatures' && <AdminSignatureLibrary/>}
+    {tab === 'listings' && <AdminListingReview/>}
   </div>;
 }
 
@@ -1931,6 +1972,7 @@ export default function App() {
           <MessagesInbox conversations={conversations} session={session} service={service} focusConversationId={focusConversationId} onFocused={() => setFocusConversationId(null)} selectedConversationId={selectedConversationId} onSelect={setSelectedConversationId} onOpenListing={openListingFromThread} onRead={refresh} onClear={clearConversation}/>
         </> : selected ? <>
           <button className="back-button" onClick={() => setSelectedId(null)}><ArrowLeft size={17}/>Back to listings</button>
+          {own && selected.status==='needs_review' && <p className="field-note">Only visible to you right now — this needs a quick review before buyers can see it. {selected.needs_review_reason || "It didn't clearly look like a collectible."} Edit it to add more detail and resubmit.</p>}
           {own && profile?.can_sell && <button className="text-button" onClick={()=>setModal('edit')}>Edit listing</button>}
           {own && profile?.can_sell && <DeleteListingButton item={selected} onDeleted={()=>{setSelectedId(null);setNotice('Your listing has been deleted.');refresh();}}/>}
           {session && !own && <button className="text-button" onClick={()=>toggleFavorite(selected.id)}><Heart size={16} fill={favoriteIds.includes(selected.id) ? 'currentColor' : 'none'}/>{favoriteIds.includes(selected.id) ? 'Saved' : 'Save to collection'}</button>}
@@ -1956,7 +1998,7 @@ export default function App() {
               : <div className="items-grid">{sellerBuyRequests.map(request => <BuyRequestCard key={request.id} request={request} onResolved={id => setSellerBuyRequests(list => list.filter(r => r.id !== id))}/>)}</div>) : <>
             {collectionFilter !== 'owned' && <div className="filters"><div className="categories" aria-label="Filter by category">{['All items', ...CATEGORIES].map(c => <button key={c} aria-pressed={category === c} className={category === c ? 'active' : ''} onClick={() => setCategory(c)}>{c}</button>)}</div><label className="search"><Search size={17}/><input aria-label="Search listings" value={query} onChange={e => setQuery(e.target.value)} placeholder="Find your next discovery"/></label></div>}
             {loading ? <p role="status" className="empty-state">Loading the collection…</p> : !collectionItems.length ? <div className="empty-state"><Layers size={34}/><h3>{workspace === 'seller' ? 'Your first listing starts here.' : collectionFilter === 'owned' ? 'Nothing purchased yet.' : collectionFilter === 'saved' ? 'Nothing saved yet.' : 'No items here yet.'}</h3><p>{workspace === 'seller' ? 'Add a piece and tell its story.' : collectionFilter === 'owned' ? 'Items you buy will show up here.' : collectionFilter === 'saved' ? 'Tap the heart on an item to save it here.' : 'Try a different category or search.'}</p>{workspace === 'seller' && <button className="primary" onClick={openCreate}>Create a listing <Plus size={17}/></button>}</div>
-              : <div className="items-grid">{collectionItems.map(item => <button className={item.king_collection ? 'item-card king-collection' : 'item-card'} key={item.id} onClick={() => { setSelectedId(item.id); window.scrollTo({ top: 0 }); }} aria-label={`View ${item.title}`}>{item.king_collection && <span className="king-badge"><Crown size={12}/>King's Collection</span>}<ItemArt kind={item.artwork} category={item.category} photo={item.media?.find(asset=>asset.kind==='item')?.url}/><div className="item-card-content"><div className="card-meta"><span>{item.category}</span>{collectionFilter === 'owned' ? <span>OWNED</span> : <><span>{item.listing_type==='auction' ? 'AUCTION' : item.sample ? 'SAMPLE' : 'NEW LISTING'}</span>{session && item.seller_id !== session.user.id && <span role="button" tabIndex={0} className="icon-button" aria-label={favoriteIds.includes(item.id) ? 'Remove from saved' : 'Save to collection'} onClick={event => { event.stopPropagation(); toggleFavorite(item.id); }}><Heart size={14} fill={favoriteIds.includes(item.id) ? 'currentColor' : 'none'}/></span>}{session && item.seller_id !== session.user.id && <span role="button" tabIndex={0} className="icon-button" aria-label="Message seller" onClick={event => { event.stopPropagation(); messageSeller(item.id); }}><MessageCircle size={14}/></span>}</>}</div><h3>{item.title}</h3>{item.attributes?.subject && item.media?.some(asset=>asset.kind==='signature') && <p className="signer-badge compact">✍️ Signed by {item.attributes.subject}</p>}<p>{collectionFilter === 'owned' ? `Purchased ${new Date(item.purchased_at).toLocaleDateString()}` : item.seller_name}</p>{collectionFilter !== 'owned' && <CredibilityMeter score={item.credibility_score} compact/>}<div className="card-bottom"><strong>{money(item.price_cents)}</strong>{collectionFilter !== 'owned' && (item.listing_type==='auction' ? <span>{item.bid_count} {item.bid_count===1?'bid':'bids'} · {auctionTimeLeft(item.auction_ends_at)}</span> : <span><ClipboardCheck size={14}/>{item.audit_count || 0} audits</span>)}</div></div></button>)}</div>}
+              : <div className="items-grid">{collectionItems.map(item => <button className={item.king_collection ? 'item-card king-collection' : 'item-card'} key={item.id} onClick={() => { setSelectedId(item.id); window.scrollTo({ top: 0 }); }} aria-label={`View ${item.title}`}>{item.king_collection && <span className="king-badge"><Crown size={12}/>King's Collection</span>}<ItemArt kind={item.artwork} category={item.category} photo={item.media?.find(asset=>asset.kind==='item')?.url}/><div className="item-card-content"><div className="card-meta"><span>{item.category}</span>{collectionFilter === 'owned' ? <span>OWNED</span> : <><span>{item.status==='needs_review' ? 'NEEDS REVIEW' : item.listing_type==='auction' ? 'AUCTION' : item.sample ? 'SAMPLE' : 'NEW LISTING'}</span>{session && item.seller_id !== session.user.id && <span role="button" tabIndex={0} className="icon-button" aria-label={favoriteIds.includes(item.id) ? 'Remove from saved' : 'Save to collection'} onClick={event => { event.stopPropagation(); toggleFavorite(item.id); }}><Heart size={14} fill={favoriteIds.includes(item.id) ? 'currentColor' : 'none'}/></span>}{session && item.seller_id !== session.user.id && <span role="button" tabIndex={0} className="icon-button" aria-label="Message seller" onClick={event => { event.stopPropagation(); messageSeller(item.id); }}><MessageCircle size={14}/></span>}</>}</div><h3>{item.title}</h3>{item.attributes?.subject && item.media?.some(asset=>asset.kind==='signature') && <p className="signer-badge compact">✍️ Signed by {item.attributes.subject}</p>}<p>{collectionFilter === 'owned' ? `Purchased ${new Date(item.purchased_at).toLocaleDateString()}` : item.seller_name}</p>{collectionFilter !== 'owned' && <CredibilityMeter score={item.credibility_score} compact/>}<div className="card-bottom"><strong>{money(item.price_cents)}</strong>{collectionFilter !== 'owned' && (item.listing_type==='auction' ? <span>{item.bid_count} {item.bid_count===1?'bid':'bids'} · {auctionTimeLeft(item.auction_ends_at)}</span> : <span><ClipboardCheck size={14}/>{item.audit_count || 0} audits</span>)}</div></div></button>)}</div>}
             {collectionFilter !== 'owned' && itemsHasMore && <button type="button" className="text-button load-more" onClick={loadMore} disabled={loadingMore}>{loadingMore ? 'Loading…' : 'Load more'}</button>}
             </>}
           </section>{workspace === 'collector' && <section className="community-note"><div className="note-icon"><ShieldCheck size={25}/></div><div><h3>Confidence grows with evidence.</h3><p>A community opinion is a starting point. For valuable purchases, seek qualified authentication.</p></div></section>}
@@ -1967,9 +2009,9 @@ export default function App() {
     <BottomNav session={session} workspace={workspace} onSwitchWorkspace={switchWorkspace} profile={profile} authReady={authReady} onProfile={() => setModal('profile')} onSignIn={() => setModal('login')}/>
     {modal === 'login' && <Modal title="Welcome to Credabilia" onClose={() => setModal(null)}><p className="muted">One account to collect, sell, and share your perspective.</p>{service.mode === 'demo' ? <><div className="evidence-box"><h3>Try the local preview</h3><p>These two separate practice accounts stay in this browser. Each can switch between all three workspaces. Real sign-in is available when the Supabase project is connected.</p></div><div className="form-stack">{DEMO_ACCOUNTS.map(account => <button key={account.id} className="primary full-width" onClick={() => signIn(account.id)} disabled={busy}>{busy ? 'Opening…' : `Continue as ${account.display_name}`}<ArrowRight size={18}/></button>)}</div></> : <><button className="primary full-width" onClick={() => signIn()} disabled={busy}>{busy ? 'Opening…' : 'Continue with Google'}<ArrowRight size={18}/></button><p className="field-note">or</p><EmailLogin/><p className="field-note">By continuing, you agree to Credabilia's <a href="/terms" target="_blank" rel="noreferrer">Terms of Service</a> and <a href="/privacy" target="_blank" rel="noreferrer">Privacy Policy</a>.</p></>}<p className="field-note">Your sign-in method does not determine your workspace. You can switch between all three after signing in.</p></Modal>}
     {modal === 'checkout-address' && (selected || pendingBuy) && <CheckoutAddress item={selected || pendingBuy} profile={profile} busy={busy} onClose={() => setModal(null)} onConfirm={(address, applyCreditCents, wantInsurance, fulfillmentMethod) => { const id = selected?.id || pendingBuy?.listing_id; setModal(null); buyNow(id, address, applyCreditCents, wantInsurance, fulfillmentMethod); }}/>}
-    {modal === 'create' && <CreateListing onClose={() => setModal(null)} onCreated={id => { setModal(null); setNotice('Your listing is published.'); setSelectedId(id); refresh(); }}/>}
+    {modal === 'create' && <CreateListing onClose={() => setModal(null)} onCreated={(id,fit) => { setModal(null); setNotice(fit ? `Your listing was saved, but it needs a quick review before buyers can see it — ${fit.reason || "it didn't clearly look like a collectible."}` : 'Your listing is published.'); setSelectedId(id); refresh(); }}/>}
     {modal === 'bulk-create' && <BulkListing onClose={() => setModal(null)} onAllDone={() => { setModal(null); setNotice('Bulk listing complete.'); refresh(); }}/>}
-    {modal === 'relist' && ownedItem && <CreateListing relistFrom={ownedItem} onClose={() => setModal(null)} onCreated={id => { setModal(null); setNotice('Your relisted item is published.'); switchWorkspace('seller'); setSelectedId(id); refresh(); }}/>}
+    {modal === 'relist' && ownedItem && <CreateListing relistFrom={ownedItem} onClose={() => setModal(null)} onCreated={(id,fit) => { setModal(null); setNotice(fit ? `Your relisted item was saved, but it needs a quick review before buyers can see it — ${fit.reason || "it didn't clearly look like a collectible."}` : 'Your relisted item is published.'); switchWorkspace('seller'); setSelectedId(id); refresh(); }}/>}
     {modal === 'edit' && selected && own && <EditListing key={selected.id} item={selected} onClose={()=>setModal(null)} onSaved={()=>{setModal(null);setNotice('Your listing changes are saved.');refresh();}}/>}
     {modal === 'profile' && <Modal title="Profile and settings" onClose={() => setModal(null)}><ProfileSettings profile={profile} session={session} onSaved={() => { setModal(null); setNotice('Your profile is saved.'); refresh(); }} onSignOut={() => { setModal(null); signOut(); }}/></Modal>}
     {modal === 'support' && <Modal title="Ask King Credion" onClose={() => setModal(null)}><SupportChat service={service}/></Modal>}

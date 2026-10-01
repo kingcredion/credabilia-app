@@ -489,6 +489,9 @@ export function createDemoService(storage = window.localStorage) {
     async adminListSignatureReferences() { requireUser(); return []; },
     async adminPromoteSignatureReference() { throw new Error('The admin dashboard requires the connected app. Not available in this practice preview.'); },
     async adminDiscardSignatureReference() { throw new Error('The admin dashboard requires the connected app. Not available in this practice preview.'); },
+    async adminListNeedsReviewListings() { requireUser(); return []; },
+    async adminApproveListing() { throw new Error('The admin dashboard requires the connected app. Not available in this practice preview.'); },
+    async adminRejectListing() { throw new Error('The admin dashboard requires the connected app. Not available in this practice preview.'); },
     async reportContent(targetType, targetId, reason, details) {
       requireUser();
       const clean=String(reason || '').trim();
@@ -567,7 +570,7 @@ export function createDemoService(storage = window.localStorage) {
       };
     },
     async listings(after) {
-      const scored = state.listings.filter(item => item.status === 'active').map(item => { const current=state.audits.filter(a => a.listing_id === item.id && (a.listing_version||1) === (item.version||1)); const {avg,count}=sellerRatingStats(item.seller_id); return { ...item, ...credibilityScore(item,current), audit_count: current.length, seller_member_since:new Date().toISOString(), seller_sales_count:state.purchases.filter(p=>p.seller_id===item.seller_id).length, seller_rating_avg:avg, seller_rating_count:count }; })
+      const scored = state.listings.filter(item => item.status === 'active' || (item.status === 'needs_review' && item.seller_id === state.userId)).map(item => { const current=state.audits.filter(a => a.listing_id === item.id && (a.listing_version||1) === (item.version||1)); const {avg,count}=sellerRatingStats(item.seller_id); const signed=item.media?.some(asset=>asset.kind==='signature'); return { ...item, ...(signed ? credibilityScore(item,current) : {}), audit_count: current.length, seller_member_since:new Date().toISOString(), seller_sales_count:state.purchases.filter(p=>p.seller_id===item.seller_id).length, seller_rating_avg:avg, seller_rating_count:count }; })
         .sort((a,b) => a.created_at === b.created_at ? (a.id < b.id ? 1 : -1) : (a.created_at < b.created_at ? 1 : -1));
       if (!after) return scored;
       const idx = scored.findIndex(item => item.created_at === after.created_at && item.id === after.id);
@@ -585,7 +588,7 @@ export function createDemoService(storage = window.localStorage) {
       const media=mediaInput(input.media).map(asset=>{if(!asset.path.startsWith(state.userId+'/') || !state.uploads[asset.path]) throw new Error('Photo upload is missing.');return {...asset,url:state.uploads[asset.path].url};});
       const isAuction=input.listing_type==='auction';
       if(isAuction && ![3,5,7].includes(Number(input.auction_days))) throw new Error('Choose a 3, 5, or 7 day auction.');
-      const item = { ...value, media, id: crypto.randomUUID(), seller_id: state.userId, seller_name: currentUser().display_name, status: 'active', created_at: new Date().toISOString(), artwork: 'generic', audit_count: 0,
+      const item = { ...value, media, id: crypto.randomUUID(), seller_id: state.userId, seller_name: currentUser().display_name, status: input.needs_review ? 'needs_review' : 'active', needs_review_reason: input.needs_review_reason || null, created_at: new Date().toISOString(), artwork: 'generic', audit_count: 0,
         listing_type: isAuction ? 'auction' : 'fixed', bid_count: 0, auction_ends_at: isAuction ? new Date(Date.now()+Number(input.auction_days)*24*60*60*1000).toISOString() : null,
         signature_ai_label: input.signature_ai_label || null, signature_ai_note: input.signature_ai_note || null };
       state.listings.unshift(item); try {save();} catch(error) {state.listings.shift();throw error;} return item.id;
@@ -603,11 +606,11 @@ export function createDemoService(storage = window.localStorage) {
       save();
       return {id:item.id,amount_cents:amountCents,bid_count:item.bid_count};
     },
-    async editListing(original,input,mediaTouched) {
+    async editListing(original,input,mediaTouched,fit) {
       requireUser();
       const item=state.listings.find(x=>x.id===original.id);
       if(!item || item.seller_id!==state.userId || !currentUser().can_sell) throw new Error('You can only edit your own listing.');
-      if(item.status!=='active') throw new Error('Only active listings can be edited.');
+      if(!['active','needs_review'].includes(item.status)) throw new Error('Only active listings can be edited.');
       if(JSON.stringify(editableFields(item))!==JSON.stringify(editableFields(original))) throw new Error('This listing changed. Reopen it before editing.');
       const value=editableFields(listingInput(input,{requirePackage:false}));
       if(value.category!==item.category && Object.keys(item.attributes || {}).length) throw new Error('Category changes for items with structured details are not available yet.');
@@ -629,7 +632,8 @@ export function createDemoService(storage = window.localStorage) {
           attributes:item.attributes||{},tags:item.tags||[],media:item.media||[],archived_at:new Date().toISOString()});
         item.version=version+1;
       }
-      Object.assign(item,value,certificate,{media,signature_ai_label:input.signature_ai_label||null,signature_ai_note:input.signature_ai_note||null});
+      Object.assign(item,value,certificate,{media,signature_ai_label:input.signature_ai_label||null,signature_ai_note:input.signature_ai_note||null},
+        fit ? {status:fit.needs_review?'needs_review':'active',needs_review_reason:fit.needs_review_reason||null} : {});
       try{save();}catch(error){Object.assign(item,before);state.revisions.pop();throw error;}
     },
     async deleteListing(id) {

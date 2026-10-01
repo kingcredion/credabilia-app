@@ -80,6 +80,36 @@ test('draft handler validates and clamps the signature detection box, and only r
   assert.deepEqual((await result.json()).signature,{found:false,box:null});
 });
 
+test('draft handler classifies marketplace fit, defaulting safely on malformed output',async()=>{
+  const id='11111111-1111-4111-8111-111111111111',path=id+'/aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa.jpg';
+  let fitPayload={fit:'unrelated',fit_reason:'Looks like a plain pair of shoes with no collectible context.'};
+  const handler=createHandler({env:key=>key==='OPENAI_API_KEY'?'test-key':'test',
+    createClient:()=>({auth:{getUser:async()=>({data:{user:{id}}})},storage:{from:()=>({download:async()=>({data:new Blob([new Uint8Array([255,216,255,0])],{type:'image/jpeg'})})})},rpc:async()=>({error:null})}),
+    fetcher:async()=>Response.json({status:'completed',output:[{type:'message',content:[{type:'output_text',text:JSON.stringify({
+      title:'Item',description:'A fictional item for testing.',category:'Sports',
+      attributes:{item_type:null,subject:null,year:null,condition:null,sport:null,team:null,artist:null,medium:null,dimensions:null,publisher:null,issue:null,grading_company:null,grade:null},
+      tags:[],signature:{found:false,box:null},...fitPayload
+    })}]}]})});
+  const request=body=>new Request('https://example.test',{method:'POST',headers:{Authorization:'Bearer test'},body:JSON.stringify(body)});
+
+  let result=await handler(request({notes:'A baseball',photo_path:path}));
+  let data=await result.json();
+  assert.equal(data.fit,'unrelated');
+  assert.equal(data.fit_reason,'Looks like a plain pair of shoes with no collectible context.');
+
+  fitPayload={fit:'clear',fit_reason:'Should be stripped since fit is clear.'};
+  result=await handler(request({notes:'A baseball',photo_path:path}));
+  data=await result.json();
+  assert.equal(data.fit,'clear');
+  assert.equal(data.fit_reason,null);
+
+  fitPayload={fit:'not-a-real-value',fit_reason:null}; // malformed -- must default to clear, never unrelated/unsure
+  result=await handler(request({notes:'A baseball',photo_path:path}));
+  data=await result.json();
+  assert.equal(data.fit,'clear');
+  assert.equal(data.fit_reason,null);
+});
+
 test('database enforces listing draft quota and selling permission',async()=>{
   const db=new PGlite();
   const seller='11111111-1111-4111-8111-111111111111',other='22222222-2222-4222-8222-222222222222';
