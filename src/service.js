@@ -37,7 +37,7 @@ export function makeService() {
     async signOut() { const { error } = await client.auth.signOut(); if (error) throw error; },
     async profile(userId) {
       const [profile, permission, progress, stripeAccount] = await Promise.all([
-        client.from('profiles').select('id,display_name,slug,shipping_address').eq('id', userId).single(),
+        client.from('profiles').select('id,display_name,slug,shipping_address,phone_number,sms_opt_in').eq('id', userId).single(),
         client.from('account_permissions').select('can_sell,can_audit').eq('user_id', userId).single(),
         client.from('user_progress').select('xp,learning_xp').eq('user_id', userId).single(),
         client.from('stripe_accounts').select('charges_enabled,details_submitted').eq('user_id', userId).maybeSingle(),
@@ -106,6 +106,7 @@ export function makeService() {
       const subscription=await disablePush();
       if(subscription) await client.rpc('remove_push_subscription',{p_endpoint:subscription.endpoint}).catch(()=>{});
     },
+    async updateSmsPreferences(phone,optIn) { unwrap(await client.rpc('update_sms_preferences',{p_phone:phone,p_opt_in:optIn})); },
     async myAudits() { return unwrap(await client.from('audits').select('id,listing_id,verdict,explanation,created_at,listing_version').order('created_at', { ascending: false })); },
     async getTrivia(listingId) { return unwrap(await client.rpc('get_listing_trivia', { p_listing_id: listingId })); },
     async generateTrivia(listingId) {

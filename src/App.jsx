@@ -1362,6 +1362,30 @@ function NotificationSettings() {
   </div>;
 }
 
+// Opt-in only (checkbox defaults unchecked) -- carrier/TCPA compliance requires explicit consent,
+// not a pre-checked box. The consent copy here is also what gets screenshotted/linked for
+// Twilio's toll-free verification as "documentation of how users opt in to messaging".
+function SmsNotificationSettings({ profile }) {
+  const [phone, setPhone] = useState(profile?.phone_number || '');
+  const [optIn, setOptIn] = useState(!!profile?.sms_opt_in);
+  const [busy, setBusy] = useState(false), [error, setError] = useState(''), [saved, setSaved] = useState(false);
+  async function submit(event) {
+    event.preventDefault(); if (busy) return;
+    setBusy(true); setError(''); setSaved(false);
+    try { await service.updateSmsPreferences(phone, optIn); setSaved(true); setTimeout(() => setSaved(false), 2000); }
+    catch (err) { setError(err.message); } finally { setBusy(false); }
+  }
+  return <div className="evidence-box"><h3>Text message alerts</h3>
+    <p className="field-note">Get a text when a buyer wants to purchase your item, when you win or get outbid on an auction, or when a seller confirms your order.</p>
+    <form className="form-stack" onSubmit={submit}>
+      <label>Phone number<input type="tel" value={phone} onChange={event => setPhone(event.target.value)} placeholder="+1 555 555 5555" disabled={busy} required={optIn}/></label>
+      <label className="certificate-confirm"><input type="checkbox" checked={optIn} onChange={event => setOptIn(event.target.checked)} disabled={busy}/>Text me about my orders and bids. Message frequency varies. Msg &amp; data rates may apply. Reply STOP to opt out, HELP for help.</label>
+      {error && <p role="alert" className="error">{error}</p>}
+      <button className="primary" disabled={busy}>{busy ? 'Saving…' : saved ? 'Saved!' : 'Save'}</button>
+    </form>
+  </div>;
+}
+
 function AdminDisputeRow({ request, onResolve }) {
   const [amount, setAmount] = useState(''), [note, setNote] = useState(''), [busy, setBusy] = useState(false), [error, setError] = useState('');
   async function act(action) {
@@ -1624,6 +1648,7 @@ function ProfileSettings({ profile, session, onSaved, onSignOut }) {
       <StorefrontSettings profile={profile}/>
       <ShippingSettings profile={profile}/>
       <NotificationSettings/>
+      <SmsNotificationSettings profile={profile}/>
       <div className="evidence-box"><h3>Payouts</h3>
         {service.mode !== 'live' ? <p className="field-note">Coming soon. You'll be able to add bank details here before real checkout launches — nothing is collected yet.</p>
           : profile?.stripe_charges_enabled ? <><p className="field-note">Payments are connected. Your sales pay out to your own Stripe account.</p><button type="button" className="text-button" onClick={openDashboard} disabled={stripeBusy}>{stripeBusy ? 'Opening…' : 'Open your Stripe dashboard'}</button></>

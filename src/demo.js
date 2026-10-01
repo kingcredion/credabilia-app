@@ -18,7 +18,7 @@ const DEMO_PICKUP_STATIONS = [
 export function createDemoService(storage = window.localStorage) {
   const key = 'credabilia-next-demo-v2';
   let listeners = new Set();
-  const fresh = () => ({ userId: null, listings: sampleListings(), audits: [], uploads: {}, xp: {}, names: {}, favorites: {}, purchases: [], revisions: [], slugs: {}, shippingAddresses: {}, messages: [], conversations: [], credits: [], supportMessages: [], refundRequests: [], buyRequests: [], sellerRatings: [], bids: [], reports: [], blocks: [] });
+  const fresh = () => ({ userId: null, listings: sampleListings(), audits: [], uploads: {}, xp: {}, names: {}, favorites: {}, purchases: [], revisions: [], slugs: {}, shippingAddresses: {}, phones: {}, smsOptIns: {}, messages: [], conversations: [], credits: [], supportMessages: [], refundRequests: [], buyRequests: [], sellerRatings: [], bids: [], reports: [], blocks: [] });
 
   // Mirrors get_or_create_conversation(): one thread per (listing, buyer), findable either way.
   function getOrCreateConversation(listingId, buyerId, sellerId) {
@@ -31,7 +31,7 @@ export function createDemoService(storage = window.localStorage) {
   }
   let state;
   try { const saved = JSON.parse(storage.getItem(key)); state = saved && Array.isArray(saved.listings) && Array.isArray(saved.audits) ? saved : fresh(); } catch { state = fresh(); }
-  state.uploads ||= {}; state.names ||= {}; state.favorites ||= {}; state.purchases ||= []; state.revisions ||= []; state.slugs ||= {}; state.shippingAddresses ||= {}; state.messages ||= []; state.conversations ||= []; state.credits ||= []; state.supportMessages ||= []; state.refundRequests ||= []; state.buyRequests ||= []; state.sellerRatings ||= []; state.bids ||= []; state.reports ||= []; state.blocks ||= [];
+  state.uploads ||= {}; state.names ||= {}; state.favorites ||= {}; state.purchases ||= []; state.revisions ||= []; state.slugs ||= {}; state.shippingAddresses ||= {}; state.phones ||= {}; state.smsOptIns ||= {}; state.messages ||= []; state.conversations ||= []; state.credits ||= []; state.supportMessages ||= []; state.refundRequests ||= []; state.buyRequests ||= []; state.sellerRatings ||= []; state.bids ||= []; state.reports ||= []; state.blocks ||= [];
   function sellerRatingStats(sellerId) {
     const ratings=state.sellerRatings.filter(r=>r.seller_id===sellerId);
     if(!ratings.length) return {avg:null,count:0};
@@ -66,6 +66,17 @@ export function createDemoService(storage = window.localStorage) {
     async pushSubscriptionStatus() {return {supported:false,subscribed:false};},
     async enableNotifications() {throw new Error('Push notifications require the connected app. Not available in this practice preview.');},
     async disableNotifications() {},
+    async updateSmsPreferences(phone,optIn) {
+      requireUser();
+      if(optIn) {
+        const clean=String(phone||'').trim();
+        if(!/^\+?[0-9]{10,15}$/.test(clean)) throw new Error('Enter a valid phone number.');
+        state.phones[state.userId]=clean; state.smsOptIns[state.userId]=true;
+      } else {
+        state.smsOptIns[state.userId]=false;
+      }
+      save();
+    },
     async extractCertificate() {throw new Error('AI reading requires the connected app and an AI service. Enter certificate details manually in this practice preview.');},
     async draftListing() {throw new Error('AI drafts require the connected app and an AI service. Fill in the details manually in this practice preview.');},
     async getTrivia() {return null;},
@@ -75,7 +86,7 @@ export function createDemoService(storage = window.localStorage) {
     onAuthChange(fn) { listeners.add(fn); return () => listeners.delete(fn); },
     async signIn(userId = DEMO_USER.id) { if (!DEMO_ACCOUNTS.some(user => user.id === userId)) throw new Error('Choose a practice account.'); state.userId = userId; save(); listeners.forEach(fn => fn(session())); },
     async signOut() { state.userId = null; save(); listeners.forEach(fn => fn(null)); },
-    async profile() { requireUser(); return { ...currentUser(), display_name: state.names[state.userId] || currentUser().display_name, xp: state.xp[state.userId] || 0, learning_xp: 0, slug: state.slugs[state.userId] || null, shipping_address: state.shippingAddresses[state.userId] || null }; },
+    async profile() { requireUser(); return { ...currentUser(), display_name: state.names[state.userId] || currentUser().display_name, xp: state.xp[state.userId] || 0, learning_xp: 0, slug: state.slugs[state.userId] || null, shipping_address: state.shippingAddresses[state.userId] || null, phone_number: state.phones[state.userId] || null, sms_opt_in: !!state.smsOptIns[state.userId] }; },
     async saveShippingAddress(address) {
       requireUser();
       if (!validAddress(address)) throw new Error('Fill in all required address fields.');
