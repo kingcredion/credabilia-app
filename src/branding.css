@@ -7,6 +7,14 @@
 .brand .brand-tagline { display: block; align-self: center; margin-top: 0; width: 252px; height: auto; }
 .topbar nav { margin-left: 30px; }
 .hero-tag svg { color: var(--brand-teal); }
+.ai-marketplace-badge {
+  display: block;
+  width: 150px;
+  height: 76px;
+  object-fit: contain;
+  object-position: left center;
+  margin: -2px 0 12px;
+}
 .hero-mascot {
   display: flex;
   align-items: center;
@@ -46,6 +54,7 @@
   .topbar { gap: 12px; }
   .hero-mascot { padding: 0 24px 18px; }
   .hero-mascot img { width: 225px; height: 260px; }
+  .ai-marketplace-badge { width: 132px; height: 66px; margin-bottom: 11px; }
   .storefront-hero .hero-mascot { padding: 0 16px 18px; }
   .storefront-hero .hero-mascot img { width: 100%; height: auto; max-height: 250px; }
   /* Storefront links are shared with people who've never used the site, often opened on a
