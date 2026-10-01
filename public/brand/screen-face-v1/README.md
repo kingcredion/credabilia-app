@@ -14,3 +14,4 @@ Prompt direction: preserve the emerald metallic robot, black glass screen face w
 - pickup: replaces king-credion-local-pickup-v1-optimized.webp
 - coin-detailed: replaces credion-coin-detailed-v1-optimized.webp
 - coin-simple: replaces credion-coin-simple-v1-optimized.webp
+- storefront: hero image for public seller storefront pages (/store/:slug)

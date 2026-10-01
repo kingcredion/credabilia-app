@@ -3,7 +3,7 @@ import { MessageCircle, ArrowRight } from 'lucide-react';
 
 function money(cents) { return typeof cents === 'number' ? '$' + (cents / 100).toFixed(2) : ''; }
 
-export function MessageThread({ conversationId, service, session, counterpartyLabel, messageCount, autoOpen, onFocused, onRead, pinnedListing, onOpenListing, forceOpen }) {
+export function MessageThread({ conversationId, service, session, counterpartyLabel, messageCount, autoOpen, onFocused, onRead, pinnedListing, onOpenListing, forceOpen, pickupStation }) {
   const [open, setOpen] = useState(!!forceOpen);
   const [messages, setMessages] = useState(undefined);
   const [error, setError] = useState('');
@@ -42,6 +42,7 @@ export function MessageThread({ conversationId, service, session, counterpartyLa
       <span><strong>{pinnedListing.listing_status && pinnedListing.listing_status !== 'active' ? 'No longer available' : pinnedListing.listing_title}</strong>{pinnedListing.listing_status === 'active' && <em>{money(pinnedListing.listing_price_cents)}</em>}</span>
       <ArrowRight size={15}/>
     </button>}
+    {pickupStation && <div className="field-note-caution"><strong>Meeting at {pickupStation.jurisdiction}{pickupStation.city ? ` — ${pickupStation.city}` : ''}.</strong> Always meet in a public, well-lit area. Payment stays in Credabilia — never send it outside the app.</div>}
     {messages === undefined ? <p role="status" className="field-note">Loading messages…</p>
       : !messages.length ? <p className="field-note">No messages yet. Say hello.</p>
       : <div className="chat-log" ref={logRef}>{messages.map(message => <div key={message.id} className={`recorded chat-bubble ${message.sender_id === session?.user.id ? 'mine' : 'theirs'}`}><div><strong>{message.sender_id === session?.user.id ? 'You' : message.sender_name}</strong><p>{message.body}</p></div></div>)}</div>}

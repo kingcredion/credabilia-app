@@ -333,7 +333,9 @@ export function createDemoService(storage = window.localStorage) {
             role:mine?'buyer':'seller',counterparty_name:state.names[mine?c.seller_id:c.buyer_id] || DEMO_ACCOUNTS.find(u=>u.id===(mine?c.seller_id:c.buyer_id))?.display_name || 'Collector',
             last_message_at:last?.created_at || null,last_message_body:last?.body || null,
             unread:!!(last && last.sender_id!==state.userId && (!lastRead || last.created_at>lastRead)),
-            media:(item.media||[]).filter(asset=>asset.kind==='item').slice(0,1)};
+            media:(item.media||[]).filter(asset=>asset.kind==='item').slice(0,1),
+            pickup_enabled:!!item.pickup_enabled,
+            pickup_station:item.pickup_enabled ? (DEMO_PICKUP_STATIONS.find(s=>s.id===item.pickup_station_id) || null) : null};
         });
     },
     async clearConversation(conversationId) {
