@@ -829,11 +829,11 @@ function StorefrontSettings({ profile }) {
 function SellerStorefrontBanner({ slug, onSetup }) {
   const [copied, setCopied] = useState(false);
   const canShare = typeof navigator !== 'undefined' && !!navigator.share;
-  if (!slug) return <div className="community-note"><div className="note-icon"><Store size={20}/></div><div><h3>Set up your storefront link</h3><p>Get a public link to your whole collection you can share anywhere.</p></div><button type="button" className="text-button" onClick={onSetup}>Set up<ArrowUpRight size={14}/></button></div>;
+  if (!slug) return <div className="community-note storefront-note"><div className="note-icon"><Store size={20}/></div><div><h3>Set up your storefront link</h3><p>Get a public link to your whole collection you can share anywhere.</p></div><button type="button" className="text-button" onClick={onSetup}>Set up<ArrowUpRight size={14}/></button></div>;
   const link = `${window.location.origin}/${slug}`;
   async function copyLink() { try { await navigator.clipboard.writeText(link); setCopied(true); setTimeout(() => setCopied(false), 2000); } catch {} }
   async function share() { try { await navigator.share({ title: 'My Credabilia storefront', url: link }); } catch {} /* includes the user simply cancelling the share sheet -- nothing to show for that */ }
-  return <div className="community-note"><div className="note-icon"><Store size={20}/></div><div><h3>Your storefront is live</h3><p>{link}</p></div>
+  return <div className="community-note storefront-note"><div className="note-icon"><Store size={20}/></div><div><h3>Your storefront is live</h3><p>{link}</p></div>
     {canShare && <button type="button" className="text-button" onClick={share}><Share2 size={16}/>Share</button>}
     <button type="button" className="text-button" onClick={copyLink}><Copy size={16}/>{copied ? 'Copied!' : 'Copy link'}</button>
   </div>;

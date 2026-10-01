@@ -54,6 +54,13 @@
      instead of overflowing the viewport. */
   .storefront-topbar .brand-tagline { display: none; }
   .storefront-topbar .primary.compact { padding: 9px 12px; font-size: 11px; gap: 8px; white-space: nowrap; }
+  /* .community-note>button is hidden at this width (styles.css) for its original use -- a
+     non-essential "read more" link on the auditor tip card. Reused here for the storefront
+     banner, whose buttons (Copy link, Share) are the entire point, so they need to stay visible
+     and the row needs to wrap instead of clipping them off the right edge. */
+  .storefront-note { flex-wrap: wrap; }
+  .storefront-note > button { display: flex; margin-left: 0; }
+  .storefront-note p { overflow-wrap: anywhere; }
 }
 /* Narrow phones (e.g. 360-390px Android widths) -- the 600px sizing above still overflows once
    the header's icon row (theme/King Credion/notifications/avatar/sign-out) is added back in. */
