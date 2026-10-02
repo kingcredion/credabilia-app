@@ -14,6 +14,10 @@
   ],
   "rewrites": [
     {
+      "source": "/img/item/:id",
+      "destination": "/api/email-image?id=:id"
+    },
+    {
       "source": "/(.*)",
       "destination": "/index.html"
     }

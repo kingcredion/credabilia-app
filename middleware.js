@@ -13,7 +13,7 @@ const RESERVED_SLUGS = new Set(['terms', 'privacy', 'help', 'auth', 'item']);
 const BOT_UA = /bot|facebookexternalhit|facebookcatalog|twitterbot|slackbot|discordbot|linkedinbot|whatsapp|telegrambot|applebot|pinterest|redditbot|vkshare|skypeuripreview|embedly|quora|outbrain|iframely|w3c_validator/i;
 
 export const config = {
-  matcher: ['/item/:id', '/img/item/:id', '/:slug([^/.]+)', '/sitemap.xml', '/products.xml'],
+  matcher: ['/item/:id', '/:slug([^/.]+)', '/sitemap.xml', '/products.xml'],
 };
 
 function escapeHtml(value) {
@@ -148,15 +148,6 @@ export default async function middleware(request) {
   if (url.pathname === '/products.xml') {
     const xml = await buildMerchantFeed(url.origin);
     return new Response(xml, { status: 200, headers: { 'content-type': 'application/xml; charset=utf-8', 'cache-control': 'public, max-age=3600' } });
-  }
-  // Durable photo link for emails (Klaviyo etc.): the listing-media bucket is private, so a raw signed URL
-  // pasted into an email would expire. This redirects to a freshly signed one on every fetch; mail
-  // clients/proxies cache the image they get, and the 1-hour cache here keeps repeat opens cheap.
-  const imageMatch = url.pathname.match(/^\/img\/item\/([0-9a-f-]{36})$/i);
-  if (imageMatch) {
-    const path = await callRpc('get_listing_photo_path', { p_id: imageMatch[1] });
-    const signed = typeof path === 'string' ? await signedImageUrl(path) : null;
-    return new Response(null, { status: 302, headers: { location: signed || DEFAULT_IMAGE, 'cache-control': 'public, max-age=3600' } });
   }
   if (!BOT_UA.test(request.headers.get('user-agent') || '')) return next();
 
