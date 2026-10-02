@@ -2,18 +2,19 @@ import React from 'react';
 import { Brand } from './Brand.jsx';
 
 const LAST_UPDATED = 'September 21, 2026';
+const TERMS_UPDATED = 'October 2, 2026';
 
-function LegalShell({ title, children }) {
+function LegalShell({ title, children, updated = LAST_UPDATED }) {
   return <div className="legal-page">
     <a className="legal-back brand" href="/"><Brand/></a>
     <h1>{title}</h1>
-    <p className="legal-updated">Last updated: {LAST_UPDATED}</p>
+    <p className="legal-updated">Last updated: {updated}</p>
     {children}
   </div>;
 }
 
 export function TermsPage() {
-  return <LegalShell title="Terms of Service">
+  return <LegalShell title="Terms of Service" updated={TERMS_UPDATED}>
     <section>
       <p>These Terms of Service ("Terms") govern your access to and use of Credabilia, including the websites located at credabilia.com and credabilia.app and any related apps (together, the "Service"), operated by Credabilia LLC ("Credabilia," "we," "us," or "our"). By creating an account or using the Service, you agree to these Terms. If you do not agree, do not use the Service.</p>
     </section>
@@ -25,7 +26,8 @@ export function TermsPage() {
     <p>You can sign in with a Google account or with a one-time email sign-in link. You are responsible for maintaining the security of your account and for all activity that happens under it. You agree to provide accurate account information and to keep it up to date. Credabilia is a single account for browsing, buying, selling, and community auditing — you don't need separate accounts for each.</p>
 
     <h2>3. What Credabilia is</h2>
-    <p>Credabilia is a marketplace and community for collectibles and memorabilia. Sellers list items; buyers purchase them directly from sellers. Community members can review listing evidence and share their assessment of an item. Credabilia is not the seller of items listed by other users, is not a party to the contract of sale between a buyer and seller, and does not take ownership of items at any point. Where these Terms describe Credabilia holding funds or arranging shipping, that role is limited to the payment, escrow, and logistics functions described below — it does not make Credabilia a party to the underlying sale.</p>
+    <p>Credabilia is a marketplace and community for collectibles and memorabilia. Sellers list items; buyers purchase them directly from sellers. Community members can review listing evidence and share their assessment of an item. Except for King's Collection items (described below), Credabilia is not the seller of items listed by other users, is not a party to the contract of sale between a buyer and seller, and does not take ownership of items at any point. Where these Terms describe Credabilia holding funds or arranging shipping for those items, that role is limited to the payment, escrow, and logistics functions described below — it does not make Credabilia a party to the underlying sale.</p>
+    <p><strong>King's Collection.</strong> The King's Collection is made up of items that Credabilia itself offers and fulfills, and each one is labeled "King's Collection" on its listing. A King's Collection item is either owned by Credabilia or owned by a seller who has chosen to send it to Credabilia to sell. An item is only placed in the King's Collection if it has been physically sent to Credabilia, and Credabilia keeps it in its custody until it is sold or returned to its owner. For King's Collection items, Credabilia ships the item to the buyer and handles refunds and returns as described in Sections 9 and 10. All other listings on Credabilia are offered by individual sellers, who ship their own items.</p>
 
     <h2>4. Listings and seller responsibilities</h2>
     <p>If you list an item for sale, you represent that:</p>
@@ -58,9 +60,10 @@ export function TermsPage() {
 
     <h2>9. Shipping and insurance</h2>
     <p>Shipping labels and rates are provided through our shipping partner, Shippo, using the address and package details you provide. You can choose to insure a shipment for an additional cost shown at checkout; insurance is subject to the shipping carrier's and insurer's own terms, which we do not control.</p>
+    <p><strong>King's Collection shipping.</strong> King's Collection items ship from Credabilia within 3 business days (Monday through Friday) after an order is placed. Shipping is by carrier — USPS Ground Advantage unless we tell you otherwise at checkout — and the cost is calculated from the carrier's rate for your address and shown at checkout before you pay. Items listed by other sellers ship from those sellers, who set their own handling times; Credabilia does not guarantee a ship date for them.</p>
 
     <h2>10. Refunds, returns, and disputes</h2>
-    <p>A buyer has 30 days from delivery to request a refund. The seller can accept it in full, offer a partial refund, require the item be shipped back before issuing a refund, or contest the request. Required returns ship on a prepaid label at Credabilia's cost — there is no restocking fee and no cost to the buyer for the return — and a refund is issued automatically once tracking confirms the item was delivered back to the seller, typically posting to the original payment method within 5 business days after that. We do not offer item-for-item exchanges, only refunds. If a seller contests a request, Credabilia reviews the case and decides the outcome. We may reverse a payment to a seller's Stripe account to fund a refund. This section describes how the feature works — it is not a warranty or guarantee about any particular item, and does not limit whatever other rights you may have under applicable law.</p>
+    <p>For King's Collection items, a buyer has 30 days from delivery to request a refund. For items listed by other sellers, a buyer can also request a refund from their purchase, but Credabilia does not guarantee a 30-day window or the refund timing described below for those items. The seller can accept it in full, offer a partial refund, require the item be shipped back before issuing a refund, or contest the request. Required returns ship on a prepaid label at Credabilia's cost — there is no restocking fee and no cost to the buyer for the return — and a refund is issued automatically once tracking confirms the item was delivered back to the seller, typically posting to the original payment method within 5 business days after that. We do not offer item-for-item exchanges, only refunds. If a seller contests a request, Credabilia reviews the case and decides the outcome. We may reverse a payment to a seller's Stripe account to fund a refund. This section describes how the feature works — it is not a warranty or guarantee about any particular item, and does not limit whatever other rights you may have under applicable law.</p>
 
     <h2>11. Credion Coins</h2>
     <p>Credabilia may award Credion Coins (for example, through community participation rewards) that can be applied toward a future purchase's price, up to the limits shown at checkout. Credion Coins have no cash value, are non-transferable, and may expire or be forfeited if your account is closed or terminated.</p>

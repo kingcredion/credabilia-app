@@ -28,10 +28,10 @@ export function HelpPage() {
     <p>When you buy an item, Credabilia holds your payment in escrow. The seller is paid once delivery is confirmed by tracking, or automatically after 10 days if tracking never confirms. Sellers are not paid instantly at purchase.</p>
 
     <h3>What about shipping and insurance?</h3>
-    <p>Shipping cost at checkout is the real carrier quote plus a 10% markup. Shipping insurance is buyer-paid, on by default (you can opt out), and covers up to $10,000 of declared value. A seller can choose to offer free shipping, meaning they absorb the shipping cost — insurance is always paid by the buyer regardless.</p>
+    <p>Shipping cost at checkout is the real carrier quote plus a 10% markup. Shipping insurance is buyer-paid, on by default (you can opt out), and covers up to $10,000 of declared value. A seller can choose to offer free shipping, meaning they absorb the shipping cost — insurance is always paid by the buyer regardless. Items in the King's Collection ship from Credabilia within 3 business days; items from other sellers ship from the seller.</p>
 
     <h3>Can I get a refund?</h3>
-    <p>Yes. If an order isn't right, you can request a refund from your purchase in your account. The seller can accept it in full, offer a partial refund, require the item be shipped back before refunding, or contest the request — if contested, Credabilia reviews the case and decides the outcome.</p>
+    <p>Yes. If an order isn't right, you can request a refund from your purchase in your account. The seller can accept it in full, offer a partial refund, require the item be shipped back before refunding, or contest the request — if contested, Credabilia reviews the case and decides the outcome. For King's Collection items you have 30 days from delivery to ask; for items from other sellers, the seller and Credabilia work it out case by case.</p>
 
     <h3>Why does a seller need to confirm my purchase first?</h3>
     <p>Before you can check out, the seller has to confirm the item is still available. This prevents you from paying for something that may have already sold elsewhere. You'll be notified as soon as they respond, usually quickly.</p>
