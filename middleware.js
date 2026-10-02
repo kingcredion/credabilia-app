@@ -13,7 +13,7 @@ const RESERVED_SLUGS = new Set(['terms', 'privacy', 'help', 'auth', 'item']);
 const BOT_UA = /bot|facebookexternalhit|facebookcatalog|twitterbot|slackbot|discordbot|linkedinbot|whatsapp|telegrambot|applebot|pinterest|redditbot|vkshare|skypeuripreview|embedly|quora|outbrain|iframely|w3c_validator/i;
 
 export const config = {
-  matcher: ['/item/:id', '/:slug([^/.]+)', '/sitemap.xml'],
+  matcher: ['/item/:id', '/:slug([^/.]+)', '/sitemap.xml', '/products.xml'],
 };
 
 function escapeHtml(value) {
@@ -39,13 +39,13 @@ async function callRpc(name, body) {
 // RLS lets anon sign a path only when it belongs to an active listing's media (see
 // read_listing_media's storage.objects policy), which is exactly the set of photos this
 // middleware ever has reason to ask for -- see get_listing_preview()/get_storefront().
-async function signedImageUrl(path) {
+async function signedImageUrl(path, expiresIn = 604800) {
   if (!path) return null;
   try {
     const res = await fetch(`${SUPABASE_URL}/storage/v1/object/sign/listing-media/${path}`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', apikey: SUPABASE_KEY, Authorization: `Bearer ${SUPABASE_KEY}` },
-      body: JSON.stringify({ expiresIn: 604800 }), // 7 days -- plenty for a link-preview cache, well under any crawler's re-fetch window
+      body: JSON.stringify({ expiresIn }), // default 7 days -- plenty for a link-preview cache, well under any crawler's re-fetch window
     });
     if (!res.ok) return null;
     const data = await res.json();
@@ -88,6 +88,39 @@ async function buildSitemap(origin) {
   return `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n${body}\n</urlset>\n`;
 }
 
+// Google Merchant Center product feed (RSS 2.0 + the g: namespace Google requires). Every item
+// here is one-of-a-kind seller-owned memorabilia, so identifier_exists is always false and
+// brand/mpn/gtin are deliberately omitted -- submitting those (or leaving identifier_exists at
+// its true default) gets items disapproved for claiming a barcode/brand they don't have.
+// condition is always "used": these are resold collectibles, never factory-new retail goods, and
+// Google defaults an omitted condition to "new", which would be wrong for every single listing.
+// Image links get a 30-day signed expiry (vs. the 7-day one used for link-preview og:image) since
+// Merchant Center can re-check an already-ingested item's image independently of how often it
+// re-fetches this feed, and a feed that goes stale between visits means Google quietly stops
+// serving the item rather than erroring loudly.
+const IMAGE_SIGN_TTL_FEED = 2592000; // 30 days
+
+async function buildMerchantFeed(origin) {
+  const listings = await callRpc('merchant_feed_listings', {});
+  const items = await Promise.all((listings || []).map(async l => {
+    const image = await signedImageUrl(l.photo_path, IMAGE_SIGN_TTL_FEED);
+    if (!image) return null; // Merchant Center requires image_link -- skip rather than submit an item that will just be rejected
+    return `  <item>
+    <g:id>${escapeHtml(l.id)}</g:id>
+    <g:title>${escapeHtml(l.title)}</g:title>
+    <g:description>${escapeHtml(l.description)}</g:description>
+    <link>${escapeHtml(`${origin}/item/${l.id}`)}</link>
+    <g:image_link>${escapeHtml(image)}</g:image_link>
+    <g:availability>in_stock</g:availability>
+    <g:price>${(l.price_cents / 100).toFixed(2)} USD</g:price>
+    <g:condition>used</g:condition>
+    <g:identifier_exists>false</g:identifier_exists>
+    <g:product_type>${escapeHtml(l.category)}</g:product_type>
+  </item>`;
+  }));
+  return `<?xml version="1.0" encoding="UTF-8"?>\n<rss xmlns:g="http://base.google.com/ns/1.0" version="2.0">\n<channel>\n  <title>Credabilia</title>\n  <link>${origin}</link>\n  <description>Collectibles and memorabilia for sale on Credabilia.</description>\n${items.filter(Boolean).join('\n')}\n</channel>\n</rss>\n`;
+}
+
 function injectMeta(html, meta, pageUrl) {
   return html
     .replace('<title>Credabilia | The Memorabilia Kingdom</title>', `<title>${escapeHtml(meta.title)}</title>`)
@@ -109,6 +142,10 @@ export default async function middleware(request) {
   const url = new URL(request.url);
   if (url.pathname === '/sitemap.xml') {
     const xml = await buildSitemap(url.origin);
+    return new Response(xml, { status: 200, headers: { 'content-type': 'application/xml; charset=utf-8', 'cache-control': 'public, max-age=3600' } });
+  }
+  if (url.pathname === '/products.xml') {
+    const xml = await buildMerchantFeed(url.origin);
     return new Response(xml, { status: 200, headers: { 'content-type': 'application/xml; charset=utf-8', 'cache-control': 'public, max-age=3600' } });
   }
   if (!BOT_UA.test(request.headers.get('user-agent') || '')) return next();
