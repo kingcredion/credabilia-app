@@ -26,7 +26,13 @@ export function createHandler({createClient,env,fetcher=fetch}) {
         headers:{Authorization:`ShippoToken ${env('SHIPPO_API_KEY')}`,'Content-Type':'application/json'},
         body:JSON.stringify({...shippoAddress(address),validate:true}),
       });
-      if(!response.ok) return reply({error:'Could not verify this address right now.'},502);
+      if(!response.ok) {
+        // Shippo's error bodies describe the problem (bad token, plan limit, etc.) and never echo the key.
+        let detail='';try{detail=(await response.text()).slice(0,300);}catch{}
+        console.error('shippo address validation failed',response.status,detail);
+        if(response.status===401||response.status===403) return reply({error:'Address verification is misconfigured on our end. Please try again later.'},502);
+        return reply({error:'Could not verify this address right now.'},502);
+      }
       const result=await response.json();
       return reply({
         is_valid:result?.validation_results?.is_valid ?? null,
