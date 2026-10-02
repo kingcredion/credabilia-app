@@ -116,6 +116,7 @@ async function buildMerchantFeed(origin) {
     <g:condition>used</g:condition>
     <g:identifier_exists>false</g:identifier_exists>
     <g:product_type>${escapeHtml(l.category)}</g:product_type>
+    <g:shipping_weight>${l.weight_oz} oz</g:shipping_weight>
   </item>`;
   }));
   return `<?xml version="1.0" encoding="UTF-8"?>\n<rss xmlns:g="http://base.google.com/ns/1.0" version="2.0">\n<channel>\n  <title>Credabilia</title>\n  <link>${origin}</link>\n  <description>Collectibles and memorabilia for sale on Credabilia.</description>\n${items.filter(Boolean).join('\n')}\n</channel>\n</rss>\n`;
