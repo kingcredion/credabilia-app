@@ -1,0 +1,35 @@
+<!-- Klaviyo "Item Sold Notification" body (paste into an HTML block between the logo and the footer).
+     Event properties: title, price_display, image_url, item_url (added by notify_klaviyo, migration 083). -->
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="max-width:560px;margin:0 auto;font-family:Georgia,'Times New Roman',serif;color:#1d2b25;">
+  <tr><td style="height:4px;background:#c9a227;font-size:0;line-height:0;">&nbsp;</td></tr>
+  <tr><td align="center" style="padding:28px 16px 6px 16px;">
+    <div style="font-size:12px;letter-spacing:2px;text-transform:uppercase;color:#8a6d12;font-family:Arial,Helvetica,sans-serif;">The Memorabilia Kingdom</div>
+    <h1 style="margin:10px 0 0 0;font-size:30px;line-height:36px;color:#0d3b2e;font-weight:normal;">You made a sale!</h1>
+  </td></tr>
+  <tr><td align="center" style="padding:18px 16px 0 16px;">
+    <img src="{{ event.image_url }}" width="520" alt="{{ event.title|default:'Your item' }}" style="display:block;width:100%;max-width:520px;height:auto;border-radius:12px;border:1px solid #e3dcc3;background:#f1ecd9;filter:grayscale(1);">
+  </td></tr>
+  <tr><td align="center" style="padding:0 16px;">
+    <img src="https://credabilia.com/brand/email/item-sold-stamp.png" width="150" alt="Item sold" style="display:block;width:150px;height:auto;margin:-60px auto 0 auto;transform:rotate(-8deg);">
+  </td></tr>
+  <tr><td align="center" style="padding:14px 24px 4px 24px;">
+    <div style="font-size:22px;line-height:28px;color:#0d3b2e;">{{ event.title|default:'Your item' }}</div>
+    <div style="font-size:20px;line-height:28px;color:#8a6d12;padding-top:4px;">{{ event.price_display }}</div>
+  </td></tr>
+  <tr><td style="padding:18px 24px 6px 24px;font-family:Arial,Helvetica,sans-serif;font-size:15px;line-height:23px;color:#33423b;">
+    Congratulations, traveler! A buyer has purchased your item. Here is what happens next:
+  </td></tr>
+  <tr><td style="padding:6px 24px 4px 24px;font-family:Arial,Helvetica,sans-serif;font-size:15px;line-height:23px;color:#33423b;">
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+      <tr><td width="34" valign="top" style="padding:6px 0;"><div style="width:26px;height:26px;border-radius:13px;background:#0d3b2e;color:#f3d77a;text-align:center;line-height:26px;font-weight:bold;font-size:14px;">1</div></td><td style="padding:6px 0;"><strong>Pack it with care.</strong> Protect it well &mdash; collectors notice.</td></tr>
+      <tr><td width="34" valign="top" style="padding:6px 0;"><div style="width:26px;height:26px;border-radius:13px;background:#0d3b2e;color:#f3d77a;text-align:center;line-height:26px;font-weight:bold;font-size:14px;">2</div></td><td style="padding:6px 0;"><strong>Ship it to the buyer.</strong> Their address and your label are in your account.</td></tr>
+      <tr><td width="34" valign="top" style="padding:6px 0;"><div style="width:26px;height:26px;border-radius:13px;background:#0d3b2e;color:#f3d77a;text-align:center;line-height:26px;font-weight:bold;font-size:14px;">3</div></td><td style="padding:6px 0;"><strong>Get paid.</strong> The payment held in escrow is released to you once delivery is confirmed.</td></tr>
+    </table>
+  </td></tr>
+  <tr><td align="center" style="padding:20px 24px 8px 24px;">
+    <a href="https://credabilia.com/" style="display:inline-block;background:#0d3b2e;color:#f3d77a;text-decoration:none;font-family:Arial,Helvetica,sans-serif;font-size:16px;font-weight:bold;padding:14px 32px;border-radius:8px;border:1px solid #c9a227;">View my sale</a>
+  </td></tr>
+  <tr><td align="center" style="padding:14px 24px 28px 24px;font-family:Georgia,'Times New Roman',serif;font-size:15px;line-height:22px;color:#33423b;font-style:italic;">
+    Thank you for selling in the kingdom.<br>&mdash; King Credion
+  </td></tr>
+</table>
