@@ -1,4 +1,5 @@
 import React from 'react';
+import { ClipboardList } from 'lucide-react';
 import { DETAIL_FIELDS, detailKeys } from './listingDetails.js';
 
 export function ListingDetailFields({category, exclude=[]}) {
@@ -13,7 +14,7 @@ export function ListingDetailFields({category, exclude=[]}) {
 export function ListingDetailSummary({item}) {
   const fields = Object.entries(item.attributes || {}).filter(([key,value]) => DETAIL_FIELDS[key] && value);
   if (!fields.length && !item.tags?.length) return null;
-  return <section className="evidence-box"><h3>Item details</h3><p className="field-note">Provided by the seller</p>
+  return <section className="evidence-box"><h3><ClipboardList size={18}/>Item details</h3><p className="field-note">Provided by the seller</p>
     <dl>{fields.map(([key,value]) => <React.Fragment key={key}><dt>{DETAIL_FIELDS[key]}</dt><dd>{value}</dd></React.Fragment>)}</dl>
     {!!item.tags?.length && <p>Search tags: {item.tags.join(', ')}</p>}
   </section>;

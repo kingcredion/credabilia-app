@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Copy } from 'lucide-react';
+import { Copy, Award } from 'lucide-react';
 import { ISSUERS, resolveIssuer } from './certificates.js';
 
 export function CertificateFields({value,onChange,disabled=false}) {
@@ -24,7 +24,7 @@ export default function CertificateDetails({item}) {
     catch { setMessage('Select the certificate number above and copy it manually.'); }
   }
   return <section className="evidence-box" aria-label="Certificate details">
-    <h3>Certificate details</h3><p><strong>{issuer.id==='other'?item.certificate_company:issuer.name}</strong></p>
+    <h3><Award size={18}/>Certificate details</h3><p><strong>{issuer.id==='other'?item.certificate_company:issuer.name}</strong></p>
     <p>Certificate number: <code>{item.certificate_number}</code></p>
     <p className="field-note">Provided by the seller. Compare the issuer's record with the item and its certificate.</p>
     <div className="submit-row"><button type="button" className="text-button certificate-copy" onClick={copy}><Copy size={15}/>Copy certificate number</button>

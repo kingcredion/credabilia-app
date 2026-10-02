@@ -1,5 +1,5 @@
 import React from 'react';
-import { Check, ClipboardCheck, ArrowRight } from 'lucide-react';
+import { Check, ClipboardCheck, ArrowRight, Gauge } from 'lucide-react';
 
 // Reused on the marketplace grid card (compact, no label) and on the full item-credibility
 // section below (full width, alongside the numeric breakdown already in the text around it).
@@ -18,7 +18,7 @@ export function CredibilityMeter({ score, compact }) {
 export default function CredibilityDetails({ item, session, own, auditedLabel, onAudit }) {
   if (!Number.isFinite(item.credibility_score)) return null;
   return <section className="evidence-box" aria-label="Item credibility">
-    <h3>Item credibility · {item.credibility_score}/100</h3>
+    <h3><Gauge size={18}/>Item credibility · {item.credibility_score}/100</h3>
     <CredibilityMeter score={item.credibility_score}/>
     <p>{item.certificate_supplied ? `Issuer rating: ${item.certificate_score}/100` : 'No certificate provided'} · {item.certificate_weight}% of the score</p>
     <p>Community: {item.credibility_audit_count ? `${item.community_score}/100` : 'No audits yet'} · {item.community_weight}% of the score</p>

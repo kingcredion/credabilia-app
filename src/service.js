@@ -140,7 +140,8 @@ export function makeService() {
       unwrap(await client.rpc('edit_listing',{p_id:item.id,p_title:v.title,p_description:v.description,p_category:v.category,p_price_cents:v.price_cents,p_evidence:v.evidence,
         p_issuer:v.certificate_issuer,p_number:v.certificate_number,p_company:v.certificate_company,
         p_media:mediaTouched?mediaInput(input.media):null,p_expected:editableFields(item),
-        p_needs_review:fit?fit.needs_review:null,p_needs_review_reason:fit?(fit.needs_review_reason||null):null}));
+        p_needs_review:fit?fit.needs_review:null,p_needs_review_reason:fit?(fit.needs_review_reason||null):null,
+        p_subject:v.attributes.subject||''}));
     },
     async deleteListing(id) { unwrap(await client.rpc('delete_listing',{p_id:id})); },
     async getListingHistory(listingId) { return signMedia((unwrap(await client.rpc('get_listing_history',{p_listing_id:listingId}))).map(v=>({...v,media:v.media||[]}))); },

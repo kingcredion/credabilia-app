@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { History } from 'lucide-react';
 import { DETAIL_FIELDS } from './listingDetails.js';
 
 const LABELS = { authentic: 'Looks consistent', uncertain: 'Need more evidence', concerns: 'I see concerns' };
@@ -17,7 +18,7 @@ export function ItemHistory({ item, service }) {
     }
   }
   return <details className="evidence-box" onToggle={toggle}>
-    <summary>Item history · revised {item.version - 1} {item.version - 1 === 1 ? 'time' : 'times'}</summary>
+    <summary><History size={16}/> Item history · revised {item.version - 1} {item.version - 1 === 1 ? 'time' : 'times'}</summary>
     <p className="field-note">Earlier versions and the reviews they received stay visible here, even after the seller made changes. The current score only reflects reviews of the current version.</p>
     {error && <p role="alert" className="error">{error}</p>}
     {open && !history && !error && <p role="status">Loading history…</p>}
