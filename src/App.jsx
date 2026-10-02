@@ -766,7 +766,7 @@ function EditListing({item:currentItem,onClose,onSaved}) {
       <label>Price (USD)<input name="price" type="number" min="1" max="1000000" step="0.01" defaultValue={(item.price_cents/100).toFixed(2)} required/></label>
       <label>Description<textarea name="description" defaultValue={item.description} required minLength={20} maxLength={4000}/></label>
       <label>Evidence notes<textarea name="evidence" defaultValue={item.evidence} maxLength={2000}/></label>
-      <MediaPicker service={service} media={media} onChange={next=>{setMedia(next);setMediaTouched(true);setSignatureAi(null);}} busy={working} onBusy={setUploading} onError={setError}/>
+      <MediaPicker service={service} media={media} onChange={next=>{setMedia(next);setMediaTouched(true);if(!item.signature_ai_label)setSignatureAi(null);}} busy={working} onBusy={setUploading} onError={setError}/>
       {signaturePhoto && <div className="evidence-box"><h3>Signature AI opinion</h3>
         {reviewingSignature && <p role="status" className="field-note">Reviewing signature…</p>}
         {signatureAi && <p className="field-note">{LABELS_AI[signatureAi.label]} — {signatureAi.note}</p>}
