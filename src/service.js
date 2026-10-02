@@ -222,6 +222,7 @@ export function makeService() {
       if(error) { let detail; try {detail=await error.context?.json();} catch {} throw new Error(detail?.error || 'King Credion is unavailable right now.'); }
       return data;
     },
+    async requestHumanCallback(phone, reason) { unwrap(await client.rpc('request_human_callback', { p_phone: phone, p_reason: reason || null })); },
     async requestRefund(purchaseId, reason) { return unwrap(await client.rpc('request_refund', { p_purchase_id: purchaseId, p_reason: reason })); },
     async contestRefundRequest(requestId, response) { return unwrap(await client.rpc('respond_to_refund_request', { p_request_id: requestId, p_accept: false, p_response: response })); },
     async acceptRefundRequest(requestId) {

@@ -392,6 +392,7 @@ export function createDemoService(storage = window.localStorage) {
     },
     async getSupportMessages() { requireUser(); return state.supportMessages.filter(m=>m.user_id===state.userId); },
     async sendSupportMessage() { requireUser(); throw new Error('AI chat requires the connected app and an AI service. Not available in this practice preview.'); },
+    async requestHumanCallback() { requireUser(); throw new Error('Callback requests require the connected app. Not available in this practice preview.'); },
     async requestRefund(purchaseId, reason) {
       requireUser();
       const purchase=state.purchases.find(p=>p.id===purchaseId && p.buyer_id===state.userId);

@@ -5,6 +5,12 @@ export function SupportChat({ service }) {
   const [error, setError] = useState('');
   const [body, setBody] = useState('');
   const [busy, setBusy] = useState(false);
+  const [callbackOpen, setCallbackOpen] = useState(false);
+  const [callbackPhone, setCallbackPhone] = useState('');
+  const [callbackReason, setCallbackReason] = useState('');
+  const [callbackBusy, setCallbackBusy] = useState(false);
+  const [callbackError, setCallbackError] = useState('');
+  const [callbackSent, setCallbackSent] = useState(false);
   const logRef = useRef(null);
 
   async function load() {
@@ -26,6 +32,16 @@ export function SupportChat({ service }) {
     finally { setBusy(false); }
   }
 
+  async function submitCallback(event) {
+    event.preventDefault(); if (callbackBusy || !callbackPhone.trim()) return;
+    setCallbackBusy(true); setCallbackError('');
+    try {
+      await service.requestHumanCallback(callbackPhone, callbackReason);
+      setCallbackSent(true);
+    } catch (err) { setCallbackError(err.message); }
+    finally { setCallbackBusy(false); }
+  }
+
   return <div className="form-stack">
     {!messages?.length && <div className="support-welcome">
       <img src="/brand/screen-face-v1/support.webp" alt="King Credion, wearing his crown and a headset, seated at a laptop"/>
@@ -45,5 +61,16 @@ export function SupportChat({ service }) {
       <label>Your message<textarea value={body} onChange={event => setBody(event.target.value)} rows={2} maxLength={2000} placeholder="Ask King Credion a question…" disabled={busy}/></label>
       <button className="primary" disabled={busy || !body.trim()}>{busy ? 'Sending…' : 'Send'}</button>
     </form>
+    {callbackSent ? <p className="field-note">Got it — someone from Credabilia will call you back shortly.</p>
+      : callbackOpen ? <form className="form-stack" onSubmit={submitCallback}>
+          <label>Your phone number<input type="tel" value={callbackPhone} onChange={event => setCallbackPhone(event.target.value)} placeholder="+1 555 555 5555" disabled={callbackBusy} required/></label>
+          <label>What's this about? <span className="optional">optional</span><input value={callbackReason} onChange={event => setCallbackReason(event.target.value)} maxLength={300} disabled={callbackBusy}/></label>
+          {callbackError && <p role="alert" className="error">{callbackError}</p>}
+          <div className="submit-row">
+            <button className="primary" disabled={callbackBusy || !callbackPhone.trim()}>{callbackBusy ? 'Sending…' : 'Request a callback'}</button>
+            <button type="button" className="text-button" onClick={() => setCallbackOpen(false)} disabled={callbackBusy}>Cancel</button>
+          </div>
+        </form>
+      : <button type="button" className="text-button" onClick={() => setCallbackOpen(true)}>Talk to a human instead</button>}
   </div>;
 }

@@ -1,8 +1,10 @@
-// Fire-and-forget SMS sender, called only by notify_sms() via pg_net (server-to-server, hence the
-// shared-secret header instead of a Supabase user JWT -- matches send-push's pattern exactly).
-// Re-checks opt-in server-side even though notify_sms() already checked in SQL, since this
-// endpoint is the one place that actually holds the phone number -- never trust the caller to
-// have gotten that right, same spirit as every other edge function in this app.
+// Fire-and-forget SMS sender, called only by notify_sms()/notify_operator_sms() via pg_net
+// (server-to-server, hence the shared-secret header instead of a Supabase user JWT -- matches
+// send-push's pattern exactly). Two request shapes: {user_id, body} looks up an opted-in user's
+// own phone (re-checked here even though notify_sms() already checked in SQL -- this is the one
+// place that actually holds the number, never trust the caller); {phone, body} sends directly to
+// a fixed number with no opt-in check, used only for internal operator alerts (see
+// notify_operator_sms()) that were never a per-user notification to begin with.
 export function createHandler({createClient,env,sendSms}) {
   const cors={'Access-Control-Allow-Origin':'*','Access-Control-Allow-Headers':'content-type, x-sms-secret','Access-Control-Allow-Methods':'POST, OPTIONS'};
   const reply=(body,status=200)=>Response.json(body,{status,headers:cors});
@@ -15,15 +17,21 @@ export function createHandler({createClient,env,sendSms}) {
 
       const text=await request.text(); if(text.length>4096) return reply({error:'Invalid request.'},400);
       let payload;try{payload=JSON.parse(text);}catch{return reply({error:'Invalid request.'},400);}
-      const userId=payload?.user_id, body=String(payload?.body||'').slice(0,480);
-      if(typeof userId!=='string' || !body) return reply({error:'Invalid request.'},400);
+      const userId=payload?.user_id, directPhone=payload?.phone, body=String(payload?.body||'').slice(0,480);
+      if(!body || (typeof userId!=='string' && typeof directPhone!=='string')) return reply({error:'Invalid request.'},400);
 
-      const client=createClient(env('SUPABASE_URL'),env('SUPABASE_SERVICE_ROLE_KEY'));
-      const {data:profile,error}=await client.from('profiles').select('phone_number,sms_opt_in').eq('id',userId).maybeSingle();
-      if(error) return reply({error:'Could not read profile.'},500);
-      if(!profile?.sms_opt_in || !profile?.phone_number) return reply({sent:0});
+      let to;
+      if(typeof directPhone==='string') {
+        to=directPhone;
+      } else {
+        const client=createClient(env('SUPABASE_URL'),env('SUPABASE_SERVICE_ROLE_KEY'));
+        const {data:profile,error}=await client.from('profiles').select('phone_number,sms_opt_in').eq('id',userId).maybeSingle();
+        if(error) return reply({error:'Could not read profile.'},500);
+        if(!profile?.sms_opt_in || !profile?.phone_number) return reply({sent:0});
+        to=profile.phone_number;
+      }
 
-      await sendSms({to:profile.phone_number,from:env('TWILIO_FROM_NUMBER'),body,accountSid:env('TWILIO_ACCOUNT_SID'),authToken:env('TWILIO_AUTH_TOKEN')});
+      await sendSms({to,from:env('TWILIO_FROM_NUMBER'),body,accountSid:env('TWILIO_ACCOUNT_SID'),authToken:env('TWILIO_AUTH_TOKEN')});
       return reply({sent:1});
     } catch {return reply({error:'SMS notification is temporarily unavailable.'},503);}
   };
