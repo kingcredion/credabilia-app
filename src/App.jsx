@@ -902,7 +902,11 @@ function ShippingAddressFields({ value, onChange, disabled, onVerifiedChange }) 
 }
 
 function ShippingSettings({ profile }) {
-  const [address, setAddress] = useState(profile?.shipping_address || {});
+  // Country has no real default -- its input only shows "US" as a placeholder, which looks filled
+  // but leaves value.country empty until typed, silently disabling "Verify address" (canVerify
+  // requires every REQUIRED_ADDRESS_FIELDS entry, country included). Defaulting it here means a
+  // first-time saver never hits that trap; Credabilia is US-only today anyway (see Terms).
+  const [address, setAddress] = useState({ country: 'US', ...(profile?.shipping_address || {}) });
   const [saving, setSaving] = useState(false), [error, setError] = useState(''), [saved, setSaved] = useState(false);
   const [verified, setVerified] = useState(false);
   async function submit(event) {
@@ -923,7 +927,9 @@ function ShippingSettings({ profile }) {
 
 function CheckoutAddress({ item, profile, busy, onClose, onConfirm }) {
   const [fulfillmentMethod, setFulfillmentMethod] = useState('ship');
-  const [address, setAddress] = useState(profile?.shipping_address || {});
+  // Same country-placeholder trap as ShippingSettings -- default it so a buyer typing a fresh
+  // address for the first time doesn't hit a silently-disabled "Verify address" button.
+  const [address, setAddress] = useState({ country: 'US', ...(profile?.shipping_address || {}) });
   const [error, setError] = useState('');
   const [balance, setBalance] = useState(null);
   const [applyCredit, setApplyCredit] = useState(false);
