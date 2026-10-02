@@ -13,7 +13,7 @@ const RESERVED_SLUGS = new Set(['terms', 'privacy', 'help', 'auth', 'item']);
 const BOT_UA = /bot|facebookexternalhit|facebookcatalog|twitterbot|slackbot|discordbot|linkedinbot|whatsapp|telegrambot|applebot|pinterest|redditbot|vkshare|skypeuripreview|embedly|quora|outbrain|iframely|w3c_validator/i;
 
 export const config = {
-  matcher: ['/item/:id', '/:slug([^/.]+)'],
+  matcher: ['/item/:id', '/:slug([^/.]+)', '/sitemap.xml'],
 };
 
 function escapeHtml(value) {
@@ -73,6 +73,21 @@ async function buildMeta(pathname) {
   return null;
 }
 
+// Dynamic /sitemap.xml -- replaces the old static file (which only ever listed 4 fixed pages,
+// so every real listing and storefront was invisible to search engines). Served to every
+// requester, not just BOT_UA, since this is a machine-readable endpoint by definition, not an
+// HTML page needing bot-only treatment.
+const STATIC_URLS = ['/', '/help', '/terms', '/privacy'];
+
+async function buildSitemap(origin) {
+  const data = await callRpc('sitemap_entries', {});
+  const urls = STATIC_URLS.map(path => ({ loc: `${origin}${path}` }));
+  for (const item of data?.listings || []) urls.push({ loc: `${origin}/item/${item.id}`, lastmod: item.created_at });
+  for (const slug of data?.storefronts || []) urls.push({ loc: `${origin}/${slug}` });
+  const body = urls.map(u => `  <url>\n    <loc>${escapeHtml(u.loc)}</loc>${u.lastmod ? `\n    <lastmod>${u.lastmod.slice(0, 10)}</lastmod>` : ''}\n  </url>`).join('\n');
+  return `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n${body}\n</urlset>\n`;
+}
+
 function injectMeta(html, meta, pageUrl) {
   return html
     .replace('<title>Credabilia | The Memorabilia Kingdom</title>', `<title>${escapeHtml(meta.title)}</title>`)
@@ -90,9 +105,14 @@ function injectMeta(html, meta, pageUrl) {
 
 export default async function middleware(request) {
   if (!SUPABASE_URL || !SUPABASE_KEY) return next();
-  if (!BOT_UA.test(request.headers.get('user-agent') || '')) return next();
 
   const url = new URL(request.url);
+  if (url.pathname === '/sitemap.xml') {
+    const xml = await buildSitemap(url.origin);
+    return new Response(xml, { status: 200, headers: { 'content-type': 'application/xml; charset=utf-8', 'cache-control': 'public, max-age=3600' } });
+  }
+  if (!BOT_UA.test(request.headers.get('user-agent') || '')) return next();
+
   const meta = await buildMeta(url.pathname);
   if (!meta) return next();
 
