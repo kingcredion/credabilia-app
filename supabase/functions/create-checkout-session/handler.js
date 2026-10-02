@@ -1,4 +1,5 @@
 import Stripe from 'npm:stripe@17';
+import { shippingMarkupFactor } from './markup.js';
 
 const UUID_RE=/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -33,7 +34,8 @@ export function createHandler({createClient,env}) {
       if(reserveError) return reply({error:reserveError.message},400);
       const {checkout_session_id:checkoutSessionId,price_cents:priceCents,title,applied_credit_cents:appliedCreditCents,free_shipping:freeShipping,seller_shipping_address:sellerAddress,want_insurance:insuranceRequested,parcel}=reservation;
 
-      // Real, marked-up shipping (and, if requested, insurance) cost -- only computable now that
+      // Real shipping (and, if requested, insurance) cost, marked up 10% except for King's Collection
+      // items where it's passed through at the carrier rate (see markup.js) -- only computable now that
       // we know both addresses (seller's saved address + the buyer's just-entered one). No parcel
       // on the listing (a legacy listing from before this feature) just means no shipping/
       // insurance cost this time, same as today's behavior. Pickup always skips this branch --
@@ -41,6 +43,8 @@ export function createHandler({createClient,env}) {
       // alone can't distinguish pickup from ship.
       let shippingOnlyCents=0, insuranceCostCents=0;
       if(fulfillmentMethod==='ship' && parcel && env('SHIPPO_API_KEY')) {
+        const {data:isKing}=await client.rpc('listing_is_king_collection',{p_listing_id:listingId});
+        const markup=shippingMarkupFactor(isKing);
         const quoteShipment=insure=>fetch('https://api.goshippo.com/shipments/',{
           method:'POST',
           headers:{Authorization:`ShippoToken ${env('SHIPPO_API_KEY')}`,'Content-Type':'application/json'},
@@ -65,8 +69,8 @@ export function createHandler({createClient,env}) {
             const cheapest=rates.reduce((min,rate)=>parseFloat(rate.amount)<parseFloat(min.amount)?rate:min,rates[0]);
             const rawTotalCents=parseFloat(cheapest.amount)*100;
             const rawInsuranceCents=parseFloat(cheapest.included_insurance_price||0)*100;
-            shippingOnlyCents=Math.round((rawTotalCents-rawInsuranceCents)*1.10);
-            insuranceCostCents=Math.round(rawInsuranceCents*1.10);
+            shippingOnlyCents=Math.round((rawTotalCents-rawInsuranceCents)*markup);
+            insuranceCostCents=Math.round(rawInsuranceCents*markup);
           }
         } catch { /* Quote is a best-effort estimate -- if Shippo is unreachable, skip shipping this time rather than block the sale. */ }
       }
