@@ -19,6 +19,7 @@ const PrivacyPage = React.lazy(() => import('./Legal.jsx').then(module => ({ def
 const HelpPage = React.lazy(() => import('./Help.jsx').then(module => ({ default: module.HelpPage })));
 import { ItemArt, money, RatingStars } from './ItemArt.jsx';
 import { MessageThread } from './MessageThread.jsx';
+import { SoldItemPage } from './SoldItemPage.jsx';
 const SupportChat = React.lazy(() => import('./SupportChat.jsx').then(module => ({ default: module.SupportChat })));
 import { CATEGORIES, WORKSPACES, priceInCents } from './domain.js';
 
@@ -1817,6 +1818,7 @@ export default function App() {
   const [conversations, setConversations] = useState([]), [focusConversationId, setFocusConversationId] = useState(null), [selectedConversationId, setSelectedConversationId] = useState(null);
   const [itemsHasMore, setItemsHasMore] = useState(false), [loadingMore, setLoadingMore] = useState(false);
   const [revision, setRevision] = useState(0);
+  const [soldPreview, setSoldPreview] = useState(null);
   const refresh = () => setRevision(v => v + 1);
   useEffect(() => {
     if (service.mode === 'unconfigured' || storefrontSlug || legalPage) return;
@@ -1868,9 +1870,9 @@ export default function App() {
         .catch(err => setError(err.message));
     }
   }, [authReady]);
-  const appliedItemParam = useRef(false);
+  const appliedItemParam = useRef(false), soldLookupStarted = useRef(false);
   useEffect(() => {
-    if (appliedItemParam.current || !items.length) return;
+    if (appliedItemParam.current || soldLookupStarted.current || loading) return;
     const params = new URLSearchParams(window.location.search);
     // Prefer the new /item/<id> path; fall back to the older ?item= query param still used by
     // already-sent push notifications and any bookmarked/shared links from before this existed.
@@ -1883,12 +1885,17 @@ export default function App() {
         setSelectedId(itemId);
         if (!itemPathId) window.history.replaceState({}, '', `/item/${itemId}`); // upgrade an old ?item= link to the real path
       } else if (itemPathId) {
-        window.history.replaceState({}, '', '/'); // stale/bad direct link -- fall back to browse rather than show a dead detail view
+        // Not an active listing -- it may have sold since the link was shared. Show the Sold page if so,
+        // otherwise (stale/bad link) fall back to browse rather than a dead detail view.
+        appliedItemParam.current = false; soldLookupStarted.current = true;
+        service.soldListing(itemPathId).then(sold => {
+          if (sold) setSoldPreview(sold); else window.history.replaceState({}, '', '/');
+        }).catch(() => window.history.replaceState({}, '', '/')).finally(() => { appliedItemParam.current = true; });
       } else {
         window.history.replaceState({}, '', window.location.pathname); // old behavior: just strip the query param
       }
     }
-  }, [items]);
+  }, [items, loading]);
   // Keeps the address bar in sync with whichever item is open, from every entry point (item-card
   // click, notification, relist redirect, etc.) without touching each of those call sites --
   // they all already just call setSelectedId. Skipped on the storefront/legal-page branches below,
@@ -1899,9 +1906,10 @@ export default function App() {
     // to fetch first) before this starts managing the URL -- otherwise this fires first with
     // selectedId still null and immediately overwrites the good incoming URL with '/'.
     if (itemPathId && !appliedItemParam.current) return;
+    if (soldPreview) return;
     const target = selectedId ? `/item/${selectedId}` : '/';
     if (window.location.pathname !== target) window.history.pushState(null, '', target);
-  }, [selectedId, authReady, items]);
+  }, [selectedId, authReady, items, soldPreview]);
   // Share-link previews (crawlers) get real per-page meta from the Vercel routing middleware --
   // this just keeps the browser tab title honest for an actual visitor, who never sees that HTML.
   useEffect(() => {
@@ -1921,6 +1929,7 @@ export default function App() {
   if (legalPage === 'terms') return <TermsPage/>;
   if (legalPage === 'privacy') return <PrivacyPage/>;
   if (legalPage === 'help') return <HelpPage/>;
+  if (soldPreview) return <SoldItemPage item={soldPreview} onBack={() => { window.location.href = '/'; }}/>;
   if (storefrontSlug) return <Storefront slug={storefrontSlug} service={service} onBack={() => { window.location.href = '/'; }}/>;
 
   const selected = items.find(item => item.id === selectedId);

@@ -47,6 +47,13 @@ export function makeService() {
         stripe_charges_enabled: stripe?.charges_enabled || false, stripe_details_submitted: stripe?.details_submitted || false };
     },
     async listings(after) { return signMedia(unwrap(await client.rpc('browse_listings_with_certificates', after ? { p_after_created_at: after.created_at, p_after_id: after.id } : {}))); },
+    // A sold listing's minimal public view (null if it isn't sold) -- see get_sold_listing().
+    async soldListing(id) {
+      const sold = unwrap(await client.rpc('get_sold_listing', { p_id: id }));
+      if (!sold) return null;
+      const [item] = await signMedia([{ ...sold, media: sold.photo_path ? [{ path: sold.photo_path }] : [] }]);
+      return item;
+    },
     async uploadImage(blob,kind) {
       const user=unwrap(await client.auth.getUser()).user;
       if(!user) throw new Error('Sign in to add photos.');
