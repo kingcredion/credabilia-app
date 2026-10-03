@@ -1919,6 +1919,7 @@ export default function App() {
   // Share-link previews (crawlers) get real per-page meta from the Vercel routing middleware --
   // this just keeps the browser tab title honest for an actual visitor, who never sees that HTML.
   useEffect(() => {
+    if (legalPage === 'sell') return; // the seller landing page sets its own title
     const item = selectedId && items.find(x => x.id === selectedId);
     document.title = item ? `${item.title} | Credabilia` : 'Credabilia | The Memorabilia Kingdom';
   }, [selectedId, items]);
