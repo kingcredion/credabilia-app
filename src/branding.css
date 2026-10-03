@@ -7,22 +7,6 @@
 .brand .brand-tagline { display: block; align-self: center; margin-top: 0; width: 252px; height: auto; }
 .topbar nav { margin-left: 30px; }
 .hero-tag svg { color: var(--brand-teal); }
-.collect-hero { position: relative; isolation: isolate; overflow: hidden; }
-.collect-hero::before {
-  content: '';
-  position: absolute;
-  inset: 0;
-  z-index: -1;
-  pointer-events: none;
-  background: url('/brand/welcome-hero-watermark.webp') right -24px top -24px / auto 94% no-repeat;
-  opacity: .08;
-}
-@media (max-width: 600px) {
-  .collect-hero::before {
-    background-position: right -30px bottom 65px;
-    background-size: 290px auto;
-  }
-}
 .ai-marketplace-badge {
   display: block;
   width: 300px;
