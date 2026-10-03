@@ -1,16 +1,11 @@
 import React, { useEffect } from 'react';
 import { Brand } from './Brand.jsx';
+import { listUrl } from './listIntent.js';
 
 // Landing page for seller-acquisition ads (/sell). One goal -- get someone to list an item -- so there is
 // deliberately no site navigation, and every button does the same thing. Every claim here has to stay true
 // to the Terms and Help page (no "free to list", no "authenticated").
-export const LIST_INTENT_KEY = 'credabilia-list-intent';
-
-function startListing() {
-  // The main app picks this up after sign-in (including the Google redirect round trip) and opens the form.
-  try { localStorage.setItem(LIST_INTENT_KEY, String(Date.now())); } catch { /* private mode: they land on the home page instead */ }
-  window.location.href = '/';
-}
+const LIST_URL = listUrl(typeof window === 'undefined' ? '' : window.location.hostname);
 
 const STEPS = [
   ['1', 'Snap your photos', 'Take a few clear photos of your piece, plus a close-up of the signature.'],
@@ -35,11 +30,16 @@ const FAQ = [
 ];
 
 export function SellPage() {
-  useEffect(() => { document.title = 'Sell your memorabilia | Credabilia'; }, []);
+  useEffect(() => {
+    document.title = 'Sell your memorabilia | Credabilia';
+    // The page is reachable at credabilia.com/sell and at the root of credabilia.app: one canonical address for search engines.
+    const canonical = document.querySelector('link[rel="canonical"]');
+    if (canonical) canonical.setAttribute('href', 'https://credabilia.com/sell');
+  }, []);
   return <div className="sell-page">
     <header className="sell-top">
       <span className="brand" aria-label="Credabilia"><Brand/></span>
-      <button className="sell-cta sell-cta-small" onClick={startListing}>List an item</button>
+      <a className="sell-cta sell-cta-small" href={LIST_URL}>List an item</a>
     </header>
 
     <section className="sell-hero">
@@ -52,7 +52,7 @@ export function SellPage() {
         <p className="sell-eyebrow">THE MEMORABILIA KINGDOM</p>
         <h1>Turn your memorabilia into cash</h1>
         <p className="sell-lead">Snap a few photos and King Credion's AI drafts your listing. Sell signed jerseys, baseballs, cards and more to collectors who care.</p>
-        <button className="sell-cta" onClick={startListing}>List your first item</button>
+        <a className="sell-cta" href={LIST_URL}>List your first item</a>
         <p className="sell-fine">Sign in with Google or an email link. It only takes a few minutes.</p>
       </div>
     </section>
@@ -81,7 +81,7 @@ export function SellPage() {
     <section className="sell-final">
       <h2>Ready to clear a shelf?</h2>
       <p>List your first piece in a few minutes.</p>
-      <button className="sell-cta" onClick={startListing}>List your first item</button>
+      <a className="sell-cta" href={LIST_URL}>List your first item</a>
     </section>
 
     <footer className="sell-footer">

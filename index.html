@@ -33,7 +33,9 @@
       gtag('consent', 'default', { ad_storage: 'denied', ad_user_data: 'denied', ad_personalization: 'denied', analytics_storage: 'denied',
         region: ['AT','BE','BG','HR','CY','CZ','DK','EE','FI','FR','DE','GR','HU','IE','IT','LV','LT','LU','MT','NL','PL','PT','RO','SK','SI','ES','SE','IS','LI','NO','GB','CH'] });
       gtag('js', new Date());
-      if (location.hostname === 'credabilia.com' || location.hostname === 'www.credabilia.com') gtag('config', 'AW-17772928194');
+      // Cross-domain linker: credabilia.app (ad landing page) -> credabilia.com (the app) keeps the ad click attached to the later conversion.
+      gtag('set', 'linker', { domains: ['credabilia.com', 'credabilia.app'] });
+      if (/^(www.)?credabilia.(com|app)$/.test(location.hostname)) gtag('config', 'AW-17772928194');
     </script>
     <link rel="canonical" href="https://credabilia.com/" />
     <meta property="og:type" content="website" />
