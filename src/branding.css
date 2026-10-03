@@ -14,12 +14,12 @@
   inset: 0;
   z-index: -1;
   pointer-events: none;
-  background: url('/brand/welcome-hero-watermark.webp') right 18px center / auto 94% no-repeat;
+  background: url('/brand/welcome-hero-watermark.webp') right -24px top -24px / auto 94% no-repeat;
   opacity: .08;
 }
 @media (max-width: 600px) {
   .collect-hero::before {
-    background-position: center bottom 12px;
+    background-position: right -30px bottom 65px;
     background-size: 290px auto;
   }
 }
