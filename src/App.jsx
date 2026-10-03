@@ -20,6 +20,7 @@ const HelpPage = React.lazy(() => import('./Help.jsx').then(module => ({ default
 import { ItemArt, money, RatingStars } from './ItemArt.jsx';
 import { MessageThread } from './MessageThread.jsx';
 import { SoldItemPage } from './SoldItemPage.jsx';
+import { trackItemListed } from './analytics.js';
 const SupportChat = React.lazy(() => import('./SupportChat.jsx').then(module => ({ default: module.SupportChat })));
 import { CATEGORIES, WORKSPACES, priceInCents } from './domain.js';
 
@@ -478,6 +479,8 @@ function CreateListing({ onClose, onCreated, relistFrom, bulkPhoto, bulkProgress
       const attributes = Object.fromEntries(Object.entries(form).filter(([key])=>key.startsWith('attribute:')).map(([key,value])=>[key.slice(10),value]));
       const id = await service.createListing({ ...form, attributes, ...certificate, media: finalMedia, price_cents: priceInCents(form.price), listing_type: listingType, auction_days: form.auction_days, signature_ai_label: signatureAi?.label, signature_ai_note: signatureAi?.note, needs_review: fit?.fit==='unrelated' || fit?.fit==='unsure', needs_review_reason: fit?.reason||null });
       clearListingDraft();
+      // Tell Google Ads a seller listed something -- but not listings held for review, so junk can't teach it the wrong audience.
+      if (!(fit?.fit==='unrelated' || fit?.fit==='unsure')) trackItemListed(id);
       // Best-effort: the listing is already published, so a failure here shouldn't block the seller — but it should be visible for debugging.
       if (relistFrom?.purchase_id) service.markListingRelisted(id, relistFrom.purchase_id).catch(err => console.warn('Could not record relist provenance:', err.message));
       onCreated(id, fit);

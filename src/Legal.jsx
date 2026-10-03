@@ -1,7 +1,7 @@
 import React from 'react';
 import { Brand } from './Brand.jsx';
 
-const LAST_UPDATED = 'September 21, 2026';
+const LAST_UPDATED = 'October 3, 2026';
 const TERMS_UPDATED = 'October 2, 2026';
 
 function LegalShell({ title, children, updated = LAST_UPDATED }) {
@@ -140,12 +140,14 @@ export function PrivacyPage() {
       <li><strong>Stripe</strong> — payment processing, seller payouts, and identity verification for payouts;</li>
       <li><strong>Shippo</strong> — shipping rates, labels, tracking, and insurance;</li>
       <li><strong>OpenAI</strong> — the AI-assisted features described in Section 3;</li>
-      <li><strong>Google</strong> — sign-in, if you choose to use "Continue with Google."</li>
+      <li><strong>Google</strong> — sign-in, if you choose to use "Continue with Google," and advertising measurement as described in Section 5.</li>
     </ul>
     <p>We also share the information a transaction requires with the other party to it — for example, a seller receives the buyer's shipping address to ship an order, and a buyer can see a seller's storefront name. We may disclose information if required by law, or to protect the rights, safety, or property of Credabilia or our users. We do not sell your personal information.</p>
 
     <h2>5. Cookies and tracking</h2>
-    <p>We do not currently use advertising or analytics cookies or trackers. We use your browser's local storage to keep you signed in between visits. If this changes, we'll update this policy.</p>
+    <p>We use your browser's local storage to keep you signed in between visits.</p>
+    <p>We advertise on Google, and we use Google's advertising tag on credabilia.com to measure which ads lead to actions on our site, such as publishing a listing. This tag may set cookies or similar identifiers in your browser and sends Google information such as the pages you visit, your device and browser details, and whether you completed one of those actions. We do not send Google your name, email address, or the content of your listings for this purpose. Google handles that information under its own privacy policy. You can manage Google's ad personalization at adssettings.google.com, or block cookies in your browser settings. If you are in the European Economic Area, the United Kingdom, or Switzerland, we do not enable Google's advertising storage or personalization for you.</p>
+    <p>We do not use other advertising or analytics trackers. If this changes, we'll update this policy.</p>
 
     <h2>6. Data retention</h2>
     <p>We retain your information for as long as your account is active and as needed to provide the Service, resolve disputes, and comply with our legal obligations. If you close your account, we delete your profile and listing data within 90 days, except that we retain transaction records (purchases, sales, and payout history) for 7 years as required for tax and accounting purposes.</p>

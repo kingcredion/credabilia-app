@@ -23,6 +23,18 @@
          redeploy. Leaving this placeholder in place does nothing -- it only takes effect once a
          real verification code replaces it. -->
     <meta name="google-site-verification" content="REPLACE_WITH_REAL_VERIFICATION_CODE" />
+    <!-- Google tag (Google Ads conversion measurement). The library loads everywhere, but the tag is only
+         configured on the production hosts, so local/demo/preview use never sends hits. Until there is a
+         consent banner, advertising storage and personalization stay off for EEA/UK/Swiss visitors. -->
+    <script async src="https://www.googletagmanager.com/gtag/js?id=AW-17772928194"></script>
+    <script>
+      window.dataLayer = window.dataLayer || [];
+      function gtag() { dataLayer.push(arguments); }
+      gtag('consent', 'default', { ad_storage: 'denied', ad_user_data: 'denied', ad_personalization: 'denied', analytics_storage: 'denied',
+        region: ['AT','BE','BG','HR','CY','CZ','DK','EE','FI','FR','DE','GR','HU','IE','IT','LV','LT','LU','MT','NL','PL','PT','RO','SK','SI','ES','SE','IS','LI','NO','GB','CH'] });
+      gtag('js', new Date());
+      if (location.hostname === 'credabilia.com' || location.hostname === 'www.credabilia.com') gtag('config', 'AW-17772928194');
+    </script>
     <link rel="canonical" href="https://credabilia.com/" />
     <meta property="og:type" content="website" />
     <meta property="og:site_name" content="Credabilia" />
