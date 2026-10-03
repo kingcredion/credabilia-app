@@ -7,6 +7,15 @@
 .brand .brand-tagline { display: block; align-self: center; margin-top: 0; width: 252px; height: auto; }
 .topbar nav { margin-left: 30px; }
 .hero-tag svg { color: var(--brand-teal); }
+.signer-badge .signed-by-quill {
+  display: inline-block;
+  width: 40px;
+  height: 16px;
+  object-fit: contain;
+  vertical-align: middle;
+  margin-right: 4px;
+}
+.signer-badge.compact .signed-by-quill { width: 32px; height: 13px; }
 .ai-marketplace-badge {
   display: block;
   width: 300px;
