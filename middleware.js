@@ -9,7 +9,7 @@ import { next } from '@vercel/functions';
 const SUPABASE_URL = process.env.VITE_SUPABASE_URL;
 const SUPABASE_KEY = process.env.VITE_SUPABASE_PUBLISHABLE_KEY;
 const DEFAULT_IMAGE = 'https://credabilia.com/brand/app-icons/crown-c/web/icon-512.png';
-const RESERVED_SLUGS = new Set(['terms', 'privacy', 'help', 'auth', 'item']);
+const RESERVED_SLUGS = new Set(['terms', 'privacy', 'help', 'auth', 'item', 'sell']);
 const BOT_UA = /bot|facebookexternalhit|facebookcatalog|twitterbot|slackbot|discordbot|linkedinbot|whatsapp|telegrambot|applebot|pinterest|redditbot|vkshare|skypeuripreview|embedly|quora|outbrain|iframely|w3c_validator/i;
 
 export const config = {

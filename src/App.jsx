@@ -21,6 +21,7 @@ import { ItemArt, money, RatingStars } from './ItemArt.jsx';
 import { MessageThread } from './MessageThread.jsx';
 import { SoldItemPage } from './SoldItemPage.jsx';
 import { trackItemListed } from './analytics.js';
+import { SellPage, LIST_INTENT_KEY } from './SellPage.jsx';
 const SupportChat = React.lazy(() => import('./SupportChat.jsx').then(module => ({ default: module.SupportChat })));
 import { CATEGORIES, WORKSPACES, priceInCents } from './domain.js';
 
@@ -1804,7 +1805,7 @@ export default function App() {
   const storefrontSlug = (() => { const segments = window.location.pathname.split('/').filter(Boolean); return segments.length === 1 && segments[0] !== 'auth' ? segments[0] : null; })();
   // /terms, /privacy, and /help are standalone, no-login-required pages -- checked before
   // storefrontSlug so they can never be shadowed by a seller's store name (also reserved server-side).
-  const legalPage = window.location.pathname === '/terms' ? 'terms' : window.location.pathname === '/privacy' ? 'privacy' : window.location.pathname === '/help' ? 'help' : null;
+  const legalPage = window.location.pathname === '/terms' ? 'terms' : window.location.pathname === '/privacy' ? 'privacy' : window.location.pathname === '/help' ? 'help' : window.location.pathname === '/sell' ? 'sell' : null;
   // /item/<id> gives each listing its own shareable, bookmarkable, back-button-friendly URL --
   // parsed once here (same pattern as storefrontSlug/legalPage above) and reconciled against the
   // loaded `items`/`buyRequests` once they're fetched, below.
@@ -1928,10 +1929,26 @@ export default function App() {
     window.addEventListener('popstate', onPopState);
     return () => window.removeEventListener('popstate', onPopState);
   }, []);
+  // A visitor who clicked "List your first item" on /sell lands here with a stored intent: send them through
+  // sign-in (the flag survives the Google redirect) and straight into the listing form. Expires after a day so an
+  // abandoned visit doesn't pop the form open weeks later.
+  const loginPrompted = useRef(false);
+  useEffect(() => {
+    if (!authReady || loading || storefrontSlug || legalPage) return;
+    let started = null;
+    try { started = Number(localStorage.getItem(LIST_INTENT_KEY)); } catch { return; }
+    if (!started) return;
+    if (Date.now() - started > 24 * 60 * 60 * 1000) { try { localStorage.removeItem(LIST_INTENT_KEY); } catch {} return; }
+    if (!session) { if (!loginPrompted.current) { loginPrompted.current = true; setModal('login'); } return; }
+    if (!profile) return;
+    try { localStorage.removeItem(LIST_INTENT_KEY); } catch {}
+    if (profile.can_sell) setModal('create'); else setError('Your account does not have selling permission.');
+  }, [authReady, loading, session, profile]);
   if (service.mode === 'unconfigured') return <main className="setup"><div className="brand"><Brand/></div><h1>The new foundation is ready to connect.</h1><p>Configure your Supabase project URL and public publishable key to enable email sign-in. Local development also includes a separate sample workspace.</p><p>See README.md for the Supabase setup steps. No real accounts are active in this build yet.</p></main>;
   if (legalPage === 'terms') return <TermsPage/>;
   if (legalPage === 'privacy') return <PrivacyPage/>;
   if (legalPage === 'help') return <HelpPage/>;
+  if (legalPage === 'sell') return <SellPage/>;
   if (soldPreview) return <SoldItemPage item={soldPreview} onBack={() => { window.location.href = '/'; }}/>;
   if (storefrontSlug) return <Storefront slug={storefrontSlug} service={service} onBack={() => { window.location.href = '/'; }}/>;
 
