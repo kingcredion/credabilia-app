@@ -25,6 +25,7 @@ import { SellPage } from './SellPage.jsx';
 import { LIST_INTENT_KEY, captureListIntent, isSellHost } from './listIntent.js';
 const SupportChat = React.lazy(() => import('./SupportChat.jsx').then(module => ({ default: module.SupportChat })));
 import { CATEGORIES, WORKSPACES, priceInCents } from './domain.js';
+import { formatWeight } from './weight.js';
 
 const service = makeService();
 const REQUESTS_INTENT_KEY = 'credabilia-view-requests';
@@ -241,6 +242,7 @@ function CreateListing({ onClose, onCreated, relistFrom, bulkPhoto, bulkProgress
   const [copyingPhotos,setCopyingPhotos]=useState(false);
   const [signatureAi,setSignatureAi]=useState(null),[reviewingSignature,setReviewingSignature]=useState(false);
   const [pickupEnabled,setPickupEnabled]=useState(false),[pickupStationId,setPickupStationId]=useState('');
+  const [weightOz,setWeightOz]=useState('');
   const [fit,setFit]=useState(null); // {fit:'clear'|'unsure'|'unrelated', reason} from the last AI draft, or null if never drafted
   const formRef=useRef(null);
   const working=busy||uploading||analyzing||drafting||copyingPhotos||reviewingSignature||processingPhoto||resuming||discarding;
@@ -412,7 +414,7 @@ function CreateListing({ onClose, onCreated, relistFrom, bulkPhoto, bulkProgress
     const set=(name,value)=>{ const el=form?.elements.namedItem(name); if(el && value) el.value=value; };
     set('title',pendingResume.title); set('description',pendingResume.description); set('price',pendingResume.price);
     set('evidence',pendingResume.evidence); set('tags',pendingResume.tags);
-    set('weight_oz',pendingResume.weight_oz); set('length_in',pendingResume.length_in);
+    set('weight_oz',pendingResume.weight_oz); setWeightOz(pendingResume.weight_oz||''); set('length_in',pendingResume.length_in);
     set('width_in',pendingResume.width_in); set('height_in',pendingResume.height_in);
     const shippingEl=form?.elements.namedItem('free_shipping'); if(shippingEl) shippingEl.checked=!!pendingResume.free_shipping;
     setPickupEnabled(!!pendingResume.pickup_enabled); setPickupStationId(pendingResume.pickup_station_id || '');
@@ -427,7 +429,7 @@ function CreateListing({ onClose, onCreated, relistFrom, bulkPhoto, bulkProgress
     if(relistFrom.evidence) form.elements.namedItem('evidence').value=relistFrom.evidence;
     // Prefill the previous package measurements for review; repackaging may change them.
     // Start at the recorded item price, with optional markup shortcuts below.
-    if(relistFrom.weight_oz) form.elements.namedItem('weight_oz').value=relistFrom.weight_oz;
+    if(relistFrom.weight_oz) { form.elements.namedItem('weight_oz').value=relistFrom.weight_oz; setWeightOz(String(relistFrom.weight_oz)); }
     if(relistFrom.length_in) form.elements.namedItem('length_in').value=relistFrom.length_in;
     if(relistFrom.width_in) form.elements.namedItem('width_in').value=relistFrom.width_in;
     if(relistFrom.height_in) form.elements.namedItem('height_in').value=relistFrom.height_in;
@@ -552,7 +554,7 @@ function CreateListing({ onClose, onCreated, relistFrom, bulkPhoto, bulkProgress
       {service.detailsEnabled && <ListingDetailFields key={listingCategory} category={listingCategory} exclude={['subject']}/>}
       <p className="field-note">Package weight and size, once packed — this lets buyers see a real shipping cost at checkout instead of guessing.</p>
       <div className="form-row">
-        <label>Weight (oz)<input name="weight_oz" type="number" min="1" step="0.1" required/></label>
+        <label>Weight (oz)<input name="weight_oz" type="number" min="1" step="0.1" required onChange={e => setWeightOz(e.target.value)}/>{formatWeight(weightOz) && <small className="weight-readout">= {formatWeight(weightOz)}</small>}</label>
         <label>Length (in)<input name="length_in" type="number" min="1" step="0.1" required/></label>
       </div>
       <div className="form-row">
@@ -1346,7 +1348,7 @@ function SoldItemCard({ sale, session, onShipped, onRefundChanged, focusConversa
         : needsParcel ? <form className="form-stack" onSubmit={getRatesWithParcel}>
             <p className="field-note">This listing predates saved package sizes — enter it once here.</p>
             <div className="form-row">
-              <label>Weight (oz)<input type="number" min="1" required value={parcel.weight_oz} onChange={e => setParcel({ ...parcel, weight_oz: e.target.value })}/></label>
+              <label>Weight (oz)<input type="number" min="1" required value={parcel.weight_oz} onChange={e => setParcel({ ...parcel, weight_oz: e.target.value })}/>{formatWeight(parcel.weight_oz) && <small className="weight-readout">= {formatWeight(parcel.weight_oz)}</small>}</label>
               <label>Length (in)<input type="number" min="1" required value={parcel.length_in} onChange={e => setParcel({ ...parcel, length_in: e.target.value })}/></label>
             </div>
             <div className="form-row">

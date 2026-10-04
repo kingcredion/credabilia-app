@@ -142,3 +142,5 @@
 .secondary-action:hover:not(:disabled){background:var(--hover-bg)}
 .secondary-action:disabled{opacity:.6;cursor:not-allowed}
 @media(max-width:400px){.msg-suffix{display:none}}
+
+.weight-readout{display:block;margin-top:4px;font-size:.82rem;font-weight:600;opacity:.75}
