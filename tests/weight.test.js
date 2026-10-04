@@ -1,6 +1,18 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { formatWeight } from '../src/weight.js';
+import { formatWeight, formatLength } from '../src/weight.js';
+
+test('formatLength shows feet and inches once the size reaches a foot, and nothing before', () => {
+  assert.equal(formatLength(''), '');
+  assert.equal(formatLength('abc'), '');
+  assert.equal(formatLength(0), '');
+  assert.equal(formatLength(11.9), '');
+  assert.equal(formatLength(12), '1 ft');
+  assert.equal(formatLength('30'), '2 ft 6 in');
+  assert.equal(formatLength(48), '4 ft');
+  assert.equal(formatLength(40.5), '3 ft 4.5 in');
+  assert.equal(formatLength(23.96), '2 ft', 'rounds to a tenth of an inch and carries into the next foot');
+});
 
 test('formatWeight shows pounds and ounces once the weight reaches a pound, and nothing before', () => {
   assert.equal(formatWeight(''), '');
