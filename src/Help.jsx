@@ -15,7 +15,7 @@ export function HelpPage() {
     <p>Our AI assistant, King Credion, can answer questions about fees, shipping, escrow, and more — anytime, day or night.</p>
     <ul>
       <li><strong>Call:</strong> <a href="tel:+18667500255">1 (866) 750-0255</a></li>
-      <li><strong>Email:</strong> <a href="mailto:kingcredion@credabilia.com">kingcredion@credabilia.com</a></li>
+      <li><strong>Email:</strong> <a href="mailto:support@credabilia.com">support@credabilia.com</a></li>
       <li><strong>Chat:</strong> use the chat icon in the header after signing in</li>
     </ul>
 
