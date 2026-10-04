@@ -29,7 +29,7 @@ async function freshDb() {
   // 202609300040 (is_operator, needed by the new admin RPCs), 202609300049 (the latest
   // create_listing_with_media/edit_listing bodies this migration's create_listing_with_details
   // builds on) and this feature's own new migration appended at the end.
-  const MIGRATIONS = ['202609100001_foundation.sql','202609100002_certificates.sql','202609100003_credibility.sql','202609100004_media.sql','202609100005_extraction_quota.sql','202609110006_listing_edits.sql','202609150007_listing_details.sql','202609180010_collection_and_settings.sql','202609190011_listing_history.sql','202609200012_stripe_connect_payments.sql','202609210013_storefronts_and_dashboard.sql','202609220014_shipping.sql','202609230015_messaging.sql','202609240016_fees_shipping_rewards.sql','202609250018_escrow_and_insurance.sql','202609260021_support_chat.sql','202609270022_refund_requests.sql','202609280024_refund_partial_and_return.sql','202609290025_notifications.sql','202609300027_credibility_low_default.sql','202609300029_background_removal_png_uploads.sql','202609300030_require_background_removed_main_photo.sql','202609300031_fix_browse_listings_media_regression.sql','202609300032_push_notifications.sql','202609300033_buy_availability_confirmation.sql','202609300034_seller_ratings.sql','202609300035_auctions.sql','202609300038_klaviyo_events.sql','202609300039_klaviyo_content_type_fix.sql','202609300040_admin_operators.sql','202609300046_signature_media_kind.sql','202609300047_signature_analysis_quota.sql','202609300048_signature_credibility_blend.sql','202609300049_background_removal_retry.sql','202609300054_signature_reference_library.sql','202609300056_auto_signature_opinion.sql'];
+  const MIGRATIONS = ['202609100001_foundation.sql','202609100002_certificates.sql','202609100003_credibility.sql','202609100004_media.sql','202609100005_extraction_quota.sql','202609110006_listing_edits.sql','202609150007_listing_details.sql','202609180010_collection_and_settings.sql','202609190011_listing_history.sql','202609200012_stripe_connect_payments.sql','202609210013_storefronts_and_dashboard.sql','202609220014_shipping.sql','202609230015_messaging.sql','202609240016_fees_shipping_rewards.sql','202609250018_escrow_and_insurance.sql','202609260021_support_chat.sql','202609270022_refund_requests.sql','202609280024_refund_partial_and_return.sql','202609290025_notifications.sql','202609300027_credibility_low_default.sql','202609300029_background_removal_png_uploads.sql','202609300030_require_background_removed_main_photo.sql','202609300031_fix_browse_listings_media_regression.sql','202609300032_push_notifications.sql','202609300033_buy_availability_confirmation.sql','202609300034_seller_ratings.sql','202609300035_auctions.sql','202609300038_klaviyo_events.sql','202609300039_klaviyo_content_type_fix.sql','202609300040_admin_operators.sql','202609300046_signature_media_kind.sql','202609300047_signature_analysis_quota.sql','202609300048_signature_credibility_blend.sql','202609300049_background_removal_retry.sql','202609300054_signature_reference_library.sql','202609300056_auto_signature_opinion.sql','202610040092_signature_reference_one_per_photo.sql'];
   for (const file of MIGRATIONS) await db.exec(await readFile(new URL('../supabase/migrations/'+file, import.meta.url), 'utf8'));
   async function as(user, role = 'authenticated') { await db.exec('reset role'); await db.query("select set_config('request.jwt.claim.sub',$1,false)", [user]); await db.exec('set role ' + role); }
   async function raw(sql, params) { await db.exec('reset role'); return db.query(sql, params); }
@@ -146,5 +146,37 @@ test('list_pending_signature_embeddings / set_signature_embedding: only rows wit
     await raw('select public.set_signature_embedding($1,$2)', [refId, fakeVector(2)]);
     pending = (await raw('select public.list_pending_signature_embeddings(25) as p')).rows[0].p;
     assert.equal(pending.length, 0);
+  } finally { await db.close(); }
+});
+
+test('capturing the same photo again never adds a second reference, and a changed signer name sends it back to unverified', async () => {
+  const ctx = await freshDb();
+  const { db, as, raw } = ctx;
+  const seller = '11111111-1111-4111-8111-111111111111';
+  try {
+    await raw('insert into auth.users(id) values($1)', [seller]);
+    await as(seller);
+    const listingId = await publishSignedListing(ctx, seller, { subject: 'Michael Jordan', note: 'Natural pen pressure and flow.' });
+    await raw("update public.signature_references set provenance='operator_curated', promoted_by=$1 where source_listing_id=$2", [seller, listingId]);
+
+    // Editing the listing re-runs the capture with the same signer: still one row, still verified.
+    await raw("select public.capture_signature_reference($1,'  michael jordan ','A second note.')", [listingId]);
+    await raw("select public.capture_signature_reference($1,'Michael Jordan','A third note.')", [listingId]);
+    let rows = (await raw('select subject_name,provenance,description from public.signature_references where source_listing_id=$1', [listingId])).rows;
+    assert.equal(rows.length, 1, 'one photo is one reference');
+    assert.equal(rows[0].provenance, 'operator_curated', 'a repeat capture does not undo verification');
+    assert.equal(rows[0].description, 'Natural pen pressure and flow.');
+
+    // The signer's name is corrected: the same row follows the new name but must be verified again.
+    await raw("select public.capture_signature_reference($1,'Michael B. Jordan','Corrected name.')", [listingId]);
+    rows = (await raw('select subject_name,provenance,promoted_by from public.signature_references where source_listing_id=$1', [listingId])).rows;
+    assert.equal(rows.length, 1);
+    assert.equal(rows[0].subject_name, 'Michael B. Jordan');
+    assert.equal(rows[0].provenance, 'self_reported');
+    assert.equal(rows[0].promoted_by, null);
+
+    // The table itself refuses a second row for the same photo.
+    const path = (await raw('select media_path from public.signature_references where source_listing_id=$1', [listingId])).rows[0].media_path;
+    await assert.rejects(raw("insert into public.signature_references(subject_name,media_path,source_listing_id) values('Someone',$1,$2)", [path, listingId]), /duplicate key|unique/i);
   } finally { await db.close(); }
 });
