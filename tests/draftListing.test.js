@@ -130,3 +130,25 @@ test('database enforces listing draft quota and selling permission',async()=>{
     await assert.rejects(db.query('delete from public.listing_draft_usage'),/permission denied/);
   } finally { await db.close(); }
 });
+
+test('draft handler tells the model to keep opinions out of the description and drops any authenticity-opinion sentence it still writes',async()=>{
+  const id='11111111-1111-4111-8111-111111111111';
+  let description,instructions='';
+  const handler=createHandler({env:key=>key==='OPENAI_API_KEY'?'test-key':'test',
+    createClient:()=>({auth:{getUser:async()=>({data:{user:{id}}})},storage:{from:()=>({download:async()=>({data:new Blob([new Uint8Array([255,216,255,0])],{type:'image/jpeg'})})})},rpc:async()=>({error:null})}),
+    fetcher:async(url,options)=>{instructions=JSON.parse(options.body).instructions;return Response.json({status:'completed',output:[{type:'message',content:[{type:'output_text',text:JSON.stringify({
+      title:'Signed jersey',description,category:'Sports',
+      attributes:{item_type:null,subject:null,year:null,condition:null,sport:null,team:null,artist:null,medium:null,dimensions:null,publisher:null,issue:null,grading_company:null,grade:null},
+      tags:[],signature:{found:false,box:null},fit:'clear',fit_reason:null
+    })}]}]});}});
+  const request=body=>new Request('https://example.test',{method:'POST',headers:{Authorization:'Bearer test'},body:JSON.stringify(body)});
+  const draft=async text=>{description=text;return (await (await handler(request({notes:'A signed jersey'}))).json()).description;};
+
+  assert.match(instructions||(await draft('x'),instructions),/DESCRIPTION RULES/);
+  assert.match(instructions,/Never put opinions, judgments or disclaimers in the description/);
+
+  assert.equal(await draft('A red team jersey, number 10. The signature has not been validated. It is signed.'),'A red team jersey, number 10. It is signed.');
+  assert.equal(await draft('Signed baseball. Authenticity is unknown. The signature appears to be genuine, but this cannot be verified.'),'Signed baseball.');
+  assert.equal(await draft('Unverified autograph on a football.'),null, 'a description that is only an opinion is dropped entirely');
+  assert.equal(await draft('Baseball signed by the team, with a certificate of authenticity supplied by the seller.'),'Baseball signed by the team, with a certificate of authenticity supplied by the seller.', 'seller-supplied facts are not touched');
+});
