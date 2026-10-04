@@ -42,7 +42,7 @@ export function SupportChat({ service }) {
     finally { setCallbackBusy(false); }
   }
 
-  return <div className="form-stack">
+  return <div className="form-stack" data-clarity-mask="True">
     {!messages?.length && <div className="support-welcome">
       <img src="/brand/screen-face-v1/support.webp" alt="King Credion, wearing his crown and a headset, seated at a laptop"/>
       <h3>Hi, I'm King Credion. How can I help?</h3>

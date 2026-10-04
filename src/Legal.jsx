@@ -1,7 +1,7 @@
 import React from 'react';
 import { Brand } from './Brand.jsx';
 
-const LAST_UPDATED = 'October 3, 2026';
+const LAST_UPDATED = 'October 4, 2026';
 const TERMS_UPDATED = 'October 3, 2026';
 
 function LegalShell({ title, children, updated = LAST_UPDATED }) {
@@ -148,6 +148,7 @@ export function PrivacyPage() {
       <li><strong>Twilio</strong> — delivering text-message alerts you opt in to, and our phone support line;</li>
       <li><strong>Vapi</strong> — the voice assistant that answers calls to our phone support line, including converting speech to text;</li>
       <li><strong>Vercel</strong> — website hosting and privacy-friendly visit counts, as described in Section 5;</li>
+      <li><strong>Microsoft</strong> — Microsoft Clarity, which records how visitors use our website so we can improve it, as described in Section 5;</li>
       <li><strong>Google</strong> — sign-in, if you choose to use "Continue with Google," and advertising measurement as described in Section 5.</li>
     </ul>
     <p>We also share the information a transaction requires with the other party to it — for example, a seller receives the buyer's shipping address to ship an order, and a buyer can see a seller's storefront name. We may disclose information if required by law, or to protect the rights, safety, or property of Credabilia or our users. We do not sell your personal information. We do not share your mobile number or your text-message opt-in with third parties or affiliates for their own marketing or promotional purposes; it is used only to send you the alerts you asked for.</p>
@@ -155,7 +156,8 @@ export function PrivacyPage() {
     <h2>5. Cookies and tracking</h2>
     <p>We use your browser's local storage to keep you signed in between visits.</p>
     <p>We advertise on Google, and we use Google's advertising tag on credabilia.com to measure which ads lead to actions on our site, such as publishing a listing. This tag may set cookies or similar identifiers in your browser and sends Google information such as the pages you visit, your device and browser details, and whether you completed one of those actions. We do not send Google your name, email address, or the content of your listings for this purpose. Google handles that information under its own privacy policy. You can manage Google's ad personalization at adssettings.google.com, or block cookies in your browser settings. If you are in the European Economic Area, the United Kingdom, or Switzerland, we do not enable Google's advertising storage or personalization for you.</p>
-    <p>We also use Vercel Web Analytics to count visits and see which pages are used, and Vercel Speed Insights to measure how quickly our pages load. Neither uses cookies or follows you across other websites, and neither collects your name or email address. We do not use other advertising or analytics trackers. If this changes, we'll update this policy.</p>
+    <p>We also use Vercel Web Analytics to count visits and see which pages are used, and Vercel Speed Insights to measure how quickly our pages load. Neither uses cookies or follows you across other websites, and neither collects your name or email address.</p>
+    <p>We also use Microsoft Clarity, a free tool that records how visitors use credabilia.com: the pages you view, where you click, tap and scroll, and a replay of your visit. We use it to find and fix confusing parts of the site. Clarity sets cookies in your browser (named _clck and _clsk) and Microsoft handles the data under its own privacy statement. What you type into form fields is masked, and we also hide your messages, support chats, shipping address fields and our own admin tools from these recordings. We do not use Clarity for visitors in the European Economic Area, the United Kingdom, or Switzerland. You can block Clarity's cookies in your browser settings or with a content blocker. We do not use other advertising or analytics trackers beyond those described in this section. If this changes, we'll update this policy.</p>
 
     <h2>6. Data retention</h2>
     <p>We retain your information for as long as your account is active and as needed to provide the Service, resolve disputes, and comply with our legal obligations. If you close your account, we delete your profile and listing data within 90 days, except that we retain transaction records (purchases, sales, and payout history) for 7 years as required for tax and accounting purposes.</p>

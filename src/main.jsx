@@ -3,6 +3,7 @@ import { createRoot } from 'react-dom/client';
 import App from './App.jsx';
 import { inject } from '@vercel/analytics';
 import { SpeedInsights } from '@vercel/speed-insights/react';
+import { startClarity } from './clarity.js';
 import './theme.css';
 import './styles.css';
 import './branding.css';
@@ -10,6 +11,8 @@ import './showroom.css';
 
 // Vercel Web Analytics: cookieless page-view counts, loaded only on the real sites (not localhost, previews or the native apps).
 if (/^(www\.)?credabilia\.(com|app)$/.test(window.location.hostname)) inject();
+// Microsoft Clarity session recordings (real sites only; see src/clarity.js for who is excluded).
+startClarity();
 const collectSpeedInsights = import.meta.env.PROD && /^(www\.)?credabilia\.com$/.test(window.location.hostname);
 
 class ErrorBoundary extends React.Component {

@@ -883,7 +883,7 @@ function ShippingAddressFields({ value, onChange, disabled, onVerifiedChange }) 
   }
   function useSuggested() { onChange({ ...value, ...verification.suggested }); setVerification(null); setResolved(true); }
   function keepAsEntered() { setVerification(null); setResolved(true); }
-  return <>
+  return <div className="clarity-contents" data-clarity-mask="True">
     <label>Full name<input value={value.name || ''} onChange={set('name')} maxLength={100} required disabled={disabled}/></label>
     <div className="form-row">
       <label>Street address<input value={value.street1 || ''} onChange={set('street1')} maxLength={200} required disabled={disabled}/></label>
@@ -911,7 +911,7 @@ function ShippingAddressFields({ value, onChange, disabled, onVerifiedChange }) 
       </div>
     </div>}
     {!resolved && !verifying && <p className="field-note">Verify your address above before continuing.</p>}
-  </>;
+  </div>;
 }
 
 function ShippingSettings({ profile }) {
@@ -928,7 +928,7 @@ function ShippingSettings({ profile }) {
     try { await service.saveShippingAddress(address); setSaved(true); }
     catch (err) { setError(err.message); } finally { setSaving(false); }
   }
-  return <div className="evidence-box"><h3>Shipping address</h3>
+  return <div className="evidence-box" data-clarity-mask="True"><h3>Shipping address</h3>
     <p className="field-note">Used as your return address when you sell, and to pre-fill checkout when you buy. You can still edit it for any specific order.</p>
     <form className="form-stack" onSubmit={submit}>
       <ShippingAddressFields value={address} onChange={value => { setAddress(value); setSaved(false); }} disabled={saving} onVerifiedChange={setVerified}/>
@@ -1610,7 +1610,7 @@ function AdminListingReview() {
 
 function AdminDashboard() {
   const [tab, setTab] = useState('disputes');
-  return <div className="form-stack">
+  return <div className="form-stack" data-clarity-mask="True">
     <div className="categories" role="group" aria-label="Admin sections">
       <button aria-pressed={tab === 'disputes'} className={tab === 'disputes' ? 'active' : ''} onClick={() => setTab('disputes')}>Disputes</button>
       <button aria-pressed={tab === 'reports'} className={tab === 'reports' ? 'active' : ''} onClick={() => setTab('reports')}>Reports</button>
@@ -2120,7 +2120,7 @@ export default function App() {
           <AuditQueue key={session?.user?.id || 'anon'} items={filtered} session={session} profile={profile} onNeedLogin={() => setModal('login')} onAudited={result => { setNotice(result.xp_earned ? 'Audit recorded. +5 participation XP.' : 'Your audit is already recorded.'); refresh(); }} focusItemId={focusAuditItemId} onFocused={() => setFocusAuditItemId(null)}/>
         </> : workspace === 'messages' ? <>
           {!selectedConversationId && <section className="hero messages-hero"><div className="hero-copy"><p className="eyebrow"><span className="small-line"/>YOUR CONVERSATIONS</p><h1>Every chat.<br/><em>In one place.</em></h1><p>Message a seller from any listing to ask a question or arrange a meetup — every conversation stays tied to the item it's about.</p></div><div className="hero-mascot"><img src="/brand/screen-face-v1/messages.webp" width="800" height="800" alt="King Credion with a royal messenger pigeon carrying a sealed scroll" decoding="async"/></div></section>}
-          <MessagesInbox conversations={conversations} session={session} service={service} focusConversationId={focusConversationId} onFocused={() => setFocusConversationId(null)} selectedConversationId={selectedConversationId} onSelect={setSelectedConversationId} onOpenListing={openListingFromThread} onRead={refresh} onClear={clearConversation}/>
+          <div className="clarity-contents" data-clarity-mask="True"><MessagesInbox conversations={conversations} session={session} service={service} focusConversationId={focusConversationId} onFocused={() => setFocusConversationId(null)} selectedConversationId={selectedConversationId} onSelect={setSelectedConversationId} onOpenListing={openListingFromThread} onRead={refresh} onClear={clearConversation}/></div>
         </> : selected ? <>
           <button className="back-button" onClick={() => setSelectedId(null)}><ArrowLeft size={17}/>Back to listings</button>
           {own && selected.status==='needs_review' && <p className="field-note">Only visible to you right now — this needs a quick review before buyers can see it. {selected.needs_review_reason || "It didn't clearly look like a collectible."} Edit it to add more detail and resubmit.</p>}

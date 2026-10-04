@@ -35,7 +35,7 @@ export function MessageThread({ conversationId, service, session, counterpartyLa
 
   if (!open) return <button type="button" className="text-button" onClick={() => setOpen(true)}><MessageCircle size={16}/>Message {counterpartyLabel}{messageCount ? ` (${messageCount})` : ''}</button>;
 
-  return <div className={forceOpen ? '' : 'evidence-box'}>
+  return <div className={forceOpen ? '' : 'evidence-box'} data-clarity-mask="True">
     {!forceOpen && <h3><MessageCircle size={18}/>Message {counterpartyLabel}</h3>}
     {pinnedListing && <button type="button" className="pinned-listing" onClick={() => onOpenListing?.(pinnedListing.listing_id)}>
       {pinnedListing.media?.[0]?.url && <img src={pinnedListing.media[0].url} alt=""/>}

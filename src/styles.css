@@ -146,3 +146,5 @@
 .weight-readout{display:block;margin-top:4px;font-size:.82rem;font-weight:600;opacity:.75}
 
 .king-opinion{display:flex;align-items:flex-start;gap:10px}.king-opinion .king-icon{flex:none;margin-top:2px}.king-opinion .field-note{margin:0}.king-heading{display:flex;align-items:center;gap:8px}.king-heading .king-icon{flex:none}
+
+.clarity-contents{display:contents}
