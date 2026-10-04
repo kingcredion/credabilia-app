@@ -534,7 +534,7 @@ function CreateListing({ onClose, onCreated, relistFrom, bulkPhoto, bulkProgress
       <label>Item title<input name="title" placeholder="What are you sharing?" minLength={4} maxLength={120} required autoFocus/></label>
       <label>Signed by <span className="optional">optional</span><input name="attribute:subject" placeholder="e.g. Mike Tyson" maxLength={120}/></label>
       <MediaPicker service={service} media={media} onChange={next=>{setMedia(next);setSuggestion(null);setConfirmed(false);setSignatureAi(null);}} busy={working} onBusy={setUploading} onError={setError}/>
-      {signaturePhoto ? <div className="evidence-box"><h3 className="king-heading"><img className="king-icon" src="/brand/king-credion-signature-icon.png" alt="" width="32" height="30"/>King Credion's signature opinion</h3>
+      {signaturePhoto ? <div className="evidence-box"><h3 className="king-heading"><img className="king-icon" src="/brand/king-credion-signature-icon-v2.png" alt="" width="32" height="30"/>King Credion's signature opinion</h3>
         <p className="field-note-caution">If AI spotted this automatically and it isn't actually a signature, remove the photo above in the Signature close-up section.</p>
         {reviewingSignature && <p role="status" className="field-note">Reviewing signature…</p>}
         {signatureAi && <p className="field-note">{LABELS_AI[signatureAi.label]} — {signatureAi.note}</p>}
@@ -780,7 +780,7 @@ function EditListing({item:currentItem,onClose,onSaved}) {
       <label>Description<textarea name="description" defaultValue={item.description} required minLength={20} maxLength={4000}/></label>
       <label>Evidence notes<textarea name="evidence" defaultValue={item.evidence} maxLength={2000}/></label>
       <MediaPicker service={service} media={media} onChange={next=>{setMedia(next);setMediaTouched(true);if(!item.signature_ai_label)setSignatureAi(null);}} busy={working} onBusy={setUploading} onError={setError}/>
-      {signaturePhoto && <div className="evidence-box"><h3 className="king-heading"><img className="king-icon" src="/brand/king-credion-signature-icon.png" alt="" width="32" height="30"/>King Credion's signature opinion</h3>
+      {signaturePhoto && <div className="evidence-box"><h3 className="king-heading"><img className="king-icon" src="/brand/king-credion-signature-icon-v2.png" alt="" width="32" height="30"/>King Credion's signature opinion</h3>
         {reviewingSignature && <p role="status" className="field-note">Reviewing signature…</p>}
         {signatureAi && <p className="field-note">{LABELS_AI[signatureAi.label]} — {signatureAi.note}</p>}
         {!reviewingSignature && !signatureAi && <p className="field-note">King Credion has not given an opinion on this signature yet.</p>}
@@ -1722,7 +1722,7 @@ const VERDICT_NOTES = {
 const LABELS_AI = { consistent: 'looks consistent', inconclusive: 'inconclusive', concerns: 'flagged a concern' };
 // King Credion's signature opinion as shown to everyone: his icon, the opinion, and the fixed "library is still growing" note.
 function KingOpinion({ label, note }) {
-  return <div className="king-opinion"><img className="king-icon" src="/brand/king-credion-signature-icon.png" alt="King Credion" width="44" height="42"/><p className="field-note">King Credion's opinion: {LABELS_AI[label]} — not verified. {note} <span className="trust-highlight">King Credion's signature library is still growing, so his opinion gets smarter over time.</span></p></div>;
+  return <div className="king-opinion"><img className="king-icon" src="/brand/king-credion-signature-icon-v2.png" alt="King Credion" width="44" height="42"/><p className="field-note">King Credion's opinion: {LABELS_AI[label]} — not verified. {note} <span className="trust-highlight">King Credion's signature library is still growing, so his opinion gets smarter over time.</span></p></div>;
 }
 
 function AuditQueue({ items, session, profile, onNeedLogin, onAudited, focusItemId, onFocused }) {
