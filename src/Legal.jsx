@@ -2,7 +2,7 @@ import React from 'react';
 import { Brand } from './Brand.jsx';
 
 const LAST_UPDATED = 'October 3, 2026';
-const TERMS_UPDATED = 'October 2, 2026';
+const TERMS_UPDATED = 'October 3, 2026';
 
 function LegalShell({ title, children, updated = LAST_UPDATED }) {
   return <div className="legal-page">
@@ -24,6 +24,7 @@ export function TermsPage() {
 
     <h2>2. Your account</h2>
     <p>You can sign in with a Google account or with a one-time email sign-in link. You are responsible for maintaining the security of your account and for all activity that happens under it. You agree to provide accurate account information and to keep it up to date. Credabilia is a single account for browsing, buying, selling, and community auditing — you don't need separate accounts for each.</p>
+    <p><strong>Emails and text messages.</strong> We send emails about your account and orders, such as listing confirmations, sales, purchase receipts, and auction results. You can unsubscribe from non-essential emails using the link in the email. If you turn on text-message alerts in Settings and enter your mobile number, you agree to receive recurring automated text messages from Credabilia at that number about buy requests, bids, auction results, and your orders. Consent to receive texts is not a condition of using the Service or buying anything. Message frequency varies. Message and data rates may apply. Reply STOP at any time to cancel, or HELP for help, and you can also turn alerts off in Settings. Carriers are not liable for delayed or undelivered messages. We handle your number as described in our <a href="/privacy">Privacy Policy</a>.</p>
 
     <h2>3. What Credabilia is</h2>
     <p>Credabilia is a marketplace and community for collectibles and memorabilia. Sellers list items; buyers purchase them directly from sellers. Community members can review listing evidence and share their assessment of an item. Except for King's Collection items (described below), Credabilia is not the seller of items listed by other users, is not a party to the contract of sale between a buyer and seller, and does not take ownership of items at any point. Where these Terms describe Credabilia holding funds or arranging shipping for those items, that role is limited to the payment, escrow, and logistics functions described below — it does not make Credabilia a party to the underlying sale.</p>
@@ -115,7 +116,9 @@ export function PrivacyPage() {
     <h3>Marketplace and transaction information</h3>
     <p>Listings you create (title, description, category, photos, price, certificate details, package dimensions); your purchase and sales history; the shipping address you provide for an order (name, street address, city, state, ZIP, country, and phone number if you provide one); and refund, return, and shipment tracking details tied to your orders.</p>
     <h3>Messages and support</h3>
-    <p>Messages you send to another user about an order, and messages you send to our AI support assistant, King Credion.</p>
+    <p>Messages you send to another user about an order, and messages you send to our AI support assistant, King Credion, including by phone if you call our support line.</p>
+    <h3>Mobile number and notification choices</h3>
+    <p>If you opt in to text-message alerts, we collect your mobile number, the time you opted in, and your notification preferences. Adding a mobile number is optional, and alerts stay off unless you turn them on.</p>
     <h3>Community activity</h3>
     <p>Assessments you submit on other members' listings, and your trivia responses and participation/learning XP.</p>
     <h3>Information we don't collect</h3>
@@ -140,10 +143,14 @@ export function PrivacyPage() {
       <li><strong>Stripe</strong> — payment processing, seller payouts, and identity verification for payouts;</li>
       <li><strong>Shippo</strong> — shipping rates, labels, tracking, and insurance;</li>
       <li><strong>OpenAI</strong> — the AI-assisted features described in Section 3;</li>
+      <li><strong>Photoroom</strong> — removing the background from item photos you upload;</li>
+      <li><strong>Klaviyo</strong> — sending the account and order emails described in our Terms;</li>
+      <li><strong>Twilio</strong> — delivering text-message alerts you opt in to, and our phone support line;</li>
+      <li><strong>Vapi</strong> — the voice assistant that answers calls to our phone support line, including converting speech to text;</li>
       <li><strong>Vercel</strong> — website hosting and privacy-friendly visit counts, as described in Section 5;</li>
       <li><strong>Google</strong> — sign-in, if you choose to use "Continue with Google," and advertising measurement as described in Section 5.</li>
     </ul>
-    <p>We also share the information a transaction requires with the other party to it — for example, a seller receives the buyer's shipping address to ship an order, and a buyer can see a seller's storefront name. We may disclose information if required by law, or to protect the rights, safety, or property of Credabilia or our users. We do not sell your personal information.</p>
+    <p>We also share the information a transaction requires with the other party to it — for example, a seller receives the buyer's shipping address to ship an order, and a buyer can see a seller's storefront name. We may disclose information if required by law, or to protect the rights, safety, or property of Credabilia or our users. We do not sell your personal information. We do not share your mobile number or your text-message opt-in with third parties or affiliates for their own marketing or promotional purposes; it is used only to send you the alerts you asked for.</p>
 
     <h2>5. Cookies and tracking</h2>
     <p>We use your browser's local storage to keep you signed in between visits.</p>
@@ -154,7 +161,7 @@ export function PrivacyPage() {
     <p>We retain your information for as long as your account is active and as needed to provide the Service, resolve disputes, and comply with our legal obligations. If you close your account, we delete your profile and listing data within 90 days, except that we retain transaction records (purchases, sales, and payout history) for 7 years as required for tax and accounting purposes.</p>
 
     <h2>7. Your choices</h2>
-    <p>You can update your display name, shipping address, and other profile information at any time in Settings. You can delete your account directly from Settings, or by contacting us at <a href="mailto:kingcredion@credabilia.com">kingcredion@credabilia.com</a> to request access to or deletion of your account and associated data. We may need to retain certain records (for example, transaction history) even after a deletion request, as described in Section 6.</p>
+    <p>You can stop text messages at any time by replying STOP or turning alerts off in Settings, and you can unsubscribe from non-essential emails using the link in the email. You can update your display name, shipping address, and other profile information at any time in Settings. You can delete your account directly from Settings, or by contacting us at <a href="mailto:kingcredion@credabilia.com">kingcredion@credabilia.com</a> to request access to or deletion of your account and associated data. We may need to retain certain records (for example, transaction history) even after a deletion request, as described in Section 6.</p>
 
     <h2>8. Children's privacy</h2>
     <p>Credabilia is not directed at, and we do not knowingly collect information from, anyone under 18. If we learn we've collected information from someone under 18, we will delete it.</p>
