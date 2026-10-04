@@ -27,6 +27,7 @@ const SupportChat = React.lazy(() => import('./SupportChat.jsx').then(module => 
 import { CATEGORIES, WORKSPACES, priceInCents } from './domain.js';
 
 const service = makeService();
+const REQUESTS_INTENT_KEY = 'credabilia-view-requests';
 // Matches browse_listings()'s own per-call ceiling (supabase/migrations/202609300063_browse_pagination.sql) --
 // a page this size back means there may be more past it, worth offering "Load more" for.
 const LISTINGS_PAGE_SIZE = 300;
@@ -1973,6 +1974,25 @@ export default function App() {
     try { localStorage.removeItem(LIST_INTENT_KEY); } catch {}
     if (profile.can_sell) setModal('create'); else setError('Your account does not have selling permission.');
   }, [authReady, loading, session, profile]);
+  // /?view=requests (the "Buy Request Received" email's button) opens the seller's Requests tab. Remembered in
+  // localStorage like the list intent above, because signing in redirects back to the bare site address.
+  useEffect(() => {
+    if (!authReady || loading || storefrontSlug || legalPage) return;
+    try {
+      const params = new URLSearchParams(window.location.search);
+      if (params.get('view') === 'requests') {
+        localStorage.setItem(REQUESTS_INTENT_KEY, String(Date.now()));
+        params.delete('view');
+        window.history.replaceState({}, '', window.location.pathname + (params.toString() ? '?' + params : '') + window.location.hash);
+      }
+      const started = Number(localStorage.getItem(REQUESTS_INTENT_KEY));
+      if (!started) return;
+      if (Date.now() - started > 24 * 60 * 60 * 1000) { localStorage.removeItem(REQUESTS_INTENT_KEY); return; }
+      if (!session) { if (!loginPrompted.current) { loginPrompted.current = true; setModal('login'); } return; }
+      localStorage.removeItem(REQUESTS_INTENT_KEY);
+      setWorkspace('seller'); setSellerTab('requests'); setSelectedId(null);
+    } catch { /* storage unavailable: the link just opens the site */ }
+  }, [authReady, loading, session]);
   if (service.mode === 'unconfigured') return <main className="setup"><div className="brand"><Brand/></div><h1>The new foundation is ready to connect.</h1><p>Configure your Supabase project URL and public publishable key to enable email sign-in. Local development also includes a separate sample workspace.</p><p>See README.md for the Supabase setup steps. No real accounts are active in this build yet.</p></main>;
   if (legalPage === 'terms') return <TermsPage/>;
   if (legalPage === 'privacy') return <PrivacyPage/>;
