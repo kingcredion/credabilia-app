@@ -265,6 +265,11 @@ export function makeService() {
     async adminGetSupportThread(userId) { return unwrap(await client.rpc('admin_get_support_thread', { p_user_id: userId })); },
     async adminReplyToSupport(userId, body) { return unwrap(await client.rpc('admin_reply_to_support', { p_user_id: userId, p_body: body })); },
     async adminListUsers(search) { return unwrap(await client.rpc('admin_list_users', { p_search: search || null })); },
+    async adminPurchaseEvidence(purchaseId) { return unwrap(await client.rpc('admin_purchase_evidence', { p_purchase_id: purchaseId })); },
+    async adminMemberFlags() { return unwrap(await client.rpc('admin_member_flags')); },
+    async adminBanUser(userId, reason) { unwrap(await client.rpc('admin_ban_user', { p_user_id: userId, p_reason: reason })); },
+    async adminUnbanUser(userId) { unwrap(await client.rpc('admin_unban_user', { p_user_id: userId })); },
+    async adminSetPayoutReview(userId, review) { unwrap(await client.rpc('admin_set_payout_review', { p_user_id: userId, p_review: review })); },
     async adminListSignatureReferences(provenance) {
       const items = unwrap(await client.rpc('admin_list_signature_references', { p_provenance: provenance || 'self_reported' }));
       if(!items.length) return items;

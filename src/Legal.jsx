@@ -1,8 +1,8 @@
 import React from 'react';
 import { Brand } from './Brand.jsx';
 
-const LAST_UPDATED = 'October 4, 2026';
-const TERMS_UPDATED = 'October 3, 2026';
+const LAST_UPDATED = 'October 5, 2026';
+const TERMS_UPDATED = 'October 5, 2026';
 
 function LegalShell({ title, children, updated = LAST_UPDATED }) {
   return <div className="legal-page">
@@ -57,7 +57,7 @@ export function TermsPage() {
     <p>Credabilia charges sellers a platform fee on completed sales and, where applicable, a 10% service charge on shipping and insurance costs (King's Collection items are charged at the carrier's rate with no service charge). The exact fee is shown before you publish a listing or complete a purchase. Fees may change; the fee in effect at the time of a transaction is the one that applies to it.</p>
 
     <h2>8. Payments and escrow</h2>
-    <p>Payments are processed by Stripe, our payment processor. Credabilia does not receive or store your full card number. When you buy an item, your payment is held by Credabilia's Stripe account rather than paid to the seller immediately. Funds are released to the seller once delivery is confirmed by tracking, or automatically after a set number of days if tracking never confirms delivery. Sellers must complete Stripe's account setup (including identity verification required by Stripe) before they can receive payouts.</p>
+    <p>Payments are processed by Stripe, our payment processor. Credabilia does not receive or store your full card number. When you buy an item, your payment is held by Credabilia's Stripe account rather than paid to the seller immediately. Funds are not released the moment a package is scanned as delivered. After carrier tracking confirms delivery (or, for local pickup, after the seller enters the buyer's handoff code), the seller's payout is held for an inspection period so the buyer can check the item and report a problem. The length of that period depends on the seller's sales history and the price of the item: for sellers new to Credabilia it is generally 3 to 7 days, and for established sellers it is generally 2 to 3 days, and a buyer can release payment to an established seller earlier. If a refund request is open, or an account or order is under review, the payout is paused until it is resolved. If tracking never confirms delivery, funds are not released until a long waiting period has passed with no dispute. We may delay or withhold payouts, remove listings, and suspend or ban accounts where we reasonably suspect fraud or a violation of these terms, and we may block payment methods linked to a banned account. Sellers must complete Stripe's account setup (including identity verification required by Stripe) before they can receive payouts.</p>
 
     <h2>9. Shipping and insurance</h2>
     <p>Shipping labels and rates are provided through our shipping partner, Shippo, using the address and package details you provide. You can choose to insure a shipment for an additional cost shown at checkout; insurance is subject to the shipping carrier's and insurer's own terms, which we do not control.</p>
@@ -122,7 +122,7 @@ export function PrivacyPage() {
     <h3>Community activity</h3>
     <p>Assessments you submit on other members' listings, and your trivia responses and participation/learning XP.</p>
     <h3>Information we don't collect</h3>
-    <p>We do not ask for or store your Social Security number, government ID, date of birth, or full payment card number. Payment card details are entered directly with Stripe, our payment processor.</p>
+    <p>We do not ask for or store your Social Security number, government ID, date of birth, or full payment card number. Payment card details are entered directly with Stripe, our payment processor. To help prevent fraud, we keep the opaque identifiers Stripe assigns to the payment cards and bank accounts used on your account (these are not card or account numbers). If an account is banned, we may use those identifiers to recognise the same card or bank account on another account.</p>
 
     <h2>2. How we use this information</h2>
     <ul>

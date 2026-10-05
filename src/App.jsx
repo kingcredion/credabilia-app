@@ -1418,6 +1418,8 @@ function SmsNotificationSettings({ profile }) {
 
 function AdminDisputeRow({ request, onResolve }) {
   const [amount, setAmount] = useState(''), [note, setNote] = useState(''), [busy, setBusy] = useState(false), [error, setError] = useState('');
+  const [evidence, setEvidence] = useState(null);
+  useEffect(() => { service.adminPurchaseEvidence(request.purchase_id).then(setEvidence).catch(() => {}); }, [request.purchase_id]);
   async function act(action) {
     setBusy(true); setError('');
     const cents = action === 'partial' ? Math.round(parseFloat(amount) * 100) : undefined;
@@ -1429,6 +1431,9 @@ function AdminDisputeRow({ request, onResolve }) {
     <p><strong>{request.buyer_name}</strong> (buyer) vs <strong>{request.seller_name}</strong> (seller)</p>
     <p>{request.reason}</p>
     {request.seller_response && <p className="field-note">Seller said: {request.seller_response}</p>}
+    {evidence && <p className="field-note">{evidence.fulfillment_method === 'pickup'
+      ? (evidence.handoff_verified_at ? `Pickup handoff code was verified ${new Date(evidence.handoff_verified_at).toLocaleString()}.` : 'Pickup handoff code was never entered.')
+      : [evidence.shipped_at ? `Shipped ${new Date(evidence.shipped_at).toLocaleDateString()}` : 'Not shipped', evidence.tracking_status ? `tracking ${evidence.tracking_status}` : null, evidence.delivered_at ? `delivered ${new Date(evidence.delivered_at).toLocaleDateString()}` : null].filter(Boolean).join(' · ')}</p>}
     <label>Refund amount — leave blank for the full {money(request.price_cents)}<input type="number" min="0.01" step="0.01" value={amount} onChange={event => setAmount(event.target.value)} disabled={busy} placeholder="Full amount"/></label>
     <label>Note (optional, kept on the record)<textarea value={note} onChange={event => setNote(event.target.value)} rows={2} maxLength={2000} disabled={busy}/></label>
     {error && <p role="alert" className="error">{error}</p>}
@@ -1520,9 +1525,39 @@ function AdminSupport() {
   </div>)}</div>;
 }
 
+function AdminMemberActions({ member, flag, onChanged }) {
+  const [busy, setBusy] = useState(false), [error, setError] = useState(''), [banning, setBanning] = useState(false), [reason, setReason] = useState('');
+  async function run(action) {
+    setBusy(true); setError('');
+    try { await action(); setBanning(false); setReason(''); onChanged(); }
+    catch (err) { setError(err.message); } finally { setBusy(false); }
+  }
+  return <div className="form-stack">
+    {flag?.banned_at && <p className="error">Banned {new Date(flag.banned_at).toLocaleDateString()}{flag.ban_reason ? ` — ${flag.ban_reason}` : ''}</p>}
+    {flag?.payout_review && !flag?.banned_at && <p className="field-note">Payouts are on hold for review.</p>}
+    {error && <p role="alert" className="error">{error}</p>}
+    {banning && <form className="form-stack" onSubmit={event => { event.preventDefault(); if (!busy && reason.trim()) run(() => service.adminBanUser(member.id, reason)); }}>
+      <label>Reason for the ban<textarea value={reason} onChange={event => setReason(event.target.value)} rows={2} maxLength={500} required/></label>
+      <p className="field-note">This signs them out, takes their listings down, freezes their payouts and blocks the cards and bank accounts they used.</p>
+      <div className="submit-row"><button className="primary" disabled={busy || !reason.trim()}>{busy ? 'Banning…' : 'Ban this member'}</button><button type="button" className="text-button" onClick={() => setBanning(false)}>Cancel</button></div>
+    </form>}
+    {!banning && <div className="submit-row">
+      {flag?.banned_at
+        ? <button type="button" className="text-button" disabled={busy} onClick={() => run(() => service.adminUnbanUser(member.id))}>Lift ban</button>
+        : <>
+            <button type="button" className="text-button" disabled={busy} onClick={() => run(() => service.adminSetPayoutReview(member.id, !flag?.payout_review))}>{flag?.payout_review ? 'Clear payout hold' : 'Hold payouts for review'}</button>
+            <button type="button" className="text-button" disabled={busy} onClick={() => setBanning(true)}>Ban…</button>
+          </>}
+    </div>}
+  </div>;
+}
+
 function AdminUsers() {
-  const [search, setSearch] = useState(''), [list, setList] = useState(undefined), [error, setError] = useState('');
+  const [search, setSearch] = useState(''), [list, setList] = useState(undefined), [error, setError] = useState(''), [flags, setFlags] = useState([]);
+  const loadFlags = () => service.adminMemberFlags().then(setFlags).catch(() => {});
   useEffect(() => { const timer = setTimeout(() => { service.adminListUsers(search || null).then(setList).catch(err => setError(err.message)); }, 250); return () => clearTimeout(timer); }, [search]);
+  useEffect(() => { loadFlags(); }, []);
+  const flagFor = id => flags.find(f => f.user_id === id);
   return <div className="form-stack">
     <label>Search by name or email<input value={search} onChange={event => setSearch(event.target.value)} placeholder="Search members…"/></label>
     {error && <p role="alert" className="error">{error}</p>}
@@ -1530,6 +1565,7 @@ function AdminUsers() {
       <div className="admin-row-head"><span>{u.display_name}</span><span>Joined {new Date(u.created_at).toLocaleDateString()}</span></div>
       <p className="field-note">{u.email}</p>
       <p className="field-note">{u.listing_count} listings · {u.sales_count} sales · {u.purchase_count} purchases</p>
+      <AdminMemberActions member={u} flag={flagFor(u.id)} onChanged={loadFlags}/>
     </div>)}</div>}
   </div>;
 }

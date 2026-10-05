@@ -45,10 +45,43 @@ export function createHandler({createClient,env}) {
         if(event.type==='checkout.session.completed') await alertOperator(client,{summary:'A customer paid, but the order could not be recorded.',reference:object.id,detail:String(result.error.message||'').slice(0,300)});
         return reply({error:'Webhook handling failed.'},500);
       }
+      // Best effort, never affects the webhook's result: remember which card / bank account this member used, so a banned
+      // member's payment details can be recognised on a new account.
+      if(event.type==='checkout.session.completed') await recordCardFingerprint(client,stripe,object,result?.data,alertOperator);
+      else if(event.type==='account.updated') await recordBankFingerprints(client,object,alertOperator);
       return reply({received:true});
     } catch {
       if(client && event?.type==='checkout.session.completed') await alertOperator(client,{summary:'A customer paid, but the order could not be recorded.',reference:object?.id,detail:'The webhook crashed while handling the payment.'});
       return reply({error:'Webhook handling failed.'},500);
     }
   };
+}
+
+// Records the card fingerprint of a paid order. A card already tied to a banned member holds that one order for review.
+async function recordCardFingerprint(client, stripe, session, purchaseId, alertOperator) {
+  try {
+    if(!purchaseId || !session.payment_intent) return;
+    const intent=await stripe.paymentIntents.retrieve(session.payment_intent,{expand:['latest_charge']});
+    const fingerprint=intent.latest_charge?.payment_method_details?.card?.fingerprint;
+    if(!fingerprint) return;
+    const {data:purchase}=await client.from('purchases').select('buyer_id').eq('id',purchaseId).maybeSingle();
+    if(!purchase) return;
+    const {data}=await client.rpc('record_payment_fingerprint',{p_user_id:purchase.buyer_id,p_kind:'card',p_fingerprint:fingerprint,p_purchase_id:purchaseId});
+    if(data?.blocked) await alertOperator(client,{summary:'A payment came from a card tied to a banned member. The order is on hold.',reference:session.id,detail:'Purchase '+purchaseId});
+  } catch {}
+}
+
+// Records the bank-account fingerprints on a seller's Stripe account. A bank account already tied to a banned member flags the
+// seller's payouts for review.
+async function recordBankFingerprints(client, account, alertOperator) {
+  try {
+    const fingerprints=(account.external_accounts?.data||[]).map(entry=>entry.fingerprint).filter(Boolean);
+    if(!fingerprints.length) return;
+    const {data:row}=await client.from('stripe_accounts').select('user_id').eq('stripe_account_id',account.id).maybeSingle();
+    if(!row) return;
+    for(const fingerprint of fingerprints) {
+      const {data}=await client.rpc('record_payment_fingerprint',{p_user_id:row.user_id,p_kind:'bank',p_fingerprint:fingerprint});
+      if(data?.blocked) await alertOperator(client,{summary:'A seller connected a bank account tied to a banned member. Their payouts are on hold.',reference:account.id,detail:'Member '+row.user_id});
+    }
+  } catch {}
 }
