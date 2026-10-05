@@ -1,10 +1,8 @@
+import { shippoAddress, quoteRates, findChoice, maxLabelCents } from './shippingRates.js';
+
 const UUID_RE=/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
-function shippoAddress(a,email) {
-  return {name:a?.name||'',street1:a?.street1||'',street2:a?.street2||'',city:a?.city||'',state:a?.state||'',zip:a?.zip||'',country:a?.country||'',phone:a?.phone||'',email:email||''};
-}
-
-export function createHandler({createClient,env}) {
+export function createHandler({createClient,env,fetchImpl=fetch}) {
   const cors={'Access-Control-Allow-Origin':'*','Access-Control-Allow-Headers':'authorization, x-client-info, apikey, content-type','Access-Control-Allow-Methods':'POST, OPTIONS'};
   const reply=(body,status=200)=>Response.json(body,{status,headers:cors});
   return async request=>{
@@ -35,30 +33,44 @@ export function createHandler({createClient,env}) {
       const {data:seller,error:sellerError}=await client.from('profiles').select('shipping_address').eq('id',identity.user.id).single();
       if(sellerError || !seller?.shipping_address) return reply({error:'Add your shipping address in Profile settings first.'},400);
 
-      const quoteShipment=insure=>fetch('https://api.goshippo.com/shipments/',{
-        method:'POST',
-        headers:{Authorization:`ShippoToken ${env('SHIPPO_API_KEY')}`,'Content-Type':'application/json'},
-        body:JSON.stringify({
-          address_from:shippoAddress(seller.shipping_address,identity.user.email),
-          address_to:shippoAddress(sale.shipping_address),
-          parcels:[{length:String(length),width:String(width),height:String(height),distance_unit:'in',weight:String(weight),mass_unit:'oz'}],
-          // Insurance is shipment-scoped in Shippo -- any rate/label bought from this shipment
-          // automatically carries the coverage the buyer already paid for at checkout.
-          extra:insure ? {insurance:{amount:String(sale.insured_value_cents/100),currency:'usd',content:'Item'}} : undefined,
-          async:false,
-        }),
-      }).then(r=>r.json());
+      let quote;
+      try {
+        quote=await quoteRates({
+          shippoKey:env('SHIPPO_API_KEY'), fetchImpl,
+          from:shippoAddress(seller.shipping_address,identity.user.email), to:shippoAddress(sale.shipping_address),
+          parcel:{weight_oz:weight,length_in:length,width_in:width,height_in:height},
+          // Insurance is shipment-scoped in Shippo -- any rate/label bought from this shipment automatically carries the coverage the
+          // buyer already paid for at checkout.
+          insurance:sale.insured ? {amount_cents:sale.insured_value_cents,content:'Item'} : null,
+        });
+      } catch { return reply({error:'Shipping service is temporarily unavailable. Try again later.'},503); }
+      if(!quote.options.length) return reply({error:'Could not get shipping rates. Check both addresses and try again.'},400);
 
-      let shipment=await quoteShipment(sale.insured);
-      let rates=(shipment.rates||[]).filter(rate=>rate.amount);
-      // Not every carrier account supports insurance -- if an insured quote comes back with no
-      // rates at all, fall back to a plain quote rather than blocking the seller from shipping.
-      if(!rates.length && sale.insured) {
-        shipment=await quoteShipment(false);
-        rates=(shipment.rates||[]).filter(rate=>rate.amount);
+      // The buyer chose the shipping service (and paid for it) at checkout, so that is the ONLY one the seller is offered. An order with
+      // no recorded choice (older orders) is limited to the cheapest service. Whatever the seller buys is paid for by the platform, so
+      // it must never be a more expensive service than the buyer paid for.
+      const service=createClient(env('SUPABASE_URL'),env('SUPABASE_SERVICE_ROLE_KEY'),{auth:{persistSession:false,autoRefreshToken:false}});
+      const {data:order}=await service.from('purchases').select('shipping_provider,shipping_service,shipping_quote_cents,seller_pays_shipping,price_cents,platform_fee_cents').eq('id',purchaseId).maybeSingle();
+      // The seller offered free shipping, so the seller picks the service and the real label price comes out of their payout (like eBay).
+      // Every service is offered with what it will cost them; ones that would cost more than the payout from this sale are flagged.
+      if(order?.seller_pays_shipping) {
+        const payoutBeforeShipping=Number(order.price_cents)-Number(order.platform_fee_cents);
+        return reply({locked:false,seller_pays:true,payout_before_shipping_cents:payoutBeforeShipping,rates:quote.options.slice(0,6).map(option=>{
+          const cost=option.amount_cents-option.insurance_cents;
+          return {rate_id:option.rate_id,provider:option.provider,servicelevel:option.name,amount_cents:cost,estimated_days:option.estimated_days,affordable:payoutBeforeShipping-cost>=0};
+        })});
       }
-      if(!rates.length) return reply({error:'Could not get shipping rates. Check both addresses and try again.'},400);
-      return reply({rates:rates.map(rate=>({rate_id:rate.object_id,provider:rate.provider,servicelevel:rate.servicelevel?.name||rate.servicelevel_token,amount_cents:Math.round(parseFloat(rate.amount)*100),estimated_days:rate.estimated_days||null}))});
+      let allowed;
+      if(order?.shipping_provider && order?.shipping_service) {
+        const match=findChoice(quote.options,{provider:order.shipping_provider,service:order.shipping_service});
+        if(!match) return reply({error:"The shipping service your buyer chose isn't available right now. Try again later, or contact support."},409);
+        if(match.amount_cents>maxLabelCents(order.shipping_quote_cents ?? match.amount_cents)) {
+          try { await service.rpc('notify_operator_alert',{p_event:'Admin Alert: Payment Problem',p_properties:{summary:'A shipping label now costs far more than the buyer paid for, so it was paused.',reference:purchaseId,detail:'Quoted at checkout: '+order.shipping_quote_cents+' cents; now: '+match.amount_cents+' cents.'}}); } catch {}
+          return reply({error:"The carrier price for your buyer's shipping choice has changed a lot since checkout, so this label is paused. Our team has been told and will sort it out."},409);
+        }
+        allowed=[match];
+      } else allowed=quote.options.slice(0,1);
+      return reply({locked:true,buyer_chose:!!order?.shipping_provider,rates:allowed.map(option=>({rate_id:option.rate_id,provider:option.provider,servicelevel:option.name,amount_cents:option.amount_cents,estimated_days:option.estimated_days}))});
     } catch {return reply({error:'Shipping service is temporarily unavailable. Try again later.'},503);}
   };
 }

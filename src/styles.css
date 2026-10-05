@@ -155,3 +155,11 @@
 .attention-glow{animation:attention-pulse 1.8s ease-in-out infinite;border-radius:10px;outline:2px solid rgba(201,162,39,.7);outline-offset:1px}
 @media (prefers-reduced-motion:reduce){.attention-glow{animation:none;box-shadow:0 0 0 3px rgba(201,162,39,.6)}}
 .notif-row-urgent{font-weight:700;background:rgba(201,162,39,.14)}
+
+.shipping-choice{display:flex;flex-direction:column;gap:8px;border:1px solid var(--border);border-radius:12px;padding:12px;margin:0}
+.shipping-choice legend{padding:0 6px;font-weight:700;font-size:.9rem}
+.shipping-choice .shipping-option{display:flex;flex-direction:row;align-items:center;gap:10px;padding:10px;border:1px solid var(--border-soft);border-radius:10px;cursor:pointer;font-size:14px;font-weight:500}
+.shipping-choice .shipping-option.picked{border-color:rgba(201,162,39,.9);background:rgba(201,162,39,.12)}
+.shipping-choice .shipping-option input{flex:none;width:auto;margin:0}
+.shipping-option-text{display:flex;flex-direction:column;flex:1}.shipping-option-text small{opacity:.75;font-weight:500}
+.shipping-option-price{font-weight:700}

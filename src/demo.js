@@ -151,7 +151,13 @@ export function createDemoService(storage = window.localStorage) {
           media:(item.media||[]).filter(asset=>asset.kind==='item')};
       });
     },
-    async startCheckout(listingId, shippingAddress, applyCreditCents, wantInsurance, fulfillmentMethod) {
+    async shippingOptions(listingId) {
+      const item=state.listings.find(x=>x.id===listingId);
+      if(!item || !item.weight_oz) return {options:[],free_shipping:false,locked:false,insured:false};
+      const options=[{provider:'USPS',service:'usps_ground_advantage',name:'Ground Advantage',estimated_days:5,shipping_cents:704,insurance_cents:55},{provider:'USPS',service:'usps_priority',name:'Priority Mail',estimated_days:2,shipping_cents:1078,insurance_cents:55},{provider:'UPS',service:'ups_next_day_air',name:'Next Day Air',estimated_days:1,shipping_cents:4840,insurance_cents:55}].map(o=>({...o,total_cents:o.shipping_cents+o.insurance_cents}));
+      return {options:item.free_shipping?options.slice(0,1).map(o=>({...o,shipping_cents:0,total_cents:o.insurance_cents})):options,free_shipping:!!item.free_shipping,locked:!!item.free_shipping,insured:true};
+    },
+    async startCheckout(listingId, shippingAddress, applyCreditCents, wantInsurance, fulfillmentMethod, shippingChoice) {
       requireUser();
       const isPickup=fulfillmentMethod==='pickup';
       const item=state.listings.find(x=>x.id===listingId);
@@ -182,13 +188,13 @@ export function createDemoService(storage = window.localStorage) {
       const insuranceCostCents=insured ? 50 : 0;
       const conv=getOrCreateConversation(listingId,state.userId,item.seller_id);
       const purchase={id:crypto.randomUUID(),listing_id:listingId,buyer_id:state.userId,seller_id:item.seller_id,price_cents:item.price_cents,conversation_id:conv.id,
-        platform_fee_cents:platformFeeCents,seller_shipping_charge_cents:sellerShippingCharge,
+        platform_fee_cents:platformFeeCents,seller_shipping_charge_cents:sellerShippingCharge,seller_pays_shipping:!isPickup && !!item.free_shipping,
         seller_payout_cents:item.price_cents-platformFeeCents-sellerShippingCharge,
         shipping_cost_cents:shippingCostCents,applied_credit_cents:creditToApply,
         insured,insured_value_cents:insured?item.price_cents:0,insurance_cost_cents:insuranceCostCents,
         escrow_status:'held',funds_released_at:null,fulfillment_method:isPickup?'pickup':'ship',
         pickup_station_id:isPickup?item.pickup_station_id:null,seller_marked_picked_up_at:null,buyer_confirmed_pickup_at:null,
-        created_at:new Date().toISOString(),shipping_address:isPickup?null:shippingAddress,tracking_status:'UNKNOWN'};
+        created_at:new Date().toISOString(),shipping_address:isPickup?null:shippingAddress,tracking_status:'UNKNOWN',shipping_choice:isPickup?null:(shippingChoice||null)};
       state.purchases.push(purchase);
       if(creditToApply>0) state.credits.push({id:crypto.randomUUID(),user_id:state.userId,amount_cents:-creditToApply,reason:'Applied to checkout',created_at:new Date().toISOString()});
       item.status='sold';
@@ -196,6 +202,7 @@ export function createDemoService(storage = window.localStorage) {
       return {completed:true};
     },
     async pickupStations() { return DEMO_PICKUP_STATIONS; },
+    async myCreditBalance() { requireUser(); return state.credits.filter(c=>c.user_id===state.userId).reduce((sum,c)=>sum+c.amount_cents,0); },
     async myPayoutStatus() {
       return state.purchases.filter(p=>p.buyer_id===state.userId || p.seller_id===state.userId).map(p=>({
         purchase_id:p.id,role:p.buyer_id===state.userId?'buyer':'seller',fulfillment_method:p.fulfillment_method || 'ship',escrow_status:p.escrow_status || 'held',
@@ -283,10 +290,15 @@ export function createDemoService(storage = window.localStorage) {
       const source=(item?.weight_oz && item?.length_in && item?.width_in && item?.height_in) ? item : parcel;
       const weight=Number(source?.weight_oz), length=Number(source?.length_in), width=Number(source?.width_in), height=Number(source?.height_in);
       if(![weight,length,width,height].every(n=>Number.isFinite(n) && n>0)) throw new Error('Enter a valid package weight and size.');
-      return [
-        {rate_id:'demo-usps-'+purchaseId,provider:'USPS',servicelevel:'Priority Mail',amount_cents:895,estimated_days:2},
-        {rate_id:'demo-ups-'+purchaseId,provider:'UPS',servicelevel:'Ground',amount_cents:1240,estimated_days:4},
-      ];
+      // The buyer chose the shipping service at checkout, so that is the only one offered (cheapest when none was recorded).
+      const services={usps_ground_advantage:['USPS','Ground Advantage',704,5],usps_priority:['USPS','Priority Mail',1078,2],ups_next_day_air:['UPS','Next Day Air',4840,1]};
+      // Free-shipping listing: the seller picks any service and the real price comes out of their payout (like eBay).
+      if(purchase.seller_pays_shipping) {
+        const before=purchase.price_cents-purchase.platform_fee_cents;
+        return Object.entries(services).map(([token,[provider,servicelevel,amount_cents,estimated_days]])=>({rate_id:'demo-'+token+'-'+purchaseId,provider,servicelevel,amount_cents,estimated_days,affordable:before-amount_cents>=0}));
+      }
+      const [provider,servicelevel,amount_cents,estimated_days]=services[purchase.shipping_choice?.service] || services.usps_ground_advantage;
+      return [{rate_id:'demo-'+(purchase.shipping_choice?.service||'usps_ground_advantage')+'-'+purchaseId,provider,servicelevel,amount_cents,estimated_days}];
     },
     async buyShippingLabel(purchaseId, rateId) {
       requireUser();
@@ -296,6 +308,11 @@ export function createDemoService(storage = window.localStorage) {
       // here also immediately simulates delivery and releases escrow -- good enough to preview
       // the UI/stats without modeling a multi-day wait.
       const shipped={shippo_transaction_id:'demo-'+rateId,tracking_number:'DEMO'+Math.floor(Math.random()*1e9),tracking_url:'https://example.com/track/demo',label_url:'https://example.com/label/demo.pdf',shipped_at:new Date().toISOString(),escrow_status:'released',funds_released_at:new Date().toISOString()};
+      if(purchase.seller_pays_shipping) {
+        const prices={usps_ground_advantage:704,usps_priority:1078,ups_next_day_air:4840};
+        const token=Object.keys(prices).find(key=>String(rateId).startsWith('demo-'+key+'-'));
+        if(token) { purchase.seller_shipping_charge_cents=prices[token]; purchase.seller_payout_cents=purchase.price_cents-purchase.platform_fee_cents-prices[token]; }
+      }
       Object.assign(purchase,shipped); save();
       return shipped;
     },

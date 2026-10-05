@@ -179,8 +179,13 @@ export function makeService() {
     async respondToBuyRequest(requestId, available) { return unwrap(await client.rpc('respond_to_buy_request', { p_request_id: requestId, p_available: available })); },
     async myOpenBuyRequests() { return signMedia(unwrap(await client.rpc('my_open_buy_requests'))); },
     async myBuyRequests() { return signMedia(unwrap(await client.rpc('my_buy_requests'))); },
-    async startCheckout(listingId, shippingAddress, applyCreditCents, wantInsurance, fulfillmentMethod) {
-      const {data,error}=await client.functions.invoke('create-checkout-session',{body:{listing_id:listingId,shipping_address:shippingAddress,apply_credit_cents:applyCreditCents||0,want_insurance:wantInsurance!==false,fulfillment_method:fulfillmentMethod==='pickup'?'pickup':'ship'}});
+    async shippingOptions(listingId, shippingAddress, wantInsurance) {
+      const {data,error}=await client.functions.invoke('checkout-shipping-options',{body:{listing_id:listingId,shipping_address:shippingAddress,want_insurance:wantInsurance!==false}});
+      if(error) { let detail; try {detail=await error.context?.json();} catch {} throw new Error(detail?.error || 'Could not load shipping options.'); }
+      return data;
+    },
+    async startCheckout(listingId, shippingAddress, applyCreditCents, wantInsurance, fulfillmentMethod, shippingChoice) {
+      const {data,error}=await client.functions.invoke('create-checkout-session',{body:{listing_id:listingId,shipping_address:shippingAddress,apply_credit_cents:applyCreditCents||0,want_insurance:wantInsurance!==false,fulfillment_method:fulfillmentMethod==='pickup'?'pickup':'ship',shipping_choice:shippingChoice||undefined}});
       if(error) { let detail; try {detail=await error.context?.json();} catch {} throw new Error(detail?.error || 'This item could not be purchased right now.'); }
       return data;
     },

@@ -891,6 +891,43 @@ function ShippingSettings({ profile }) {
   </div>;
 }
 
+// The buyer's shipping choice at checkout: the real services for this package and address, what each costs, and a pick. The price
+// shown is what create-checkout-session charges (it asks the carrier again and charges the service picked here).
+function ShippingChoice({ itemId, address, wantInsurance, verified, onChoice }) {
+  const [state, setState] = useState({ status: 'idle', options: [], locked: false, free: false });
+  const [picked, setPicked] = useState(null);
+  useEffect(() => {
+    if (!verified) { setState({ status: 'idle', options: [], locked: false, free: false }); onChoice(null, false); return undefined; }
+    let alive = true;
+    setState(current => ({ ...current, status: 'loading' }));
+    service.shippingOptions(itemId, address, wantInsurance)
+      .then(result => {
+        if (!alive) return;
+        const options = result?.options || [];
+        setState({ status: 'ready', options, locked: !!result?.locked, free: !!result?.free_shipping });
+        const first = options[0] ? { provider: options[0].provider, service: options[0].service } : null;
+        setPicked(first); onChoice(first, true);
+      })
+      .catch(() => { if (alive) { setState({ status: 'error', options: [], locked: false, free: false }); setPicked(null); onChoice(null, false); } });
+    return () => { alive = false; };
+  }, [verified, itemId, wantInsurance, address.street1, address.city, address.state, address.zip, address.country]);
+  if (!verified) return <p className="field-note">Verify your address to see shipping options and prices.</p>;
+  if (state.status === 'loading') return <p role="status" className="field-note">Finding shipping options…</p>;
+  if (state.status === 'error') return <p className="field-note">We couldn't load shipping options just now. You can still continue; we'll use the lowest-cost service and show the exact price at payment.</p>;
+  if (!state.options.length) return null;
+  const isPicked = option => picked && picked.provider === option.provider && picked.service === option.service;
+  return <fieldset className="shipping-choice">
+    <legend>{state.locked ? 'Shipping' : 'Choose how it ships'}</legend>
+    {state.options.map(option => <label key={`${option.provider}-${option.service}`} className={`shipping-option${isPicked(option) ? ' picked' : ''}`}>
+      <input type="radio" name="shipping-option" disabled={state.locked} checked={!!isPicked(option)} onChange={() => { const next = { provider: option.provider, service: option.service }; setPicked(next); onChoice(next, true); }}/>
+      <span className="shipping-option-text"><strong>{option.provider} {option.name}</strong><small>{option.estimated_days ? `About ${option.estimated_days} day${option.estimated_days === 1 ? '' : 's'}` : 'Delivery time varies'}</small></span>
+      <span className="shipping-option-price">{state.free ? 'Free' : money(option.shipping_cents)}</span>
+    </label>)}
+    {state.options[0]?.insurance_cents > 0 && <p className="field-note">Insurance: {money(state.options.find(isPicked)?.insurance_cents ?? state.options[0].insurance_cents)} (added at payment)</p>}
+    {state.locked && <p className="field-note">The seller is covering shipping on this item.</p>}
+  </fieldset>;
+}
+
 function CheckoutAddress({ item, profile, busy, onClose, onConfirm }) {
   const [fulfillmentMethod, setFulfillmentMethod] = useState('ship');
   // Same country-placeholder trap as ShippingSettings -- default it so a buyer typing a fresh
@@ -901,6 +938,7 @@ function CheckoutAddress({ item, profile, busy, onClose, onConfirm }) {
   const [applyCredit, setApplyCredit] = useState(false);
   const [wantInsurance, setWantInsurance] = useState(true);
   const [verified, setVerified] = useState(false);
+  const [shippingChoice, setShippingChoice] = useState(null);
   useEffect(() => { service.myCreditBalance().then(setBalance).catch(() => {}); }, []);
   const isPickup = fulfillmentMethod === 'pickup';
   // Mirrors reserve_listing_checkout()'s own cap -- the server re-validates and clamps this
@@ -914,7 +952,7 @@ function CheckoutAddress({ item, profile, busy, onClose, onConfirm }) {
       if (required.some(key => !address[key]?.trim())) { setError('Fill in all required address fields.'); return; }
       if (!verified) { setError('Verify your address before continuing.'); return; }
     }
-    onConfirm(isPickup ? null : address, creditToApply, wantInsurance, fulfillmentMethod);
+    onConfirm(isPickup ? null : address, creditToApply, wantInsurance, fulfillmentMethod, isPickup ? null : shippingChoice);
   }
   return <Modal title={isPickup ? 'Confirm pickup' : 'Confirm shipping address'} onClose={onClose}>
     {item.pickup_enabled && <div className="categories" aria-label="How you'll get this item">
@@ -930,6 +968,7 @@ function CheckoutAddress({ item, profile, busy, onClose, onConfirm }) {
         : <ShippingAddressFields value={address} onChange={setAddress} disabled={busy} onVerifiedChange={setVerified}/>}
       {!!balance && <label className="certificate-confirm"><input type="checkbox" checked={applyCredit} onChange={event => setApplyCredit(event.target.checked)} disabled={busy}/><img src="/brand/screen-face-v1/coin-simple.webp" alt="" className="coin-icon"/>Apply {money(Math.min(balance, coinCap))} in Credion Coins to this order (you have {money(balance)} available)</label>}
       {!isPickup && <label className="certificate-confirm"><input type="checkbox" checked={wantInsurance} onChange={event => setWantInsurance(event.target.checked)} disabled={busy}/>Insure this item for shipping (covers loss or damage in transit — exact cost shown at payment)</label>}
+      {!isPickup && <ShippingChoice itemId={item.listing_id || item.id} address={address} wantInsurance={wantInsurance} verified={verified} onChoice={choice => setShippingChoice(choice)}/>}
       {error && <p role="alert" className="error">{error}</p>}
       <button className="primary" disabled={busy || (!isPickup && !verified)}>{busy ? 'Processing…' : 'Continue to payment'}<ArrowRight size={16}/></button>
     </form>
@@ -1317,8 +1356,14 @@ function SoldItemCard({ sale, payout, session, onShipped, onRefundChanged, focus
             <button type="button" className="text-button" onClick={() => setShipping(false)}>Cancel</button>
           </form>
         : rates ? <div className="form-stack">
-            <p className="field-note">Choose a carrier to buy the label.</p>
-            {rates.map(rate => <button key={rate.rate_id} type="button" className="text-button" disabled={busy} onClick={() => buyLabel(rate.rate_id)}>{rate.provider} {rate.servicelevel} — {money(rate.amount_cents)}{rate.estimated_days ? ` · ${rate.estimated_days}d` : ''}</button>)}
+            {rates.some(rate => rate.affordable !== undefined) ? <>
+              <p className="field-note">You offered free shipping, so you choose the service and the label cost comes out of your payout. Buy the label, then print it and attach it to the package.</p>
+              {rates.map(rate => <button key={rate.rate_id} type="button" className="primary" disabled={busy || !rate.affordable} onClick={() => buyLabel(rate.rate_id)}>{busy ? 'Buying label…' : `${rate.provider} ${rate.servicelevel} — ${money(rate.amount_cents)} from your payout${rate.estimated_days ? ` · about ${rate.estimated_days}d` : ''}${rate.affordable ? '' : ' (more than this sale pays out)'}`}</button>)}
+            </> : <>
+              <p className="field-note">{rates.length === 1 ? 'Your buyer chose this shipping service and paid for it. Buy the label, then print it and attach it to the package.' : 'Buy the label for this order.'}</p>
+              {rates.map(rate => <button key={rate.rate_id} type="button" className="primary" disabled={busy} onClick={() => buyLabel(rate.rate_id)}>{busy ? 'Buying label…' : `Buy label — ${rate.provider} ${rate.servicelevel}`}</button>)}
+              {rates.length === 1 && <p className="field-note">{rates[0].estimated_days ? `About ${rates[0].estimated_days} day${rates[0].estimated_days === 1 ? '' : 's'} in transit. ` : ''}The label cost comes out of the shipping your buyer paid.</p>}
+            </>}
             {ratesError && <p role="alert" className="error">{ratesError}</p>}
             <button type="button" className="text-button" onClick={() => setRates(null)}>Back</button>
           </div>
@@ -2090,11 +2135,11 @@ export default function App() {
     try { const now = await service.toggleFavorite(listingId); setFavoriteIds(ids => now ? [...ids, listingId] : ids.filter(id => id !== listingId)); }
     catch (err) { setError(err.message); }
   }
-  async function buyNow(listingId, shippingAddress, applyCreditCents, wantInsurance, fulfillmentMethod) {
+  async function buyNow(listingId, shippingAddress, applyCreditCents, wantInsurance, fulfillmentMethod, shippingChoice) {
     if (!session) { setModal('login'); return; }
     setBusy(true); setError('');
     try {
-      const result = await service.startCheckout(listingId, shippingAddress, applyCreditCents, wantInsurance, fulfillmentMethod);
+      const result = await service.startCheckout(listingId, shippingAddress, applyCreditCents, wantInsurance, fulfillmentMethod, shippingChoice);
       if (result?.url) { window.location.href = result.url; return; }
       setNotice('Purchase complete — this item is now in your collection.'); setSelectedId(null); refresh();
     } catch (err) { setError(err.message); }
@@ -2181,7 +2226,7 @@ export default function App() {
     </div>
     <BottomNav sellGlow={sellGlow} session={session} workspace={workspace} onSwitchWorkspace={switchWorkspace} profile={profile} authReady={authReady} onProfile={() => setModal('profile')} onSignIn={() => setModal('login')}/>
     {modal === 'login' && <Modal title="Welcome to Credabilia" onClose={() => setModal(null)}><p className="muted">One account to collect, sell, and share your perspective.</p>{service.mode === 'demo' ? <><div className="evidence-box"><h3>Try the local preview</h3><p>These two separate practice accounts stay in this browser. Each can switch between all three workspaces. Real sign-in is available when the Supabase project is connected.</p></div><div className="form-stack">{DEMO_ACCOUNTS.map(account => <button key={account.id} className="primary full-width" onClick={() => signIn(account.id)} disabled={busy}>{busy ? 'Opening…' : `Continue as ${account.display_name}`}<ArrowRight size={18}/></button>)}</div></> : <><button className="primary full-width" onClick={() => signIn()} disabled={busy}>{busy ? 'Opening…' : 'Continue with Google'}<ArrowRight size={18}/></button><p className="field-note">or</p><EmailLogin/><p className="field-note">By continuing, you agree to Credabilia's <a href="/terms" target="_blank" rel="noreferrer">Terms of Service</a> and <a href="/privacy" target="_blank" rel="noreferrer">Privacy Policy</a>.</p></>}<p className="field-note">Your sign-in method does not determine your workspace. You can switch between all three after signing in.</p></Modal>}
-    {modal === 'checkout-address' && (selected || pendingBuy) && <CheckoutAddress item={selected || pendingBuy} profile={profile} busy={busy} onClose={() => setModal(null)} onConfirm={(address, applyCreditCents, wantInsurance, fulfillmentMethod) => { const id = selected?.id || pendingBuy?.listing_id; setModal(null); buyNow(id, address, applyCreditCents, wantInsurance, fulfillmentMethod); }}/>}
+    {modal === 'checkout-address' && (selected || pendingBuy) && <CheckoutAddress item={selected || pendingBuy} profile={profile} busy={busy} onClose={() => setModal(null)} onConfirm={(address, applyCreditCents, wantInsurance, fulfillmentMethod, shippingChoice) => { const id = selected?.id || pendingBuy?.listing_id; setModal(null); buyNow(id, address, applyCreditCents, wantInsurance, fulfillmentMethod, shippingChoice); }}/>}
     {modal === 'create' && <CreateListing onClose={() => setModal(null)} onCreated={(id,fit) => { setModal(null); setNotice(fit ? `Your listing was saved, but it needs a quick review before buyers can see it — ${fit.reason || "it didn't clearly look like a collectible."}` : 'Your listing is published.'); setSelectedId(id); refresh(); }}/>}
     {modal === 'bulk-create' && <BulkListing onClose={() => setModal(null)} onAllDone={() => { setModal(null); setNotice('Bulk listing complete.'); refresh(); }}/>}
     {modal === 'relist' && ownedItem && <CreateListing relistFrom={ownedItem} onClose={() => setModal(null)} onCreated={(id,fit) => { setModal(null); setNotice(fit ? `Your relisted item was saved, but it needs a quick review before buyers can see it — ${fit.reason || "it didn't clearly look like a collectible."}` : 'Your relisted item is published.'); switchWorkspace('seller'); setSelectedId(id); refresh(); }}/>}
