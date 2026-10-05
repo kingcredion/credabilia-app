@@ -1527,7 +1527,7 @@ function AdminSupportThread({ userId, onClosed }) {
   return <div className="evidence-box">
     <div className="support-thread">
       {messages === undefined ? <p role="status" className="field-note">Loading…</p>
-        : messages.map(message => <div key={message.id} className="support-message"><div className="recorded"><div><strong>{message.role === 'user' ? 'Member' : message.role === 'operator' ? 'Credabilia Team' : 'King Credion'}</strong><p>{message.body}</p></div></div></div>)}
+        : messages.map(message => <div key={message.id} className="support-message"><div className="recorded"><div><strong>{message.role === 'user' ? 'Member' : message.role === 'operator' ? 'Credabilia Team' : 'King Credion'}{message.kind === 'bug' && message.role === 'user' ? ' · BUG REPORT' : ''}</strong><p>{message.body}</p>{message.page_url && <p className="field-note">Page: {message.page_url}</p>}{message.user_agent && <p className="field-note">Browser: {message.user_agent}</p>}</div></div></div>)}
     </div>
     {error && <p role="alert" className="error">{error}</p>}
     <form className="form-row" onSubmit={submit}>
@@ -1545,7 +1545,7 @@ function AdminSupport() {
   if (list === undefined) return <p role="status">Loading conversations…</p>;
   if (!list.length) return <p className="field-note">No support conversations yet.</p>;
   return <div className="admin-list">{list.map(c => <div key={c.user_id} className="evidence-box">
-    <div className="admin-row-head"><span>{c.display_name}</span><span>{new Date(c.last_created_at).toLocaleString()}</span></div>
+    <div className="admin-row-head"><span>{c.display_name}{c.has_bug ? ' · BUG REPORT' : ''}</span><span>{new Date(c.last_created_at).toLocaleString()}</span></div>
     <p className="field-note">{c.last_body}</p>
     <button type="button" className="text-button" onClick={() => setOpenUserId(openUserId === c.user_id ? null : c.user_id)}>{openUserId === c.user_id ? 'Hide thread' : 'Open thread'}</button>
     {openUserId === c.user_id && <AdminSupportThread userId={c.user_id} onClosed={load}/>}

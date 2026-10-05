@@ -431,6 +431,16 @@ export function createDemoService(storage = window.localStorage) {
     },
     async getSupportMessages() { requireUser(); return state.supportMessages.filter(m=>m.user_id===state.userId); },
     async sendSupportMessage() { requireUser(); throw new Error('AI chat requires the connected app and an AI service. Not available in this practice preview.'); },
+    async reportBug(what, steps) {
+      requireUser();
+      const clean=String(what||'').trim();
+      if(!clean || clean.length>2000) throw new Error('Tell us what went wrong, in 1 to 2000 characters.');
+      const now=new Date().toISOString();
+      const user_message={id:crypto.randomUUID(),user_id:state.userId,role:'user',kind:'bug',body:'Bug report: '+clean+(String(steps||'').trim()?'\n\nWhat I was doing: '+String(steps).trim():''),created_at:now};
+      const assistant_message={id:crypto.randomUUID(),user_id:state.userId,role:'assistant',kind:'bug',body:'Thank you for telling us. Your report has gone straight to the Credabilia team and a person will look at it. You can keep using the site, and we will reply here if we need more detail.',created_at:now};
+      state.supportMessages.push(user_message,assistant_message); save();
+      return {user_message,assistant_message};
+    },
     async requestHumanCallback() { requireUser(); throw new Error('Callback requests require the connected app. Not available in this practice preview.'); },
     async requestRefund(purchaseId, reason) {
       requireUser();
