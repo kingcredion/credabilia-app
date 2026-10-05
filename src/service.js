@@ -164,6 +164,9 @@ export function makeService() {
         p_needs_review:fit?fit.needs_review:null,p_needs_review_reason:fit?(fit.needs_review_reason||null):null,
         p_subject:v.attributes.subject||''}));
     },
+    async myEndedListings() { return signMedia(unwrap(await client.rpc('my_ended_listings'))); },
+    async relistEndedListing(id, type, priceCents, auctionDays) { return unwrap(await client.rpc('relist_ended_listing', { p_id: id, p_type: type, p_price_cents: priceCents, p_auction_days: auctionDays || null })); },
+    async changeListingType(id, type, auctionDays) { unwrap(await client.rpc('change_listing_type', { p_id: id, p_type: type, p_auction_days: auctionDays || null })); },
     async deleteListing(id) { unwrap(await client.rpc('delete_listing',{p_id:id})); },
     async getListingHistory(listingId) { return signMedia((unwrap(await client.rpc('get_listing_history',{p_listing_id:listingId}))).map(v=>({...v,media:v.media||[]}))); },
     async submitAudit(listingId, input) {

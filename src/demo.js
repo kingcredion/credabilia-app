@@ -666,6 +666,23 @@ export function createDemoService(storage = window.localStorage) {
         signature_ai_label: input.signature_ai_label || null, signature_ai_note: input.signature_ai_note || null };
       state.listings.unshift(item); try {save();} catch(error) {state.listings.shift();throw error;} return item.id;
     },
+    async myEndedListings() { requireUser(); return state.listings.filter(l=>l.seller_id===state.userId && l.status==='archived' && l.archived_reason).map(l=>({id:l.id,title:l.title,category:l.category,price_cents:l.price_cents,listing_type:l.listing_type,bid_count:l.bid_count||0,reason:l.archived_reason,media:l.media||[]})); },
+    async relistEndedListing(id, type, priceCents, auctionDays) {
+      requireUser();
+      const item=state.listings.find(x=>x.id===id && x.seller_id===state.userId && x.status==='archived' && x.archived_reason);
+      if(!item) throw new Error('This listing cannot be relisted.');
+      Object.assign(item,{status:'active',archived_reason:null,listing_type:type,price_cents:priceCents,bid_count:0,demo_high:undefined,auction_ends_at:type==='auction'?new Date(Date.now()+Number(auctionDays)*86400000).toISOString():null});
+      save(); return id;
+    },
+    async changeListingType(id, type, auctionDays) {
+      requireUser();
+      const item=state.listings.find(x=>x.id===id && x.seller_id===state.userId);
+      if(!item || item.status!=='active') throw new Error('Only a live listing can be switched.');
+      if(item.listing_type===type) throw new Error('This listing is already '+(type==='auction'?'an auction':'fixed price')+'.');
+      if((item.bid_count||0)>0) throw new Error('This auction already has bids, so it cannot be switched.');
+      item.listing_type=type; item.auction_ends_at=type==='auction'?new Date(Date.now()+Number(auctionDays)*86400000).toISOString():null; item.demo_high=undefined;
+      save();
+    },
     async placeBid(listingId, amountCents) {
       requireUser();
       const item=state.listings.find(x=>x.id===listingId);

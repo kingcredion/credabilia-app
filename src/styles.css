@@ -174,9 +174,15 @@
 /* The page body is normally its own scroll container, which stops a sticky bar from sticking; these three pages scroll with the window. */
 body:has(.legal-page){overflow:visible}
 
-/* Listings from a seller who has not finished Stripe setup: visible, but locked */
+/* Listings from a seller who has not finished Stripe setup: visible, but locked (greyscale photo, royal lock, short note) */
 .item-card.locked{position:relative}
-.item-card.locked::after{content:"";position:absolute;inset:0;border-radius:inherit;background:rgba(10,14,18,.28);pointer-events:none}
-.lock-badge{position:absolute;top:10px;right:10px;z-index:2;display:inline-flex;align-items:center;gap:6px;padding:4px 10px;border-radius:999px;background:rgba(10,14,18,.82);color:#fff;font-size:.75rem;font-weight:700}
+.item-card.locked .listing-cover,.item-card.locked .item-art,.locked-photo .gallery-main,.locked-photo .listing-cover,.locked-photo .item-art{filter:grayscale(1) brightness(.78)}
+.lock-overlay{position:absolute;top:0;left:0;right:0;height:240px;z-index:2;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;padding:12px;text-align:center;pointer-events:none}
+.lock-overlay img{width:84px;height:84px;filter:drop-shadow(0 6px 10px rgba(0,0,0,.55))}
+.lock-overlay span{max-width:92%;padding:6px 12px;border-radius:12px;background:rgba(10,14,18,.84);color:#fff;font-size:.78rem;font-weight:700;line-height:1.3}
+.locked-photo{position:relative}
+.lock-overlay.large{height:min(100%,520px);gap:14px}
+.lock-overlay.large img{width:120px;height:120px}
+.lock-overlay.large span{font-size:.95rem;padding:10px 16px;max-width:min(88%,420px)}
 .lock-note{display:flex;align-items:flex-start;gap:8px}
 .lock-banner{display:flex;flex-direction:column;gap:10px;margin-bottom:16px}
