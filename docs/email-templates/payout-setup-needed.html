@@ -1,0 +1,28 @@
+<!-- Klaviyo "Payout Setup Needed" body (paste into an HTML block between the logo and the footer).
+     Trigger metric: "Payout Setup Needed", sent to the SELLER the first time they publish a listing while they cannot be paid (migration 111).
+     Event properties: title, listing_count. The listing stays visible but locked until the seller finishes Stripe setup. -->
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="max-width:560px;margin:0 auto;font-family:Georgia,'Times New Roman',serif;color:#1d2b25;">
+  <tr><td style="height:4px;background:#c9a227;font-size:0;line-height:0;">&nbsp;</td></tr>
+  <tr><td align="center" style="padding:28px 16px 6px 16px;">
+    <div style="font-size:12px;letter-spacing:2px;text-transform:uppercase;color:#8a6d12;font-family:Arial,Helvetica,sans-serif;">The Memorabilia Kingdom</div>
+    <h1 style="margin:10px 0 0 0;font-size:30px;line-height:36px;color:#0d3b2e;font-weight:normal;">One step left to get paid</h1>
+  </td></tr>
+  <tr><td align="center" style="padding:18px 16px 0 16px;">
+    <img src="https://credabilia.com/brand/email/payout-setup-stamp.png" width="300" alt="Connect payouts with Stripe" style="display:block;width:300px;max-width:100%;height:auto;margin:0 auto;">
+  </td></tr>
+  <tr><td align="center" style="padding:14px 24px 4px 24px;">
+    <div style="font-size:22px;line-height:28px;color:#0d3b2e;">{{ event.title|default:'Your listing' }} is on the shelf</div>
+  </td></tr>
+  <tr><td style="padding:18px 24px 6px 24px;font-family:Arial,Helvetica,sans-serif;font-size:15px;line-height:23px;color:#33423b;">
+    Collectors can see your listing, but it is locked: nobody can buy it or bid on it until you connect payouts with Stripe. Stripe is how you receive your money, and setup takes a couple of minutes. As soon as you finish, your listing unlocks automatically and buyers can start buying.
+  </td></tr>
+  <tr><td align="center" style="padding:20px 24px 8px 24px;">
+    <a href="https://credabilia.com/" style="display:inline-block;background:#0d3b2e;color:#f3d77a;text-decoration:none;font-family:Arial,Helvetica,sans-serif;font-size:16px;font-weight:bold;padding:14px 32px;border-radius:8px;border:1px solid #c9a227;">Set up payouts</a>
+  </td></tr>
+  <tr><td align="center" style="padding:6px 24px 0 24px;font-family:Arial,Helvetica,sans-serif;font-size:13px;line-height:19px;color:#6b776f;">
+    Sign in, open your profile, and choose &ldquo;Set up payouts.&rdquo;
+  </td></tr>
+  <tr><td align="center" style="padding:14px 24px 28px 24px;font-family:Georgia,'Times New Roman',serif;font-size:15px;line-height:22px;color:#33423b;font-style:italic;">
+    Your treasure is waiting for its first buyer.<br>&mdash; King Credion
+  </td></tr>
+</table>

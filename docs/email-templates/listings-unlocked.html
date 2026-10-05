@@ -1,0 +1,25 @@
+<!-- Klaviyo "Listings Unlocked" body (paste into an HTML block between the logo and the footer).
+     Trigger metric: "Listings Unlocked", sent to the SELLER when their Stripe account becomes able to take payments and locked listings open (migration 110).
+     Event properties: count (number of listings that unlocked). -->
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="max-width:560px;margin:0 auto;font-family:Georgia,'Times New Roman',serif;color:#1d2b25;">
+  <tr><td style="height:4px;background:#c9a227;font-size:0;line-height:0;">&nbsp;</td></tr>
+  <tr><td align="center" style="padding:28px 16px 6px 16px;">
+    <div style="font-size:12px;letter-spacing:2px;text-transform:uppercase;color:#8a6d12;font-family:Arial,Helvetica,sans-serif;">The Memorabilia Kingdom</div>
+    <h1 style="margin:10px 0 0 0;font-size:30px;line-height:36px;color:#0d3b2e;font-weight:normal;">You&rsquo;re open for business!</h1>
+  </td></tr>
+  <tr><td align="center" style="padding:18px 16px 0 16px;">
+    <img src="https://credabilia.com/brand/email/item-listed-stamp.png" width="220" alt="Listed" style="display:block;width:220px;max-width:100%;height:auto;margin:0 auto;">
+  </td></tr>
+  <tr><td align="center" style="padding:14px 24px 4px 24px;">
+    <div style="font-size:22px;line-height:28px;color:#0d3b2e;">{% if event.count > 1 %}{{ event.count }} listings are{% else %}Your listing is{% endif %} unlocked</div>
+  </td></tr>
+  <tr><td style="padding:18px 24px 6px 24px;font-family:Arial,Helvetica,sans-serif;font-size:15px;line-height:23px;color:#33423b;">
+    Your payouts are connected, so buyers can now buy {% if event.count > 1 %}your items{% else %}your item{% endif %} and bid on any auctions. Any auction that was waiting has started its full run. We&rsquo;ll let you know as soon as something sells.
+  </td></tr>
+  <tr><td align="center" style="padding:20px 24px 8px 24px;">
+    <a href="https://credabilia.com/" style="display:inline-block;background:#0d3b2e;color:#f3d77a;text-decoration:none;font-family:Arial,Helvetica,sans-serif;font-size:16px;font-weight:bold;padding:14px 32px;border-radius:8px;border:1px solid #c9a227;">View your listings</a>
+  </td></tr>
+  <tr><td align="center" style="padding:14px 24px 28px 24px;font-family:Georgia,'Times New Roman',serif;font-size:15px;line-height:22px;color:#33423b;font-style:italic;">
+    Long live the collection.<br>&mdash; King Credion
+  </td></tr>
+</table>
