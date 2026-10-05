@@ -4,7 +4,7 @@ import {readFile} from 'node:fs/promises';
 import {PGlite} from '@electric-sql/pglite';
 import {vector} from '@electric-sql/pglite/vector';
 
-const MIGRATIONS = ['202609100001_foundation.sql','202609100002_certificates.sql','202609100003_credibility.sql','202609100004_media.sql','202609100005_extraction_quota.sql','202609110006_listing_edits.sql','202609150007_listing_details.sql','202609180010_collection_and_settings.sql','202609190011_listing_history.sql','202609200012_stripe_connect_payments.sql','202609210013_storefronts_and_dashboard.sql','202609220014_shipping.sql','202609230015_messaging.sql','202609240016_fees_shipping_rewards.sql','202609250018_escrow_and_insurance.sql','202609260021_support_chat.sql','202609270022_refund_requests.sql','202609280024_refund_partial_and_return.sql','202609290025_notifications.sql','202609300027_credibility_low_default.sql','202609300029_background_removal_png_uploads.sql','202609300030_require_background_removed_main_photo.sql','202609300031_fix_browse_listings_media_regression.sql','202609300032_push_notifications.sql','202609300033_buy_availability_confirmation.sql','202609300034_seller_ratings.sql','202609300035_auctions.sql','202609300038_klaviyo_events.sql','202609300039_klaviyo_content_type_fix.sql','202609300040_admin_operators.sql','202609300041_admin_disputes.sql','202609300042_admin_support_and_users.sql','202609300043_reports_and_blocks.sql','202609300044_account_deletion.sql','202609300045_admin_alerts.sql','202609300046_signature_media_kind.sql','202609300047_signature_analysis_quota.sql','202609300048_signature_credibility_blend.sql','202609300049_background_removal_retry.sql','202609300054_signature_reference_library.sql','202609300056_auto_signature_opinion.sql','202609300057_delete_listing.sql','202609300058_pickup_stations.sql','202609300059_pickup_checkout.sql','202609300060_pickup_escrow.sql','202609300061_fix_pickup_sales_purchases_regression.sql','202609300062_pickup_confirmation_reminders.sql','202609300063_browse_pagination.sql','202609300064_conversations.sql','202609300065_clear_conversation.sql','202609300066_purchases_signature_opinion.sql','202609300067_purchases_parcel_dims.sql','202609300068_king_collection.sql','202609300069_raise_seller_quotas.sql','202609300070_unsigned_and_suitability.sql','202609300071_conversation_pickup_safety.sql','202609300072_listing_preview.sql','202609300073_sms_notifications.sql','202609300074_operator_callback.sql','202610010075_edit_listing_subject.sql','202610020080_edit_listing_keep_media.sql','202610020081_listing_is_king_collection.sql','202610020082_sold_listing_view.sql','202610020083_klaviyo_email_properties.sql','202610030084_reserve_sell_slug.sql','202610040085_db_performance_fixes.sql','202610040086_notify_klaviyo_content_type.sql','202610040087_buy_request_email.sql','202610040088_request_confirmed_email.sql','202610040089_request_declined_email.sql','202610040090_transactional_emails.sql','202610040093_admin_alert_new_user.sql','202610050094_operator_alerts.sql','202610050095_payout_holds_and_handoff.sql'];
+const MIGRATIONS = ['202609100001_foundation.sql','202609100002_certificates.sql','202609100003_credibility.sql','202609100004_media.sql','202609100005_extraction_quota.sql','202609110006_listing_edits.sql','202609150007_listing_details.sql','202609180010_collection_and_settings.sql','202609190011_listing_history.sql','202609200012_stripe_connect_payments.sql','202609210013_storefronts_and_dashboard.sql','202609220014_shipping.sql','202609230015_messaging.sql','202609240016_fees_shipping_rewards.sql','202609250018_escrow_and_insurance.sql','202609260021_support_chat.sql','202609270022_refund_requests.sql','202609280024_refund_partial_and_return.sql','202609290025_notifications.sql','202609300027_credibility_low_default.sql','202609300029_background_removal_png_uploads.sql','202609300030_require_background_removed_main_photo.sql','202609300031_fix_browse_listings_media_regression.sql','202609300032_push_notifications.sql','202609300033_buy_availability_confirmation.sql','202609300034_seller_ratings.sql','202609300035_auctions.sql','202609300038_klaviyo_events.sql','202609300039_klaviyo_content_type_fix.sql','202609300040_admin_operators.sql','202609300041_admin_disputes.sql','202609300042_admin_support_and_users.sql','202609300043_reports_and_blocks.sql','202609300044_account_deletion.sql','202609300045_admin_alerts.sql','202609300046_signature_media_kind.sql','202609300047_signature_analysis_quota.sql','202609300048_signature_credibility_blend.sql','202609300049_background_removal_retry.sql','202609300054_signature_reference_library.sql','202609300056_auto_signature_opinion.sql','202609300057_delete_listing.sql','202609300058_pickup_stations.sql','202609300059_pickup_checkout.sql','202609300060_pickup_escrow.sql','202609300061_fix_pickup_sales_purchases_regression.sql','202609300062_pickup_confirmation_reminders.sql','202609300063_browse_pagination.sql','202609300064_conversations.sql','202609300065_clear_conversation.sql','202609300066_purchases_signature_opinion.sql','202609300067_purchases_parcel_dims.sql','202609300068_king_collection.sql','202609300069_raise_seller_quotas.sql','202609300070_unsigned_and_suitability.sql','202609300071_conversation_pickup_safety.sql','202609300072_listing_preview.sql','202609300073_sms_notifications.sql','202609300074_operator_callback.sql','202610010075_edit_listing_subject.sql','202610020080_edit_listing_keep_media.sql','202610020081_listing_is_king_collection.sql','202610020082_sold_listing_view.sql','202610020083_klaviyo_email_properties.sql','202610030084_reserve_sell_slug.sql','202610040085_db_performance_fixes.sql','202610040086_notify_klaviyo_content_type.sql','202610040087_buy_request_email.sql','202610040088_request_confirmed_email.sql','202610040089_request_declined_email.sql','202610040090_transactional_emails.sql','202610040093_admin_alert_new_user.sql','202610050094_operator_alerts.sql','202610050095_payout_holds_and_handoff.sql','202610050097_ban_and_fingerprints.sql','202610050098_inspection_acceptance.sql'];
 
 async function freshDb() {
   const db = new PGlite({extensions:{vector}});
@@ -84,6 +84,7 @@ async function makePurchase(db, as, raw, { seller = IDS.seller, buyer = IDS.buye
   return (await db.query('select public.finalize_checkout_session($1,$2) as id', ['cs_test_' + sessionCounter, 'pi_test_' + sessionCounter])).rows[0].id;
 }
 
+const CHECKS = JSON.stringify({ certificate_matches: true, matches_photos: true, signature_ok: true });
 const hoursBetween = async (raw, id) => Number((await raw('select round(extract(epoch from release_after-delivered_at)/3600)::int as h from public.purchases where id=$1', [id])).rows[0].h);
 const dueIds = async (raw) => (await raw('select id from public.due_releases()')).rows.map(r => r.id);
 
@@ -140,7 +141,9 @@ test('delivery starts a tiered hold; a new seller waits by price and cannot be r
     await raw("update public.purchases set release_after=now()-interval '1 minute' where id=$1", [purchase]);
     assert.deepEqual(await dueIds(raw), [purchase]);
     await as(IDS.buyer);
-    await assert.rejects(db.query('select public.release_early($1)', [purchase]), /inspection period/);
+    const accepted = (await db.query('select public.accept_delivery($1,$2) as r', [purchase, CHECKS])).rows[0].r;
+    assert.equal(accepted.released_early, false, 'a new seller still waits out the hold');
+    assert.ok((await raw('select inspection_accepted_at from public.purchases where id=$1', [purchase])).rows[0].inspection_accepted_at, 'the acceptance is recorded');
     await db.query("select public.request_refund($1,'Not as described')", [purchase]);
     assert.deepEqual(await dueIds(raw), [], 'an open refund request blocks payout');
     await raw("update public.refund_requests set status='denied' where purchase_id=$1", [purchase]);
@@ -182,12 +185,16 @@ test('established and trusted sellers can be released early; an open dispute sti
     const status = (await db.query('select public.my_payout_status() as s')).rows[0].s.find(s => s.purchase_id === purchase);
     assert.equal(status.can_release_early, true);
     await as(IDS.stranger);
-    await assert.rejects(db.query('select public.release_early($1)', [purchase]), /Purchase not found/);
+    await assert.rejects(db.query('select public.accept_delivery($1,$2)', [purchase, CHECKS]), /Purchase not found/);
     await as(IDS.buyer);
     await db.query("select public.request_refund($1,'Problem')", [purchase]);
-    await assert.rejects(db.query('select public.release_early($1)', [purchase]), /open refund request/);
+    await assert.rejects(db.query('select public.accept_delivery($1,$2)', [purchase, CHECKS]), /open refund request/);
     await raw("update public.refund_requests set status='denied' where purchase_id=$1", [purchase]);
-    await db.query('select public.release_early($1)', [purchase]);
+    await assert.rejects(db.query('select public.accept_delivery($1,$2)', [purchase, JSON.stringify({ matches_photos: false })]), /Confirm every item/);
+    await assert.rejects(db.query('select public.accept_delivery($1,$2)', [purchase, JSON.stringify({ certificate_matches: true })]), /matches the listing photos/);
+    await assert.rejects(db.query('select public.accept_delivery($1,$2)', [purchase, JSON.stringify({ matches_photos: true, bogus: true })]), /Unknown checklist item/);
+    const early = (await db.query('select public.accept_delivery($1,$2) as r', [purchase, CHECKS])).rows[0].r;
+    assert.equal(early.released_early, true);
     assert.ok((await dueIds(raw)).includes(purchase), 'released early: due at the next sweep');
 
     // trusted: 10 clean sales and 3 five-star ratings -> 48h under $500, 72h at $500 and up
@@ -230,8 +237,18 @@ test('pickup handoff code: only the buyer sees it, the seller enters it, wrong c
     assert.match(code, /^\d{6}$/);
 
     await as(IDS.buyer);
-    const buyerView = (await db.query('select public.my_payout_status() as s')).rows[0].s.find(s => s.purchase_id === purchase);
+    let buyerView = (await db.query('select public.my_payout_status() as s')).rows[0].s.find(s => s.purchase_id === purchase);
+    assert.equal(buyerView.pickup_code, null, 'the code stays hidden until the buyer inspects the item');
+    await assert.rejects(db.query('select public.accept_pickup_inspection($1,$2)', [purchase, JSON.stringify({ certificate_matches: true })]), /matches the listing photos/);
+    await as(IDS.seller);
+    await assert.rejects(db.query('select public.complete_pickup($1,$2)', [purchase, code]), /has not accepted the item yet/);
+    await as(IDS.stranger);
+    await assert.rejects(db.query('select public.accept_pickup_inspection($1,$2)', [purchase, CHECKS]), /Purchase not found/);
+    await as(IDS.buyer);
+    await db.query('select public.accept_pickup_inspection($1,$2)', [purchase, CHECKS]);
+    buyerView = (await db.query('select public.my_payout_status() as s')).rows[0].s.find(s => s.purchase_id === purchase);
     assert.equal(buyerView.pickup_code, code);
+    assert.ok(buyerView.inspection_accepted_at);
     await as(IDS.seller);
     const sellerView = (await db.query('select public.my_payout_status() as s')).rows[0].s.find(s => s.purchase_id === purchase);
     assert.equal(sellerView.pickup_code, null, 'the seller never sees the code');
@@ -266,6 +283,8 @@ test('five wrong pickup codes lock the order, and an established seller is paid 
   try {
     const stationId = await setup(raw);
     const lockedPurchase = await makePurchase(db, as, raw, { pickup: true, stationId, price: 3000 });
+    await as(IDS.buyer);
+    await db.query('select public.accept_pickup_inspection($1,$2)', [lockedPurchase, CHECKS]);
     await as(IDS.seller);
     for (let i = 0; i < 5; i += 1) await db.query("select public.complete_pickup($1,'999999')", [lockedPurchase]);
     const code = (await raw('select pickup_code from public.purchases where id=$1', [lockedPurchase])).rows[0].pickup_code;
@@ -276,6 +295,8 @@ test('five wrong pickup codes lock the order, and an established seller is paid 
     await raw("update public.purchases set escrow_status='released' where id=any($1)", [history]);
     const purchase = await makePurchase(db, as, raw, { pickup: true, stationId, price: 3000 });
     const goodCode = (await raw('select pickup_code from public.purchases where id=$1', [purchase])).rows[0].pickup_code;
+    await as(IDS.buyer);
+    await db.query('select public.accept_pickup_inspection($1,$2)', [purchase, CHECKS]);
     await as(IDS.seller);
     await db.query('select public.complete_pickup($1,$2)', [purchase, goodCode]);
     assert.equal(await hoursBetween(raw, purchase), 0);
@@ -286,5 +307,39 @@ test('five wrong pickup codes lock the order, and an established seller is paid 
     assert.ok((await evidence()).handoff_verified_at, 'the operator can see the handoff on a dispute');
     await as(IDS.buyer);
     await assert.rejects(evidence(), /Not authorized/);
+  } finally { await db.close(); }
+});
+
+test('a buyer who finds a problem at the pickup inspection keeps the code hidden and opens a refund request; acceptance is on the operator evidence', async () => {
+  const { db, as, raw } = await freshDb();
+  try {
+    const stationId = await setup(raw);
+    const purchase = await makePurchase(db, as, raw, { pickup: true, stationId, price: 3000 });
+    await as(IDS.seller);
+    await assert.rejects(db.query("select public.reject_pickup_inspection($1,'x')", [purchase]), /Purchase not found/);
+    await as(IDS.buyer);
+    await assert.rejects(db.query("select public.reject_pickup_inspection($1,'  ')", [purchase]), /Tell us what is wrong/);
+    await db.query("select public.reject_pickup_inspection($1,'The certificate number does not match')", [purchase]);
+    const row = (await raw('select inspection_issue,inspection_issue_at from public.purchases where id=$1', [purchase])).rows[0];
+    assert.equal(row.inspection_issue, 'The certificate number does not match');
+    assert.ok(row.inspection_issue_at);
+    const refund = (await raw('select reason,status from public.refund_requests where purchase_id=$1', [purchase])).rows[0];
+    assert.match(refund.reason, /pickup inspection: The certificate number does not match/);
+    const status = (await db.query('select public.my_payout_status() as s')).rows[0].s.find(s => s.purchase_id === purchase);
+    assert.equal(status.pickup_code, null);
+    await assert.rejects(db.query('select public.accept_pickup_inspection($1,$2)', [purchase, CHECKS]), /open refund request/);
+    await as(IDS.seller);
+    await assert.rejects(db.query("select public.complete_pickup($1,'123456')", [purchase]), /open refund request/);
+
+    // once accepted, a buyer cannot also "reject"; the operator sees what was confirmed
+    const second = await makePurchase(db, as, raw, { pickup: true, stationId, price: 3000 });
+    await as(IDS.buyer);
+    await db.query('select public.accept_pickup_inspection($1,$2)', [second, CHECKS]);
+    await db.query('select public.accept_pickup_inspection($1,$2)', [second, CHECKS]);
+    await assert.rejects(db.query("select public.reject_pickup_inspection($1,'changed my mind')", [second]), /already accepted/);
+    await as(IDS.operator);
+    const evidence = (await db.query('select public.admin_purchase_evidence($1) as e', [second])).rows[0].e;
+    assert.ok(evidence.inspection_accepted_at);
+    assert.deepEqual(evidence.inspection_checks, { certificate_matches: true, matches_photos: true, signature_ok: true });
   } finally { await db.close(); }
 });

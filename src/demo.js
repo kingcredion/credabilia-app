@@ -201,7 +201,8 @@ export function createDemoService(storage = window.localStorage) {
         purchase_id:p.id,role:p.buyer_id===state.userId?'buyer':'seller',fulfillment_method:p.fulfillment_method || 'ship',escrow_status:p.escrow_status || 'held',
         delivered_at:null,release_after:null,hold_tier:null,under_review:false,has_open_dispute:false,can_release_early:false,
         handoff_verified_at:p.handoff_verified_at || null,
-        pickup_code:p.buyer_id===state.userId && p.fulfillment_method==='pickup' && !p.handoff_verified_at ? '123456' : null,
+        inspection_accepted_at:p.inspection_accepted_at || null,
+        pickup_code:p.buyer_id===state.userId && p.fulfillment_method==='pickup' && !p.handoff_verified_at && p.inspection_accepted_at ? '123456' : null,
         pickup_attempts_left:p.seller_id===state.userId && p.fulfillment_method==='pickup' ? 5 : null}));
     },
     async completePickup(purchaseId,code) {
@@ -209,13 +210,22 @@ export function createDemoService(storage = window.localStorage) {
       const purchase=state.purchases.find(p=>p.id===purchaseId && p.seller_id===state.userId && p.fulfillment_method==='pickup');
       if(!purchase) throw new Error('Sale not found.');
       if(purchase.handoff_verified_at) throw new Error('This handoff is already complete.');
+      if(!purchase.inspection_accepted_at) throw new Error('The buyer has not accepted the item yet. They inspect it first, then give you the code.');
       if(String(code||'').replace(/\s/g,'')!=='123456') return {ok:false,attempts_left:4};
       // No multi-day wait to model in demo mode, same reasoning buyShippingLabel already uses.
       purchase.handoff_verified_at=new Date().toISOString(); purchase.escrow_status='released'; purchase.funds_released_at=purchase.handoff_verified_at;
       save();
       return {ok:true,release_after:null,hold_tier:'new'};
     },
-    async releaseEarly() { throw new Error('Not available in this practice preview.'); },
+    async acceptDelivery() { throw new Error('Not available in this practice preview.'); },
+    async acceptPickupInspection(purchaseId) {
+      requireUser();
+      const purchase=state.purchases.find(p=>p.id===purchaseId && p.buyer_id===state.userId && p.fulfillment_method==='pickup');
+      if(!purchase) throw new Error('Purchase not found.');
+      purchase.inspection_accepted_at=new Date().toISOString(); save();
+      return {ok:true};
+    },
+    async rejectPickupInspection() { throw new Error('Not available in this practice preview.'); },
     async myPurchases() {
       requireUser();
       return state.purchases.filter(p=>p.buyer_id===state.userId).map(p=>{

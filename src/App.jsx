@@ -1235,33 +1235,70 @@ function BuyRequestCard({ request, onResolved }) {
 const payoutDate = value => new Date(value).toLocaleDateString(undefined, { month: 'long', day: 'numeric' });
 const spacedCode = code => code ? code.replace(/(\d{3})(\d{3})/, '$1 $2') : '';
 
-function PurchasedItemFulfillment({ item, payout, onConfirmed }) {
-  const [busy, setBusy] = useState(false), [error, setError] = useState('');
-  async function releaseNow() {
+// The buyer's "check it before you accept it" step: a short checklist drawn from what the listing promised, an Accept button that
+// stays disabled until every box is ticked, and a way to say something is wrong instead. Used at a pickup meetup (accepting
+// reveals the handoff code) and during the inspection window after a delivery.
+function InspectionChecklist({ item, acceptLabel, onAccept, onProblem }) {
+  const hasSignature = item.media?.some(asset => asset.kind === 'signature') || !!item.signature_ai_label;
+  const checks = [
+    item.certificate_number ? { key: 'certificate_matches', label: `The certificate number on the item matches the listing${item.certificate_issuer ? ` (${item.certificate_issuer} ` : ' ('}#${item.certificate_number})` } : null,
+    { key: 'matches_photos', label: 'The item matches the listing photos and description' },
+    hasSignature ? { key: 'signature_ok', label: 'The signature looks like the one in the listing photos' } : null,
+  ].filter(Boolean);
+  const [ticked, setTicked] = useState({}), [busy, setBusy] = useState(false), [error, setError] = useState('');
+  const [reporting, setReporting] = useState(false), [reason, setReason] = useState('');
+  const allTicked = checks.every(check => ticked[check.key]);
+  async function accept() {
     setBusy(true); setError('');
-    try { await service.releaseEarly(item.purchase_id); onConfirmed(); }
-    catch (err) { setError(err.message); } finally { setBusy(false); }
+    try { await onAccept(Object.fromEntries(checks.map(check => [check.key, true]))); }
+    catch (err) { setError(err.message); setBusy(false); }
   }
+  async function report(event) {
+    event.preventDefault(); if (busy || !reason.trim()) return;
+    setBusy(true); setError('');
+    try { await onProblem(reason); }
+    catch (err) { setError(err.message); setBusy(false); }
+  }
+  return <div className="inspection-box">
+    <h4>Check the item before you accept</h4>
+    <p className="field-note">Compare it with the photos and the signature opinion on this page. Once you accept, we record it. If anything is wrong, tell us now instead.</p>
+    {!reporting ? <>
+      <div className="form-stack">{checks.map(check => <label key={check.key} className="check-row"><input type="checkbox" checked={!!ticked[check.key]} onChange={event => setTicked({ ...ticked, [check.key]: event.target.checked })}/> {check.label}</label>)}</div>
+      {error && <p role="alert" className="error">{error}</p>}
+      <div className="submit-row">
+        <button type="button" className="primary" disabled={busy || !allTicked} onClick={accept}>{busy ? 'Saving…' : acceptLabel}</button>
+        <button type="button" className="text-button" disabled={busy} onClick={() => setReporting(true)}>Something's off</button>
+      </div>
+    </> : <form className="form-stack" onSubmit={report}>
+      <label>What is wrong?<textarea value={reason} onChange={event => setReason(event.target.value)} rows={3} maxLength={1800} required placeholder="For example: the certificate number doesn't match, or the signature looks different."/></label>
+      {error && <p role="alert" className="error">{error}</p>}
+      <div className="submit-row"><button className="primary" disabled={busy || !reason.trim()}>{busy ? 'Sending…' : 'Report a problem'}</button><button type="button" className="text-button" disabled={busy} onClick={() => setReporting(false)}>Back</button></div>
+    </form>}
+  </div>;
+}
+
+function PurchasedItemFulfillment({ item, payout, onConfirmed }) {
   const payoutLine = !payout || payout.escrow_status === 'released' ? null
     : payout.has_open_dispute ? 'Your refund request is open, so the seller is not paid until it is resolved.'
     : payout.release_after ? `The seller is paid on ${payoutDate(payout.release_after)} unless you report a problem before then.`
     : null;
-  const releaseButton = payout?.can_release_early && <button type="button" className="text-button" disabled={busy} onClick={releaseNow}>{busy ? 'Releasing…' : 'Everything looks good — release payment now'}</button>;
+  const acceptedLine = payout?.inspection_accepted_at && <p className="field-note">You inspected and accepted this item on {new Date(payout.inspection_accepted_at).toLocaleDateString()}.</p>;
   if (item.fulfillment_method === 'pickup') return <div className="evidence-box"><h3><Package size={18}/>Pickup</h3>
     <p>Meet at {item.pickup_station?.jurisdiction}{item.pickup_station?.city ? ` — ${item.pickup_station.city}` : ''}</p>
     {item.pickup_station?.notes && <p className="field-note">{item.pickup_station.notes}</p>}
-    {payout?.pickup_code
-      ? <div className="handoff-code"><span>Your handoff code</span><strong>{spacedCode(payout.pickup_code)}</strong><small>Read this to the seller only once the item is in your hands. They enter it to complete the handoff and release payment.</small></div>
-      : payout?.handoff_verified_at ? <p className="field-note">Handoff completed {new Date(payout.handoff_verified_at).toLocaleDateString()}</p> : null}
+    {payout?.handoff_verified_at ? <>{acceptedLine}<p className="field-note">Handoff completed {new Date(payout.handoff_verified_at).toLocaleDateString()}</p></>
+      : payout?.pickup_code ? <>{acceptedLine}<div className="handoff-code"><span>Your handoff code</span><strong>{spacedCode(payout.pickup_code)}</strong><small>Read this to the seller now. They enter it to complete the handoff and release payment.</small></div></>
+      : payout?.has_open_dispute ? <p className="field-note">You reported a problem, so no handoff code is available. Our team and the seller will follow up on your refund request.</p>
+      : payout?.escrow_status === 'held' ? <InspectionChecklist item={item} acceptLabel="I've inspected it and I accept" onAccept={async checks => { await service.acceptPickupInspection(item.purchase_id, checks); onConfirmed(); }} onProblem={async reason => { await service.rejectPickupInspection(item.purchase_id, reason); onConfirmed(); }}/>
+      : null}
     {payoutLine && <p className="field-note">{payoutLine}</p>}
-    {releaseButton}
-    {error && <p role="alert" className="error">{error}</p>}
     <p className="field-note">{item.escrow_status === 'released' ? 'Payment released to the seller' : 'We hold your payment until the handoff is complete'}</p>
   </div>;
+  const inspecting = payout?.escrow_status === 'held' && payout.delivered_at && !payout.inspection_accepted_at && !payout.has_open_dispute;
   return <div className="evidence-box"><h3><Package size={18}/>Shipping</h3>{item.shipped_at ? <><p>Shipped {new Date(item.shipped_at).toLocaleDateString()}</p>{item.tracking_number && <p><a href={item.tracking_url} target="_blank" rel="noreferrer">Track: {item.tracking_number}</a></p>}{item.tracking_status && item.tracking_status !== 'UNKNOWN' && <p className="field-note">Status: {item.tracking_status}</p>}</> : <p className="field-note">The seller hasn't shipped this yet.</p>}
+    {acceptedLine}
+    {inspecting && <InspectionChecklist item={item} acceptLabel="Looks good — accept" onAccept={async checks => { await service.acceptDelivery(item.purchase_id, checks); onConfirmed(); }} onProblem={async reason => { await service.requestRefund(item.purchase_id, reason); onConfirmed(); }}/>}
     {payoutLine && <p className="field-note">{payoutLine}</p>}
-    {releaseButton}
-    {error && <p role="alert" className="error">{error}</p>}
     <p className="field-note">{item.escrow_status === 'released' ? 'Payment released to the seller' : 'We hold your payment until you have had time to check the item'}{item.insured ? ' · Insured' : ''}</p></div>;
 }
 
@@ -1318,6 +1355,7 @@ function SoldItemCard({ sale, payout, session, onShipped, onRefundChanged, focus
           <p className="field-note">Meet at {sale.pickup_station?.jurisdiction}{sale.pickup_station?.city ? ` — ${sale.pickup_station.city}` : ''}</p>
           {payout?.handoff_verified_at
             ? <p className="field-note">Handoff completed {new Date(payout.handoff_verified_at).toLocaleDateString()}</p>
+            : sale.escrow_status === 'held' && !payout?.inspection_accepted_at ? <p className="field-note">{payout?.has_open_dispute ? 'The buyer reported a problem, so this handoff is paused.' : 'The buyer inspects the item first. Once they accept, they give you a code to enter here.'}</p>
             : sale.escrow_status === 'held' && <form className="form-stack" onSubmit={completeHandoff}>
                 <label>Buyer's 6-digit handoff code<input inputMode="numeric" autoComplete="off" maxLength={7} value={handoffCode} onChange={event => setHandoffCode(event.target.value)} placeholder="123 456" required/></label>
                 <button className="primary" disabled={pickupBusy || !handoffCode.trim()}>{pickupBusy ? 'Checking…' : 'Complete handoff'}</button>
@@ -1431,6 +1469,8 @@ function AdminDisputeRow({ request, onResolve }) {
     <p><strong>{request.buyer_name}</strong> (buyer) vs <strong>{request.seller_name}</strong> (seller)</p>
     <p>{request.reason}</p>
     {request.seller_response && <p className="field-note">Seller said: {request.seller_response}</p>}
+    {evidence?.inspection_accepted_at && <p className="field-note">Buyer inspected and accepted on {new Date(evidence.inspection_accepted_at).toLocaleString()} (confirmed: {Object.keys(evidence.inspection_checks || {}).map(key => ({ certificate_matches: 'certificate number', matches_photos: 'matches photos', signature_ok: 'signature' }[key] || key)).join(', ')}).</p>}
+    {evidence?.inspection_issue && <p className="field-note">Problem reported at the pickup inspection: {evidence.inspection_issue}</p>}
     {evidence && <p className="field-note">{evidence.fulfillment_method === 'pickup'
       ? (evidence.handoff_verified_at ? `Pickup handoff code was verified ${new Date(evidence.handoff_verified_at).toLocaleString()}.` : 'Pickup handoff code was never entered.')
       : [evidence.shipped_at ? `Shipped ${new Date(evidence.shipped_at).toLocaleDateString()}` : 'Not shipped', evidence.tracking_status ? `tracking ${evidence.tracking_status}` : null, evidence.delivered_at ? `delivered ${new Date(evidence.delivered_at).toLocaleDateString()}` : null].filter(Boolean).join(' · ')}</p>}

@@ -132,7 +132,9 @@ export function makeService() {
     async pickupStations() { return unwrap(await client.from('pickup_stations').select('*').order('country').order('state')); },
     async myPayoutStatus() { return unwrap(await client.rpc('my_payout_status')); },
     async completePickup(purchaseId, code) { return unwrap(await client.rpc('complete_pickup', { p_purchase_id: purchaseId, p_code: code })); },
-    async releaseEarly(purchaseId) { return unwrap(await client.rpc('release_early', { p_purchase_id: purchaseId })); },
+    async acceptDelivery(purchaseId, checks) { return unwrap(await client.rpc('accept_delivery', { p_purchase_id: purchaseId, p_checks: checks })); },
+    async acceptPickupInspection(purchaseId, checks) { return unwrap(await client.rpc('accept_pickup_inspection', { p_purchase_id: purchaseId, p_checks: checks })); },
+    async rejectPickupInspection(purchaseId, reason) { return unwrap(await client.rpc('reject_pickup_inspection', { p_purchase_id: purchaseId, p_reason: reason })); },
     async analyzeSignature(path,subject,listingId) {
       const {data,error}=await client.functions.invoke('analyze-signature',{body:{path,subject:subject||undefined,listing_id:listingId||undefined}});
       if(error) { let detail; try {detail=await error.context?.json();} catch {} throw new Error(detail?.error || 'AI signature review is not available yet.'); }
