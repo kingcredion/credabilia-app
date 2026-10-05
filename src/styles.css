@@ -173,3 +173,10 @@
 .legal-nav-links [aria-current=page]{font-weight:700;opacity:.7}
 /* The page body is normally its own scroll container, which stops a sticky bar from sticking; these three pages scroll with the window. */
 body:has(.legal-page){overflow:visible}
+
+/* Listings from a seller who has not finished Stripe setup: visible, but locked */
+.item-card.locked{position:relative}
+.item-card.locked::after{content:"";position:absolute;inset:0;border-radius:inherit;background:rgba(10,14,18,.28);pointer-events:none}
+.lock-badge{position:absolute;top:10px;right:10px;z-index:2;display:inline-flex;align-items:center;gap:6px;padding:4px 10px;border-radius:999px;background:rgba(10,14,18,.82);color:#fff;font-size:.75rem;font-weight:700}
+.lock-note{display:flex;align-items:flex-start;gap:8px}
+.lock-banner{display:flex;flex-direction:column;gap:10px;margin-bottom:16px}
