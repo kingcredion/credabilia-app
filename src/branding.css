@@ -16,7 +16,8 @@
   margin-right: 4px;
 }
 .signer-badge.compact .signed-by-quill { width: 32px; height: 13px; }
-.item-card-content.has-signature-watermark {
+.item-card-content.has-signature-watermark,
+.item-card-content.has-auction-watermark {
   position: relative;
   isolation: isolate;
   overflow: hidden;
@@ -128,3 +129,19 @@
 
 .messages-hero .hero-mascot img { width: auto; height: 300px; max-width: 100%; border-radius: 20px; }
 @media (max-width: 600px) { .messages-hero .hero-mascot img { height: 170px; } }
+
+/* Auction cards use one decorative mark behind their details. */
+.listing-type-label { display: inline-flex; align-items: center; gap: 4px; }
+.auction-gavel-icon { width: 20px; height: 20px; object-fit: contain; flex-shrink: 0; }
+.item-card-content.has-auction-watermark::before {
+  content: '';
+  position: absolute;
+  right: 4%;
+  bottom: 12px;
+  width: 60%;
+  height: 65%;
+  background: url('/brand/auction-gavel-v1.webp') right bottom / contain no-repeat;
+  opacity: .06;
+  pointer-events: none;
+  z-index: -1;
+}
