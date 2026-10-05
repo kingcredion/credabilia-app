@@ -1,6 +1,7 @@
 import { mediaInput } from './media.js';
 import { editableFields } from './listingEdits.js';
 import { credibilityScore } from './credibility.js';
+import { auctionIncrement } from './auction.js';
 import { DEMO_USER, listingInput, auditInput, sampleListings } from './domain.js';
 
 export const DEMO_ACCOUNTS = [DEMO_USER, { ...DEMO_USER, id: '22222222-2222-4222-8222-222222222222', display_name: 'Jordan Lee' }];
@@ -671,13 +672,44 @@ export function createDemoService(storage = window.localStorage) {
       if(!item || item.status!=='active' || item.listing_type!=='auction') throw new Error('This auction is not available for bidding.');
       if(new Date(item.auction_ends_at)<=new Date()) throw new Error('This auction has ended.');
       if(item.seller_id===state.userId) throw new Error('You cannot bid on your own listing.');
-      const minimum=item.bid_count===0 ? item.price_cents : item.price_cents+100;
-      if(amountCents<minimum) throw new Error('Enter a higher bid.');
-      item.price_cents=amountCents; item.bid_count+=1;
-      (state.bids ||= []).push({id:crypto.randomUUID(),listing_id:listingId,bidder_id:state.userId,amount_cents:amountCents,created_at:new Date().toISOString()});
+      // Same rules as the live database: the bid is a maximum, the price moves by eBay-style steps, and a bid in the last 5 minutes
+      // extends the auction by 5 minutes. (Demo mode has no card step, so any signed-in practice account can bid.)
+      const fmt=cents=>'$'+(cents/100).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2});
+      const note=(bidderId,price,max,auto=false)=>(state.bids ||= []).push({id:crypto.randomUUID(),listing_id:listingId,bidder_id:bidderId,amount_cents:price,max_cents:max,is_auto:auto,created_at:new Date().toISOString()});
+      const high=item.demo_high;
+      let price=item.price_cents, outbidNow=false;
+      if(!high) {
+        if(amountCents<item.price_cents) throw new Error('Your bid must be at least the starting bid of '+fmt(item.price_cents)+'.');
+        item.demo_high={bidder_id:state.userId,max:amountCents}; note(state.userId,price,amountCents); item.bid_count+=1;
+      } else if(high.bidder_id===state.userId) {
+        if(amountCents<=high.max) throw new Error('Your new maximum must be higher than your current maximum of '+fmt(high.max)+'.');
+        high.max=amountCents;
+      } else {
+        const need=price+auctionIncrement(price);
+        if(amountCents<need) throw new Error('Enter at least '+fmt(need)+'.');
+        if(amountCents>high.max) {
+          price=Math.min(amountCents,high.max+auctionIncrement(high.max));
+          if(high.max>item.price_cents) note(high.bidder_id,high.max,high.max,true);
+          note(state.userId,price,amountCents);
+          item.demo_high={bidder_id:state.userId,max:amountCents};
+        } else {
+          price=Math.min(high.max,amountCents+auctionIncrement(amountCents));
+          note(state.userId,amountCents,amountCents); note(high.bidder_id,price,high.max,true); outbidNow=true;
+        }
+        item.price_cents=price; item.bid_count+=1;
+      }
+      let extended=false;
+      if(new Date(item.auction_ends_at)-Date.now()<=5*60*1000) { item.auction_ends_at=new Date(Date.now()+5*60*1000).toISOString(); extended=true; }
       save();
-      return {id:item.id,amount_cents:amountCents,bid_count:item.bid_count};
+      return {amount_cents:item.price_cents,bid_count:item.bid_count,is_high_bidder:!outbidNow,my_max_cents:amountCents,outbid_by_existing_maximum:outbidNow,extended,auction_ends_at:item.auction_ends_at};
     },
+    async myBidStatus(listingId) {
+      requireUser();
+      const item=state.listings.find(x=>x.id===listingId);
+      const mine=(state.bids||[]).filter(b=>b.listing_id===listingId && b.bidder_id===state.userId && !b.is_auto).map(b=>b.max_cents);
+      return {can_bid:true,reason:null,is_high_bidder:item?.demo_high?.bidder_id===state.userId,my_max_cents:item?.demo_high?.bidder_id===state.userId?item.demo_high.max:(mine.length?Math.max(...mine):null)};
+    },
+    async setupBiddingCard() { throw new Error('Saving a card is not needed in this practice preview.'); },
     async editListing(original,input,mediaTouched,fit) {
       requireUser();
       const item=state.listings.find(x=>x.id===original.id);

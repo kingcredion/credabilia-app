@@ -33,6 +33,11 @@ export function createHandler({createClient,env}) {
       client=createClient(env('SUPABASE_URL'),env('SUPABASE_SERVICE_ROLE_KEY'));
       object=event.data.object;
       let result;
+      if((event.type==='checkout.session.completed' || event.type==='checkout.session.expired') && object.mode==='setup') {
+        // A member saved a card to be allowed to bid (nothing was charged). It is not an order, so it never goes near the order code.
+        if(event.type==='checkout.session.completed') await recordBidCard(client,stripe,object,alertOperator);
+        return reply({received:true});
+      }
       if(event.type==='checkout.session.completed') {
         if(object.payment_status!=='paid') return reply({received:true});
         result=await client.rpc('finalize_checkout_session',{p_stripe_session_id:object.id,p_stripe_payment_intent_id:object.payment_intent});
@@ -55,6 +60,21 @@ export function createHandler({createClient,env}) {
       return reply({error:'Webhook handling failed.'},500);
     }
   };
+}
+
+// Records the card a member saved to be allowed to bid. A card already tied to a banned member does not count and alerts the operator.
+// Best effort: a failure here never fails the webhook (the member can simply save a card again).
+async function recordBidCard(client, stripe, session, alertOperator) {
+  try {
+    const userId=session.client_reference_id;
+    if(!userId || !session.setup_intent) return;
+    const setup=await stripe.setupIntents.retrieve(session.setup_intent,{expand:['payment_method']});
+    const fingerprint=setup.payment_method?.card?.fingerprint;
+    if(!fingerprint) return;
+    const {data,error}=await client.rpc('record_bid_card',{p_user_id:userId,p_fingerprint:fingerprint});
+    if(error) await alertOperator(client,{summary:'A member saved a card to bid, but it could not be recorded.',reference:session.id,detail:String(error.message||'').slice(0,300)});
+    else if(data?.blocked) await alertOperator(client,{summary:'A member tried to bid with a card tied to a banned member.',reference:session.id,detail:'Member '+userId});
+  } catch {}
 }
 
 // Records the card fingerprint of a paid order. A card already tied to a banned member holds that one order for review.

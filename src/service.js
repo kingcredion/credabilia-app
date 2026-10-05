@@ -140,7 +140,14 @@ export function makeService() {
       if(error) { let detail; try {detail=await error.context?.json();} catch {} throw new Error(detail?.error || 'AI signature review is not available yet.'); }
       return data;
     },
+    // amountCents is the bidder's MAXIMUM: the system bids for them, only as high as needed, up to that amount.
     async placeBid(listingId, amountCents) { return unwrap(await client.rpc('place_bid', { p_listing_id: listingId, p_amount_cents: amountCents })); },
+    async myBidStatus(listingId) { return unwrap(await client.rpc('my_bid_status', { p_listing_id: listingId })); },
+    async setupBiddingCard() {
+      const {data,error}=await client.functions.invoke('setup-bidding-card',{body:{}});
+      if(error) { let detail; try {detail=await error.context?.json();} catch {} throw new Error(detail?.error || 'Could not start card setup right now.'); }
+      return data;
+    },
     async editListing(item,input,mediaTouched,fit) {
       const v=listingInput(input,{requirePackage:false});
       unwrap(await client.rpc('edit_listing',{p_id:item.id,p_title:v.title,p_description:v.description,p_category:v.category,p_price_cents:v.price_cents,p_evidence:v.evidence,

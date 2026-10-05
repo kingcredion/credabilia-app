@@ -27,6 +27,7 @@ const SupportChat = React.lazy(() => import('./SupportChat.jsx').then(module => 
 import { CATEGORIES, WORKSPACES, priceInCents } from './domain.js';
 import { formatWeight, formatLength } from './weight.js';
 import { OrderActionCard, payoutDate } from './OrderActionCard.jsx';
+import { auctionIncrement, minimumNextBid } from './auction.js';
 
 const service = makeService();
 const REQUESTS_INTENT_KEY = 'credabilia-view-requests';
@@ -729,7 +730,8 @@ function EditListing({item:currentItem,onClose,onSaved}) {
       <label>Item title<input name="title" defaultValue={item.title} required minLength={4} maxLength={120}/></label>
       <label>Signed by <span className="optional">optional</span><input name="attribute:subject" defaultValue={item.attributes?.subject||''} placeholder="e.g. Mike Tyson" maxLength={120}/></label>
       <label>Category<select name="category" defaultValue={item.category}>{CATEGORIES.map(c=><option key={c}>{c}</option>)}</select></label>
-      <label>Price (USD)<input name="price" type="number" min="1" max="1000000" step="0.01" defaultValue={(item.price_cents/100).toFixed(2)} required/></label>
+      {(() => { const locked = item.listing_type === 'auction' && (item.bid_count > 0 || new Date(item.auction_ends_at) <= new Date());
+        return <label>{item.listing_type === 'auction' ? 'Starting bid (USD)' : 'Price (USD)'}<input name="price" type="number" min="1" max="1000000" step="0.01" defaultValue={(item.price_cents/100).toFixed(2)} required readOnly={locked}/>{locked && <small className="field-note">This auction has bids, so its price and end time can no longer be changed.</small>}</label>; })()}
       <label>Description<textarea name="description" defaultValue={item.description} required minLength={20} maxLength={4000}/></label>
       <label>Evidence notes<textarea name="evidence" defaultValue={item.evidence} maxLength={2000}/></label>
       <MediaPicker service={service} media={media} onChange={next=>{setMedia(next);setMediaTouched(true);if(!item.signature_ai_label)setSignatureAi(null);}} busy={working} onBusy={setUploading} onError={setError}/>
@@ -1195,24 +1197,58 @@ function ItemActions({ item, session, service, busy, request, onCheckout, onRequ
   </>;
 }
 
+// Maximum-bid (proxy) bidding: the member enters the most they will pay and the system bids for them, only as high as needed. A bid is
+// a binding commitment to buy, and a bidder needs a card on file (not charged) -- both are said plainly here.
 function AuctionBidBox({ item, onBid }) {
   const [amount, setAmount] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
+  const [status, setStatus] = useState(null);
+  const [agree, setAgree] = useState(false);
+  const [result, setResult] = useState(null);
+  const [cardBusy, setCardBusy] = useState(false);
   const ended = new Date(item.auction_ends_at) <= new Date();
-  const minimum = item.bid_count === 0 ? item.price_cents : item.price_cents + 100;
+  const minimum = minimumNextBid(item);
+  const returnedFromCard = new URLSearchParams(window.location.search).get('bidcard') === 'success';
+  function loadStatus() { return service.myBidStatus(item.id).then(setStatus).catch(() => setStatus(null)); }
+  useEffect(() => { loadStatus(); }, [item.id, item.price_cents, item.bid_count]);
+  // Stripe confirms a saved card to us a few seconds after the member returns, so check again for a short while.
+  useEffect(() => {
+    if (!returnedFromCard || !status || status.can_bid) return undefined;
+    const timer = setTimeout(loadStatus, 3000);
+    return () => clearTimeout(timer);
+  }, [returnedFromCard, status]);
   async function submit(event) {
-    event.preventDefault(); if (busy) return;
-    setBusy(true); setError('');
-    try { await service.placeBid(item.id, priceInCents(amount)); setAmount(''); onBid(); }
+    event.preventDefault(); if (busy || !agree) return;
+    setBusy(true); setError(''); setResult(null);
+    try { const placed = await service.placeBid(item.id, priceInCents(amount)); setResult(placed); setAmount(''); setAgree(false); onBid(); loadStatus(); }
     catch (err) { setError(err.message); } finally { setBusy(false); }
   }
-  if (ended) return <p role="status" className="field-note">This auction has ended and is being settled — check back shortly.</p>;
+  async function addCard() {
+    setCardBusy(true); setError('');
+    try { const { url } = await service.setupBiddingCard(); window.location.href = url; }
+    catch (err) { setError(err.message); setCardBusy(false); }
+  }
+  if (ended) return <p role="status" className="field-note">This auction has ended and is being settled. If you won, we will let you know shortly.</p>;
+  if (status && !status.can_bid) {
+    const needsCard = /^Add a card/.test(status.reason || '');
+    return <div className="form-stack">
+      <p className="field-note">{returnedFromCard && needsCard ? 'Saving your card… this takes a few seconds.' : status.reason}</p>
+      {needsCard && !returnedFromCard && <button type="button" className="primary" disabled={cardBusy} onClick={addCard}>{cardBusy ? 'Opening…' : 'Add a card to bid'}<ArrowRight size={16}/></button>}
+      {error && <p role="alert" className="error">{error}</p>}
+    </div>;
+  }
+  const step = auctionIncrement(item.price_cents);
   return <form className="form-stack" onSubmit={submit}>
+    {status?.is_high_bidder && <p role="status" className="field-note">You are the highest bidder. Your maximum is {money(status.my_max_cents)}.</p>}
+    {status && !status.is_high_bidder && status.my_max_cents && <p role="status" className="field-note">You have been outbid. Your maximum was {money(status.my_max_cents)}.</p>}
     <div className="form-row">
-      <label>Your bid <span className="optional">min {money(minimum)}</span><input type="number" min={(minimum/100).toFixed(2)} step="0.01" value={amount} onChange={event=>setAmount(event.target.value)} required disabled={busy}/></label>
-      <button className="primary" disabled={busy}>{busy ? 'Placing…' : 'Place bid'}<ArrowRight size={16}/></button>
+      <label>Your maximum bid <span className="optional">{status?.is_high_bidder ? 'raise it' : `at least ${money(minimum)}`}</span><input type="number" min={status?.is_high_bidder ? undefined : (minimum/100).toFixed(2)} step="0.01" value={amount} onChange={event=>setAmount(event.target.value)} required disabled={busy}/></label>
+      <button className="primary" disabled={busy || !agree}>{busy ? 'Placing…' : 'Place bid'}<ArrowRight size={16}/></button>
     </div>
+    <p className="field-note">We bid for you, only as much as needed to keep you in the lead, up to your maximum. Bids go up in steps of {money(step)} at this price. A bid in the last 5 minutes extends the auction by 5 minutes.</p>
+    <label className="certificate-confirm"><input type="checkbox" checked={agree} onChange={event => setAgree(event.target.checked)} disabled={busy}/>I understand a bid is a binding commitment to buy this item if I win. If I win and do not pay within 48 hours, I may lose the ability to bid.</label>
+    {result && <p role="status" className="field-note">{result.outbid_by_existing_maximum ? `Another bidder's maximum is higher, so you were outbid. The current bid is ${money(result.amount_cents)}.` : `You are the highest bidder at ${money(result.amount_cents)}, with a maximum of ${money(result.my_max_cents)}.`}{result.extended ? ' The auction was extended by 5 minutes.' : ''}</p>}
     {error && <p role="alert" className="error">{error}</p>}
   </form>;
 }
@@ -2196,7 +2232,7 @@ export default function App() {
           {session && !own && <button className="text-button" onClick={()=>toggleFavorite(selected.id)}><Heart size={16} fill={favoriteIds.includes(selected.id) ? 'currentColor' : 'none'}/>{favoriteIds.includes(selected.id) ? 'Saved' : 'Save to collection'}</button>}
           {session && !own && <ReportButton targetType="listing" targetId={selected.id} label="Report listing"/>}
           {session && !own && <BlockSellerButton sellerId={selected.seller_id}/>}
-          <div className="detail-grid"><div>{selected.media?.some(asset=>asset.kind==='item') ? <PhotoGallery service={service} key={selected.id} media={selected.media} title={selected.title}/> : <ItemArt kind={selected.artwork} category={selected.category} large/>}<PhotoGallery service={service} key={selected.id+'cert'} media={selected.media} kind="certificate" title={selected.title}/>{selected.media?.some(asset=>asset.kind==='signature') && <div className="evidence-box"><p className="field-note">Signature close-up</p><PhotoGallery service={service} key={selected.id+'sig'} media={selected.media} kind="signature" title={selected.title}/>{selected.signature_ai_label ? <KingOpinion label={selected.signature_ai_label} note={selected.signature_ai_note}/> : <p className="field-note">King Credion has not given an opinion on this signature yet.</p>}</div>}</div><section className="item-info"><span className="pill">{selected.category}</span>{selected.king_collection && <span className="king-badge"><Crown size={12}/>King's Collection</span>}<h1>{selected.title}</h1>{selected.attributes?.subject && selected.media?.some(asset=>asset.kind==='signature') && <p className="signer-badge"><img className="signed-by-quill" src="/brand/signed-by-quill.webp" alt="" aria-hidden="true"/> Signed by {selected.attributes.subject}</p>}<p className="seller-name">Shared by {selected.seller_name}{selected.seller_rating_count > 0 && <> · <RatingStars value={selected.seller_rating_avg} count={selected.seller_rating_count}/></>} · Member since {new Date(selected.seller_member_since).getFullYear()}{selected.seller_sales_count > 0 && <> · {selected.seller_sales_count} {selected.seller_sales_count === 1 ? 'sale' : 'sales'}</>}</p><p className="detail-price">{money(selected.price_cents)}</p>{selected.listing_type==='auction' && <p className="field-note">{selected.bid_count} {selected.bid_count===1?'bid':'bids'} · {auctionTimeLeft(selected.auction_ends_at)}</p>}{!own && <ItemActions item={selected} session={session} service={service} busy={busy} request={myRequest} onCheckout={()=>setModal('checkout-address')} onRequestToBuy={requestToBuy} onMessage={messageSeller} onSignIn={()=>setModal('login')} onBid={refresh}/>}<p>{selected.description}</p><ListingDetailSummary item={selected}/><div className="evidence-box"><h3><ShieldCheck size={18}/>Evidence notes</h3><p>{selected.evidence || 'No evidence has been provided yet. Ask for more information before reaching a conclusion.'}</p></div><CertificateDetails item={selected}/><CredibilityDetails item={selected} session={session} own={own} auditedLabel={previousAudit ? LABELS[previousAudit.verdict] : null} onAudit={()=>auditItem(selected.id)}/><ItemHistory key={selected.id+selected.version} item={selected} service={service}/><TriviaPanel key={selected.id} item={selected} service={service} signedIn={!!session}/><p className="field-note">Community assessments are opinions, not professional authentication.</p></section></div>
+          <div className="detail-grid"><div>{selected.media?.some(asset=>asset.kind==='item') ? <PhotoGallery service={service} key={selected.id} media={selected.media} title={selected.title}/> : <ItemArt kind={selected.artwork} category={selected.category} large/>}<PhotoGallery service={service} key={selected.id+'cert'} media={selected.media} kind="certificate" title={selected.title}/>{selected.media?.some(asset=>asset.kind==='signature') && <div className="evidence-box"><p className="field-note">Signature close-up</p><PhotoGallery service={service} key={selected.id+'sig'} media={selected.media} kind="signature" title={selected.title}/>{selected.signature_ai_label ? <KingOpinion label={selected.signature_ai_label} note={selected.signature_ai_note}/> : <p className="field-note">King Credion has not given an opinion on this signature yet.</p>}</div>}</div><section className="item-info"><span className="pill">{selected.category}</span>{selected.king_collection && <span className="king-badge"><Crown size={12}/>King's Collection</span>}<h1>{selected.title}</h1>{selected.attributes?.subject && selected.media?.some(asset=>asset.kind==='signature') && <p className="signer-badge"><img className="signed-by-quill" src="/brand/signed-by-quill.webp" alt="" aria-hidden="true"/> Signed by {selected.attributes.subject}</p>}<p className="seller-name">Shared by {selected.seller_name}{selected.seller_rating_count > 0 && <> · <RatingStars value={selected.seller_rating_avg} count={selected.seller_rating_count}/></>} · Member since {new Date(selected.seller_member_since).getFullYear()}{selected.seller_sales_count > 0 && <> · {selected.seller_sales_count} {selected.seller_sales_count === 1 ? 'sale' : 'sales'}</>}</p><p className="detail-price">{money(selected.price_cents)}</p>{selected.listing_type==='auction' && <p className="field-note">{selected.bid_count===0 ? 'Starting bid · ' : 'Current bid · '}{selected.bid_count} {selected.bid_count===1?'bid':'bids'} · {auctionTimeLeft(selected.auction_ends_at)}</p>}{!own && <ItemActions item={selected} session={session} service={service} busy={busy} request={myRequest} onCheckout={()=>setModal('checkout-address')} onRequestToBuy={requestToBuy} onMessage={messageSeller} onSignIn={()=>setModal('login')} onBid={refresh}/>}<p>{selected.description}</p><ListingDetailSummary item={selected}/><div className="evidence-box"><h3><ShieldCheck size={18}/>Evidence notes</h3><p>{selected.evidence || 'No evidence has been provided yet. Ask for more information before reaching a conclusion.'}</p></div><CertificateDetails item={selected}/><CredibilityDetails item={selected} session={session} own={own} auditedLabel={previousAudit ? LABELS[previousAudit.verdict] : null} onAudit={()=>auditItem(selected.id)}/><ItemHistory key={selected.id+selected.version} item={selected} service={service}/><TriviaPanel key={selected.id} item={selected} service={service} signedIn={!!session}/><p className="field-note">Community assessments are opinions, not professional authentication.</p></section></div>
         </> : ownedItem ? <>
           <button className="back-button" onClick={() => setSelectedId(null)}><ArrowLeft size={17}/>Back to listings</button>
           <div className="detail-grid"><div>{ownedItem.media?.some(asset=>asset.kind==='item') ? <PhotoGallery service={service} key={ownedItem.id} media={ownedItem.media} title={ownedItem.title}/> : <ItemArt category={ownedItem.category} large/>}<PhotoGallery service={service} key={ownedItem.id+'cert'} media={ownedItem.media} kind="certificate" title={ownedItem.title}/>{ownedItem.media?.some(asset=>asset.kind==='signature') && <div className="evidence-box"><p className="field-note">Signature close-up</p><PhotoGallery service={service} key={ownedItem.id+'sig'} media={ownedItem.media} kind="signature" title={ownedItem.title}/>{ownedItem.signature_ai_label ? <KingOpinion label={ownedItem.signature_ai_label} note={ownedItem.signature_ai_note}/> : <p className="field-note">King Credion has not given an opinion on this signature yet.</p>}</div>}</div><section className="item-info"><span className="pill">{ownedItem.category}</span><h1>{ownedItem.title}</h1>{ownedItem.attributes?.subject && ownedItem.media?.some(asset=>asset.kind==='signature') && <p className="signer-badge"><img className="signed-by-quill" src="/brand/signed-by-quill.webp" alt="" aria-hidden="true"/> Signed by {ownedItem.attributes.subject}</p>}<p className="seller-name">Purchased {new Date(ownedItem.purchased_at).toLocaleDateString()}</p><p className="detail-price">{money(ownedItem.price_cents)}</p><p>{ownedItem.description}</p><ListingDetailSummary item={ownedItem}/><PurchasedItemFulfillment item={ownedItem} payout={payoutByPurchase[ownedItem.purchase_id]} onOpenMessages={openOrderConversation}/><BuyerRefundPanel item={ownedItem} onRequested={refresh}/><SellerRatingForm item={ownedItem} onRated={refresh}/><MessageThread conversationId={ownedItem.conversation_id} service={service} session={session} counterpartyLabel="seller" messageCount={ownedItem.message_count} autoOpen={focusConversationId === ownedItem.conversation_id} onFocused={() => setFocusConversationId(null)} onRead={refresh} pickupStation={ownedItem.fulfillment_method === 'pickup' ? ownedItem.pickup_station : null}/><CertificateDetails item={ownedItem}/><button className="primary" onClick={()=>setModal('relist')}><RefreshCw size={16}/>Relist this item</button></section></div>

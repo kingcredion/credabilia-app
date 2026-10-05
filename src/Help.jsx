@@ -27,6 +27,9 @@ export function HelpPage() {
     <h3>How does payment protection work?</h3>
     <p>When you buy an item, Credabilia holds your payment in escrow. The seller is paid after delivery is confirmed by tracking, followed by a short protection period: 72 hours to 7 days for new sellers (depending on the price), 72 hours for established sellers, and as little as 48 hours for trusted sellers. If you accept your delivery sooner, an established or trusted seller can be paid sooner. An open refund request pauses the payout. If tracking never shows delivery, the payout waits up to 21 days. Sellers are not paid instantly at purchase.</p>
 
+    <h3>How do auctions work?</h3>
+    <p>To bid you need a card on file with us. It is not charged; it just shows you are a real bidder, because every bid is a binding commitment to buy. You enter the most you are willing to pay, and we bid for you only as much as needed to keep you in the lead, up to that maximum. The price goes up in steps that grow with the price. A bid in the last 5 minutes extends the auction by 5 minutes, so nobody can win with a last-second bid. If you win you have 48 hours to pay; if you don't, the item goes to the next bidder and you get a strike (two strikes pause bidding). Once an auction has a bid, the seller cannot change its price or remove it.</p>
+
     <h3>How does local pickup work?</h3>
     <p>If a seller offers pickup, you meet at the safe meetup spot shown on the listing. Inspect the item there, check it against the listing, and accept it only if it is right. After you accept, you get a 6-digit handoff code to give the seller, who enters it to finish the sale. Please don't hand over the code until you are happy with the item.</p>
 
