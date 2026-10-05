@@ -8,6 +8,14 @@ export const DEMO_USER = { id: '11111111-1111-4111-8111-111111111111', display_n
 // requirePackage covers weight/dims/pickup -- fields only ever collected at create time (edit_listing
 // never accepts or stores them, and EditListing's form has no inputs for them), so the edit path opts
 // out rather than failing validation on fields it never asked the seller for.
+// The smallest package the carriers accept (USPS Ground Advantage): 6 x 3 inches and 1/4 inch thick, in any order of the three measurements.
+// The database enforces the same rule; this gives the seller the message before they submit.
+export const PACKAGE_TOO_SMALL = 'That package is smaller than the carriers accept. It needs to be at least 6 x 3 inches and a quarter inch thick. Use a bigger box or add packing.';
+export function packageTooSmall(length, width, height) {
+  const sides = [Number(length), Number(width), Number(height)].sort((a, b) => b - a);
+  return sides[0] < 6 || sides[1] < 3 || sides[2] < 0.25;
+}
+
 export function listingInput(input, { requirePackage = true } = {}) {
   const title = String(input.title || '').trim();
   const description = String(input.description || '').trim();
@@ -21,6 +29,7 @@ export function listingInput(input, { requirePackage = true } = {}) {
   if (requirePackage) {
     const weight_oz = Number(input.weight_oz), length_in = Number(input.length_in), width_in = Number(input.width_in), height_in = Number(input.height_in);
     if (![weight_oz, length_in, width_in, height_in].every(n => Number.isFinite(n) && n > 0)) throw new Error('Enter a valid package weight and size, so buyers can see a real shipping cost.');
+    if (packageTooSmall(length_in, width_in, height_in)) throw new Error(PACKAGE_TOO_SMALL);
     const pickup_enabled = !!input.pickup_enabled;
     if (pickup_enabled && !input.pickup_station_id) throw new Error('Choose a pickup location.');
     packageFields = { weight_oz, length_in, width_in, height_in, free_shipping: !!input.free_shipping, pickup_enabled, pickup_station_id: pickup_enabled ? input.pickup_station_id : null };

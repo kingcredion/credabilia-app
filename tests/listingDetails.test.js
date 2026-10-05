@@ -7,7 +7,7 @@ import {createDemoService} from '../src/demo.js';
 test('details normalize and survive practice publish/reload/search',async()=>{
  const data=new Map();const storage={getItem:k=>data.get(k),setItem:(k,v)=>data.set(k,v)};
  const svc=createDemoService(storage);await svc.signIn();
- const id=await svc.createListing({title:'Test baseball',description:'A fictional baseball for testing.',category:'Sports',price_cents:100,attributes:{team:' Chicago '},tags:' Baseball,BASEBALL, blue   jersey',weight_oz:8,length_in:4,width_in:4,height_in:4});
+ const id=await svc.createListing({title:'Test baseball',description:'A fictional baseball for testing.',category:'Sports',price_cents:100,attributes:{team:' Chicago '},tags:' Baseball,BASEBALL, blue   jersey',weight_oz:8,length_in:8,width_in:6,height_in:4});
  const item=(await createDemoService(storage).listings()).find(x=>x.id===id);
  assert.deepEqual(item.attributes,{team:'Chicago'});assert.deepEqual(item.tags,['baseball','blue jersey']);
  assert.equal(listingMatches(item,'CHICAGO'),true);assert.equal(listingMatches(item,'blue jersey'),true);

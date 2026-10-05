@@ -325,3 +325,28 @@ test('a shipped order cannot be bought without a real shipping quote, so a buyer
   ({res}=await buy({}));
   assert.equal(res.status,200);
 });
+
+// --- the smallest package the carriers accept --------------------------------------------------------------------------------
+import {PGlite} from '@electric-sql/pglite';
+import {packageTooSmall, listingInput} from '../src/domain.js';
+test('a package smaller than the carriers accept is refused by the listing form and by the database, in any order of the sides; existing listings are left alone', async () => {
+  assert.equal(packageTooSmall(1,1,1),true);
+  assert.equal(packageTooSmall(6,3,0.25),false,'exactly the minimum is fine');
+  assert.equal(packageTooSmall(3,6,0.25),false,'the order of the sides does not matter');
+  assert.equal(packageTooSmall(5.9,3,1),true); assert.equal(packageTooSmall(6,2.9,1),true); assert.equal(packageTooSmall(6,3,0.2),true);
+  const base={title:'Signed ball',description:'A fictional description for testing.',category:'Sports',price_cents:5000};
+  assert.throws(()=>listingInput({...base,weight_oz:8,length_in:1,width_in:1,height_in:1}),/smaller than the carriers accept/);
+  assert.ok(listingInput({...base,weight_oz:8,length_in:8,width_in:6,height_in:4}).length_in===8);
+
+  const db=new PGlite();
+  try {
+    await db.exec('create table public.listings(id serial primary key,length_in numeric,width_in numeric,height_in numeric,title text)');
+    await db.exec("insert into public.listings(length_in,width_in,height_in,title) values(1,1,1,'old tiny listing')");
+    await db.exec(await readFile(new URL('../supabase/migrations/202610050109_minimum_package_size.sql',import.meta.url),'utf8'));
+    await db.exec("update public.listings set title='edited' where id=1"); // an old listing can still be edited
+    await assert.rejects(db.exec('insert into public.listings(length_in,width_in,height_in) values(1,1,1)'),/smaller than the carriers accept/);
+    await assert.rejects(db.exec('update public.listings set length_in=5 where id=1'),/smaller than the carriers accept/);
+    await db.exec('insert into public.listings(length_in,width_in,height_in) values(3,6,0.25),(8,6,4)');
+    await db.exec('insert into public.listings(title) values(\'no package size yet\')');
+  } finally { await db.close(); }
+});

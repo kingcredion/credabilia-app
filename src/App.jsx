@@ -510,7 +510,7 @@ function CreateListing({ onClose, onCreated, relistFrom, bulkPhoto, bulkProgress
       {listingType==='auction' && <label>Auction length<select name="auction_days" defaultValue="5"><option value="3">3 days</option><option value="5">5 days</option><option value="7">7 days</option></select></label>}
       <label>Description<textarea name="description" minLength={20} maxLength={4000} rows={3} placeholder="Condition, history, and the details a collector should know…" required/></label>
       {service.detailsEnabled && <ListingDetailFields key={listingCategory} category={listingCategory} exclude={['subject']}/>}
-      <p className="field-note">Package weight and size, once packed — this lets buyers see a real shipping cost at checkout instead of guessing.</p>
+      <p className="field-note">Package weight and size, once packed — this lets buyers see a real shipping cost at checkout instead of guessing. Carriers need a package at least 6 × 3 inches and ¼ inch thick, so measure the box you'll actually ship in.</p>
       <div className="form-row">
         <label>Weight (oz)<input name="weight_oz" type="number" min="1" step="0.1" required onChange={e => setWeightOz(e.target.value)}/>{formatWeight(weightOz) && <small className="weight-readout">= {formatWeight(weightOz)}</small>}</label>
         <label>Length (in)<input name="length_in" type="number" min="1" step="0.1" required onChange={e => setDims({ ...dims, length_in: e.target.value })}/>{sizeHint(dims.length_in)}</label>
