@@ -26,6 +26,7 @@ import { LIST_INTENT_KEY, captureListIntent, isSellHost } from './listIntent.js'
 const SupportChat = React.lazy(() => import('./SupportChat.jsx').then(module => ({ default: module.SupportChat })));
 import { CATEGORIES, WORKSPACES, priceInCents } from './domain.js';
 import { formatWeight, formatLength } from './weight.js';
+import { OrderActionCard, payoutDate } from './OrderActionCard.jsx';
 
 const service = makeService();
 const REQUESTS_INTENT_KEY = 'credabilia-view-requests';
@@ -1232,92 +1233,35 @@ function BuyRequestCard({ request, onResolved }) {
   </div></div>;
 }
 
-const payoutDate = value => new Date(value).toLocaleDateString(undefined, { month: 'long', day: 'numeric' });
-const spacedCode = code => code ? code.replace(/(\d{3})(\d{3})/, '$1 $2') : '';
-
-// The buyer's "check it before you accept it" step: a short checklist drawn from what the listing promised, an Accept button that
-// stays disabled until every box is ticked, and a way to say something is wrong instead. Used at a pickup meetup (accepting
-// reveals the handoff code) and during the inspection window after a delivery.
-function InspectionChecklist({ item, acceptLabel, onAccept, onProblem }) {
-  const hasSignature = item.media?.some(asset => asset.kind === 'signature') || !!item.signature_ai_label;
-  const checks = [
-    item.certificate_number ? { key: 'certificate_matches', label: `The certificate number on the item matches the listing${item.certificate_issuer ? ` (${item.certificate_issuer} ` : ' ('}#${item.certificate_number})` } : null,
-    { key: 'matches_photos', label: 'The item matches the listing photos and description' },
-    hasSignature ? { key: 'signature_ok', label: 'The signature looks like the one in the listing photos' } : null,
-  ].filter(Boolean);
-  const [ticked, setTicked] = useState({}), [busy, setBusy] = useState(false), [error, setError] = useState('');
-  const [reporting, setReporting] = useState(false), [reason, setReason] = useState('');
-  const allTicked = checks.every(check => ticked[check.key]);
-  async function accept() {
-    setBusy(true); setError('');
-    try { await onAccept(Object.fromEntries(checks.map(check => [check.key, true]))); }
-    catch (err) { setError(err.message); setBusy(false); }
-  }
-  async function report(event) {
-    event.preventDefault(); if (busy || !reason.trim()) return;
-    setBusy(true); setError('');
-    try { await onProblem(reason); }
-    catch (err) { setError(err.message); setBusy(false); }
-  }
-  return <div className="inspection-box">
-    <h4>Check the item before you accept</h4>
-    <p className="field-note">Compare it with the photos and the signature opinion on this page. Once you accept, we record it. If anything is wrong, tell us now instead.</p>
-    {!reporting ? <>
-      <div className="form-stack">{checks.map(check => <label key={check.key} className="check-row"><input type="checkbox" checked={!!ticked[check.key]} onChange={event => setTicked({ ...ticked, [check.key]: event.target.checked })}/> {check.label}</label>)}</div>
-      {error && <p role="alert" className="error">{error}</p>}
-      <div className="submit-row">
-        <button type="button" className="primary" disabled={busy || !allTicked} onClick={accept}>{busy ? 'Saving…' : acceptLabel}</button>
-        <button type="button" className="text-button" disabled={busy} onClick={() => setReporting(true)}>Something's off</button>
-      </div>
-    </> : <form className="form-stack" onSubmit={report}>
-      <label>What is wrong?<textarea value={reason} onChange={event => setReason(event.target.value)} rows={3} maxLength={1800} required placeholder="For example: the certificate number doesn't match, or the signature looks different."/></label>
-      {error && <p role="alert" className="error">{error}</p>}
-      <div className="submit-row"><button className="primary" disabled={busy || !reason.trim()}>{busy ? 'Sending…' : 'Report a problem'}</button><button type="button" className="text-button" disabled={busy} onClick={() => setReporting(false)}>Back</button></div>
-    </form>}
-  </div>;
-}
-
-function PurchasedItemFulfillment({ item, payout, onConfirmed }) {
-  const payoutLine = !payout || payout.escrow_status === 'released' ? null
-    : payout.has_open_dispute ? 'Your refund request is open, so the seller is not paid until it is resolved.'
-    : payout.release_after ? `The seller is paid on ${payoutDate(payout.release_after)} unless you report a problem before then.`
+// The order itself (inspection checklist, handoff code) lives in the order's conversation, where buyer and seller already are; this
+// is the item page's short status with a way into it.
+function PurchasedItemFulfillment({ item, payout, onOpenMessages }) {
+  const pickup = item.fulfillment_method === 'pickup';
+  const released = item.escrow_status === 'released' || payout?.escrow_status === 'released';
+  const status = payout?.handoff_verified_at ? 'Handoff completed.'
+    : payout?.has_open_dispute ? 'You reported a problem. Our team and the seller will follow up.'
+    : pickup && payout?.pickup_code ? 'You accepted the item. Your handoff code is waiting in messages.'
+    : pickup && payout?.escrow_status === 'held' ? 'Inspect the item at the meetup, then accept it to get your handoff code.'
+    : !pickup && payout?.escrow_status === 'held' && payout.delivered_at && !payout.inspection_accepted_at ? 'Delivered. Check the item and accept it, or report a problem.'
     : null;
-  const acceptedLine = payout?.inspection_accepted_at && <p className="field-note">You inspected and accepted this item on {new Date(payout.inspection_accepted_at).toLocaleDateString()}.</p>;
-  if (item.fulfillment_method === 'pickup') return <div className="evidence-box"><h3><Package size={18}/>Pickup</h3>
-    <p>Meet at {item.pickup_station?.jurisdiction}{item.pickup_station?.city ? ` — ${item.pickup_station.city}` : ''}</p>
-    {item.pickup_station?.notes && <p className="field-note">{item.pickup_station.notes}</p>}
-    {payout?.handoff_verified_at ? <>{acceptedLine}<p className="field-note">Handoff completed {new Date(payout.handoff_verified_at).toLocaleDateString()}</p></>
-      : payout?.pickup_code ? <>{acceptedLine}<div className="handoff-code"><span>Your handoff code</span><strong>{spacedCode(payout.pickup_code)}</strong><small>Read this to the seller now. They enter it to complete the handoff and release payment.</small></div></>
-      : payout?.has_open_dispute ? <p className="field-note">You reported a problem, so no handoff code is available. Our team and the seller will follow up on your refund request.</p>
-      : payout?.escrow_status === 'held' ? <InspectionChecklist item={item} acceptLabel="I've inspected it and I accept" onAccept={async checks => { await service.acceptPickupInspection(item.purchase_id, checks); onConfirmed(); }} onProblem={async reason => { await service.rejectPickupInspection(item.purchase_id, reason); onConfirmed(); }}/>
-      : null}
+  const payoutLine = released ? null : payout?.release_after && !payout.has_open_dispute ? `The seller is paid on ${payoutDate(payout.release_after)} unless you report a problem before then.` : null;
+  const canOpen = !!item.conversation_id && onOpenMessages;
+  return <div className="evidence-box"><h3><Package size={18}/>{pickup ? 'Pickup' : 'Shipping'}</h3>
+    {pickup ? <><p>Meet at {item.pickup_station?.jurisdiction}{item.pickup_station?.city ? ` — ${item.pickup_station.city}` : ''}</p>{item.pickup_station?.notes && <p className="field-note">{item.pickup_station.notes}</p>}</>
+      : item.shipped_at ? <><p>Shipped {new Date(item.shipped_at).toLocaleDateString()}</p>{item.tracking_number && <p><a href={item.tracking_url} target="_blank" rel="noreferrer">Track: {item.tracking_number}</a></p>}{item.tracking_status && item.tracking_status !== 'UNKNOWN' && <p className="field-note">Status: {item.tracking_status}</p>}</>
+      : <p className="field-note">The seller hasn't shipped this yet.</p>}
+    {status && <p>{status}</p>}
     {payoutLine && <p className="field-note">{payoutLine}</p>}
-    <p className="field-note">{item.escrow_status === 'released' ? 'Payment released to the seller' : 'We hold your payment until the handoff is complete'}</p>
-  </div>;
-  const inspecting = payout?.escrow_status === 'held' && payout.delivered_at && !payout.inspection_accepted_at && !payout.has_open_dispute;
-  return <div className="evidence-box"><h3><Package size={18}/>Shipping</h3>{item.shipped_at ? <><p>Shipped {new Date(item.shipped_at).toLocaleDateString()}</p>{item.tracking_number && <p><a href={item.tracking_url} target="_blank" rel="noreferrer">Track: {item.tracking_number}</a></p>}{item.tracking_status && item.tracking_status !== 'UNKNOWN' && <p className="field-note">Status: {item.tracking_status}</p>}</> : <p className="field-note">The seller hasn't shipped this yet.</p>}
-    {acceptedLine}
-    {inspecting && <InspectionChecklist item={item} acceptLabel="Looks good — accept" onAccept={async checks => { await service.acceptDelivery(item.purchase_id, checks); onConfirmed(); }} onProblem={async reason => { await service.requestRefund(item.purchase_id, reason); onConfirmed(); }}/>}
-    {payoutLine && <p className="field-note">{payoutLine}</p>}
-    <p className="field-note">{item.escrow_status === 'released' ? 'Payment released to the seller' : 'We hold your payment until you have had time to check the item'}{item.insured ? ' · Insured' : ''}</p></div>;
+    {canOpen && status && <button type="button" className="text-button" onClick={() => onOpenMessages(item.conversation_id)}><MessageCircle size={16}/>Open in messages</button>}
+    <p className="field-note">{released ? 'Payment released to the seller' : pickup ? 'We hold your payment until the handoff is complete' : 'We hold your payment until you have had time to check the item'}{item.insured ? ' · Insured' : ''}</p></div>;
 }
 
-function SoldItemCard({ sale, payout, session, onShipped, onRefundChanged, focusConversationId, onFocused }) {
+function SoldItemCard({ sale, payout, session, onShipped, onRefundChanged, focusConversationId, onFocused, onOpenMessages }) {
   const [shipping, setShipping] = useState(false);
   const [needsParcel, setNeedsParcel] = useState(false);
   const [parcel, setParcel] = useState({ weight_oz: '', length_in: '', width_in: '', height_in: '' });
   const [rates, setRates] = useState(null), [ratesError, setRatesError] = useState('');
   const [busy, setBusy] = useState(false);
-  const [pickupBusy, setPickupBusy] = useState(false), [pickupError, setPickupError] = useState(''), [handoffCode, setHandoffCode] = useState('');
-  async function completeHandoff(event) {
-    event.preventDefault(); if (pickupBusy) return;
-    setPickupBusy(true); setPickupError('');
-    try {
-      const result = await service.completePickup(sale.id, handoffCode);
-      if (result?.ok) { setHandoffCode(''); onRefundChanged(); }
-      else setPickupError(`That code doesn't match. ${result?.attempts_left ?? 0} tries left.`);
-    } catch (err) { setPickupError(err.message); } finally { setPickupBusy(false); }
-  }
   const sellerPayoutLine = payout?.escrow_status === 'released' || sale.escrow_status === 'released' ? `Payment released${sale.funds_released_at ? ' ' + new Date(sale.funds_released_at).toLocaleDateString() : ''}`
     : payout?.has_open_dispute ? 'Payout paused while a refund request is open'
     : payout?.under_review ? 'Your payout is being reviewed by our team'
@@ -1353,15 +1297,8 @@ function SoldItemCard({ sale, payout, session, onShipped, onRefundChanged, focus
       {sellerPayoutLine && <p className="field-note">{sellerPayoutLine}</p>}
       {sale.fulfillment_method === 'pickup' ? <>
           <p className="field-note">Meet at {sale.pickup_station?.jurisdiction}{sale.pickup_station?.city ? ` — ${sale.pickup_station.city}` : ''}</p>
-          {payout?.handoff_verified_at
-            ? <p className="field-note">Handoff completed {new Date(payout.handoff_verified_at).toLocaleDateString()}</p>
-            : sale.escrow_status === 'held' && !payout?.inspection_accepted_at ? <p className="field-note">{payout?.has_open_dispute ? 'The buyer reported a problem, so this handoff is paused.' : 'The buyer inspects the item first. Once they accept, they give you a code to enter here.'}</p>
-            : sale.escrow_status === 'held' && <form className="form-stack" onSubmit={completeHandoff}>
-                <label>Buyer's 6-digit handoff code<input inputMode="numeric" autoComplete="off" maxLength={7} value={handoffCode} onChange={event => setHandoffCode(event.target.value)} placeholder="123 456" required/></label>
-                <button className="primary" disabled={pickupBusy || !handoffCode.trim()}>{pickupBusy ? 'Checking…' : 'Complete handoff'}</button>
-                <small className="field-note">Ask the buyer for the code once they have the item in hand.</small>
-              </form>}
-          {pickupError && <p role="alert" className="error">{pickupError}</p>}
+          <p className="field-note">{payout?.handoff_verified_at ? `Handoff completed ${new Date(payout.handoff_verified_at).toLocaleDateString()}.` : payout?.has_open_dispute ? 'The buyer reported a problem, so this handoff is paused.' : payout?.inspection_accepted_at ? 'The buyer accepted the item. Enter their handoff code in messages.' : 'Waiting for the buyer to inspect the item. They will give you a code to enter in messages.'}</p>
+          {sale.conversation_id && !payout?.handoff_verified_at && <button type="button" className="text-button" onClick={() => onOpenMessages(sale.conversation_id)}><MessageCircle size={16}/>Open in messages</button>}
         </>
       : sale.shipped_at ? <p className="field-note">Shipped · {sale.tracking_number ? <a href={sale.tracking_url} target="_blank" rel="noreferrer">Track {sale.tracking_number}</a> : 'Tracking pending'}{sale.label_url && <> · <a href={sale.label_url} target="_blank" rel="noreferrer">Print label</a></>}</p>
         : !shipping ? <button type="button" className="text-button" onClick={startShipping}><Package size={16}/>Ship now</button>
@@ -1392,12 +1329,17 @@ function SoldItemCard({ sale, payout, session, onShipped, onRefundChanged, focus
   </div>;
 }
 
-function MessagesInbox({ conversations, session, service, focusConversationId, onFocused, selectedConversationId, onSelect, onOpenListing, onRead, onClear }) {
+function MessagesInbox({ conversations, session, service, focusConversationId, onFocused, selectedConversationId, onSelect, onOpenListing, onRead, onClear, purchases = [], sales = [], payoutByPurchase = {}, onOrderChanged }) {
   useEffect(() => { if (focusConversationId) { onSelect(focusConversationId); onFocused?.(); } }, [focusConversationId]);
   if (!session) return <div className="empty-state"><MessageCircle size={34}/><h3>Sign in to see your messages.</h3><p>Conversations with buyers and sellers live here.</p></div>;
   const selected = conversations.find(c => c.id === selectedConversationId);
   if (selected) return <>
     <div className="thread-header-row"><button className="back-button" onClick={() => onSelect(null)}><ArrowLeft size={17}/>Back to messages</button><button type="button" className="text-button" onClick={() => onClear(selected.id)}><X size={16}/>Clear</button></div>
+    {(() => {
+      const bought = purchases.find(p => p.conversation_id === selected.id), sold = sales.find(x => x.conversation_id === selected.id);
+      const order = bought || sold;
+      return order ? <OrderActionCard role={bought ? 'buyer' : 'seller'} order={order} payout={payoutByPurchase[bought ? bought.purchase_id : sold.id]} service={service} onChanged={onOrderChanged}/> : null;
+    })()}
     <MessageThread key={selected.id} conversationId={selected.id} service={service} session={session} counterpartyLabel={selected.role === 'buyer' ? 'seller' : 'buyer'} forceOpen pinnedListing={selected} onOpenListing={onOpenListing} onRead={onRead} pickupStation={selected.pickup_enabled ? selected.pickup_station : null}/>
   </>;
   if (!conversations.length) return <div className="empty-state"><MessageCircle size={34}/><h3>No conversations yet.</h3><p>Message a seller from any listing to start one.</p></div>;
@@ -1970,6 +1912,22 @@ export default function App() {
     }
   }, [authReady]);
   const appliedItemParam = useRef(false), soldLookupStarted = useRef(false);
+  // Emails link to /?conversation=<id> (new message, item delivered). Open that conversation once the member is signed in; the id is
+  // remembered across the sign-in redirect.
+  const conversationParamApplied = useRef(false);
+  useEffect(() => {
+    if (conversationParamApplied.current || !authReady || loading || storefrontSlug || legalPage) return;
+    let id = null;
+    try {
+      id = new URLSearchParams(window.location.search).get('conversation');
+      if (id) { sessionStorage.setItem('credabilia-open-conversation', id); window.history.replaceState({}, '', window.location.pathname); }
+      else id = sessionStorage.getItem('credabilia-open-conversation');
+    } catch {}
+    if (!id || !session) return;
+    conversationParamApplied.current = true;
+    try { sessionStorage.removeItem('credabilia-open-conversation'); } catch {}
+    setFocusConversationId(id); setWorkspace('messages'); setSelectedId(null);
+  }, [authReady, loading, session]);
   useEffect(() => {
     if (appliedItemParam.current || soldLookupStarted.current || loading) return;
     const params = new URLSearchParams(window.location.search);
@@ -2090,6 +2048,7 @@ export default function App() {
       switchWorkspace('messages');
     } catch (err) { setError(err.message); } finally { setBusy(false); }
   }
+  function openOrderConversation(conversationId) { setFocusConversationId(conversationId); switchWorkspace('messages'); }
   function openListingFromThread(listingId) { switchWorkspace('collector'); setSelectedId(listingId); }
   async function clearConversation(conversationId) {
     try {
@@ -2111,6 +2070,7 @@ export default function App() {
   function focusNotification(n) {
     setModal(null);
     if (n.kind === 'message') { setWorkspace('messages'); setSelectedId(null); setFocusConversationId(n.conversation_id); return; }
+    if (n.kind === 'pickup_awaiting_handoff') { const order = sales.find(x => x.id === n.purchase_id); if (order?.conversation_id) { setWorkspace('messages'); setSelectedId(null); setFocusConversationId(order.conversation_id); return; } }
     if (n.role === 'buyer') { setSelectedId(n.listing_id); }
     else if (n.kind === 'buy_request_pending') { setWorkspace('seller'); setSellerTab('requests'); setSelectedId(null); }
     else { setWorkspace('seller'); setSellerTab('sold'); setSelectedId(null); }
@@ -2176,7 +2136,7 @@ export default function App() {
           <AuditQueue key={session?.user?.id || 'anon'} items={filtered} session={session} profile={profile} onNeedLogin={() => setModal('login')} onAudited={result => { setNotice(result.xp_earned ? 'Audit recorded. +5 participation XP.' : 'Your audit is already recorded.'); refresh(); }} focusItemId={focusAuditItemId} onFocused={() => setFocusAuditItemId(null)}/>
         </> : workspace === 'messages' ? <>
           {!selectedConversationId && <section className="hero messages-hero"><div className="hero-copy"><p className="eyebrow"><span className="small-line"/>YOUR CONVERSATIONS</p><h1>Every chat.<br/><em>In one place.</em></h1><p>Message a seller from any listing to ask a question or arrange a meetup — every conversation stays tied to the item it's about.</p></div><div className="hero-mascot"><img src="/brand/screen-face-v1/messages.webp" width="800" height="800" alt="King Credion with a royal messenger pigeon carrying a sealed scroll" decoding="async"/></div></section>}
-          <div className="clarity-contents" data-clarity-mask="True"><MessagesInbox conversations={conversations} session={session} service={service} focusConversationId={focusConversationId} onFocused={() => setFocusConversationId(null)} selectedConversationId={selectedConversationId} onSelect={setSelectedConversationId} onOpenListing={openListingFromThread} onRead={refresh} onClear={clearConversation}/></div>
+          <div className="clarity-contents" data-clarity-mask="True"><MessagesInbox conversations={conversations} session={session} service={service} focusConversationId={focusConversationId} onFocused={() => setFocusConversationId(null)} selectedConversationId={selectedConversationId} onSelect={setSelectedConversationId} onOpenListing={openListingFromThread} onRead={refresh} onClear={clearConversation} purchases={purchases} sales={sales} payoutByPurchase={payoutByPurchase} onOrderChanged={refresh}/></div>
         </> : selected ? <>
           <button className="back-button" onClick={() => setSelectedId(null)}><ArrowLeft size={17}/>Back to listings</button>
           {own && selected.status==='needs_review' && <p className="field-note">Only visible to you right now — this needs a quick review before buyers can see it. {selected.needs_review_reason || "It didn't clearly look like a collectible."} Edit it to add more detail and resubmit.</p>}
@@ -2188,7 +2148,7 @@ export default function App() {
           <div className="detail-grid"><div>{selected.media?.some(asset=>asset.kind==='item') ? <PhotoGallery service={service} key={selected.id} media={selected.media} title={selected.title}/> : <ItemArt kind={selected.artwork} category={selected.category} large/>}<PhotoGallery service={service} key={selected.id+'cert'} media={selected.media} kind="certificate" title={selected.title}/>{selected.media?.some(asset=>asset.kind==='signature') && <div className="evidence-box"><p className="field-note">Signature close-up</p><PhotoGallery service={service} key={selected.id+'sig'} media={selected.media} kind="signature" title={selected.title}/>{selected.signature_ai_label ? <KingOpinion label={selected.signature_ai_label} note={selected.signature_ai_note}/> : <p className="field-note">King Credion has not given an opinion on this signature yet.</p>}</div>}</div><section className="item-info"><span className="pill">{selected.category}</span>{selected.king_collection && <span className="king-badge"><Crown size={12}/>King's Collection</span>}<h1>{selected.title}</h1>{selected.attributes?.subject && selected.media?.some(asset=>asset.kind==='signature') && <p className="signer-badge"><img className="signed-by-quill" src="/brand/signed-by-quill.webp" alt="" aria-hidden="true"/> Signed by {selected.attributes.subject}</p>}<p className="seller-name">Shared by {selected.seller_name}{selected.seller_rating_count > 0 && <> · <RatingStars value={selected.seller_rating_avg} count={selected.seller_rating_count}/></>} · Member since {new Date(selected.seller_member_since).getFullYear()}{selected.seller_sales_count > 0 && <> · {selected.seller_sales_count} {selected.seller_sales_count === 1 ? 'sale' : 'sales'}</>}</p><p className="detail-price">{money(selected.price_cents)}</p>{selected.listing_type==='auction' && <p className="field-note">{selected.bid_count} {selected.bid_count===1?'bid':'bids'} · {auctionTimeLeft(selected.auction_ends_at)}</p>}{!own && <ItemActions item={selected} session={session} service={service} busy={busy} request={myRequest} onCheckout={()=>setModal('checkout-address')} onRequestToBuy={requestToBuy} onMessage={messageSeller} onSignIn={()=>setModal('login')} onBid={refresh}/>}<p>{selected.description}</p><ListingDetailSummary item={selected}/><div className="evidence-box"><h3><ShieldCheck size={18}/>Evidence notes</h3><p>{selected.evidence || 'No evidence has been provided yet. Ask for more information before reaching a conclusion.'}</p></div><CertificateDetails item={selected}/><CredibilityDetails item={selected} session={session} own={own} auditedLabel={previousAudit ? LABELS[previousAudit.verdict] : null} onAudit={()=>auditItem(selected.id)}/><ItemHistory key={selected.id+selected.version} item={selected} service={service}/><TriviaPanel key={selected.id} item={selected} service={service} signedIn={!!session}/><p className="field-note">Community assessments are opinions, not professional authentication.</p></section></div>
         </> : ownedItem ? <>
           <button className="back-button" onClick={() => setSelectedId(null)}><ArrowLeft size={17}/>Back to listings</button>
-          <div className="detail-grid"><div>{ownedItem.media?.some(asset=>asset.kind==='item') ? <PhotoGallery service={service} key={ownedItem.id} media={ownedItem.media} title={ownedItem.title}/> : <ItemArt category={ownedItem.category} large/>}<PhotoGallery service={service} key={ownedItem.id+'cert'} media={ownedItem.media} kind="certificate" title={ownedItem.title}/>{ownedItem.media?.some(asset=>asset.kind==='signature') && <div className="evidence-box"><p className="field-note">Signature close-up</p><PhotoGallery service={service} key={ownedItem.id+'sig'} media={ownedItem.media} kind="signature" title={ownedItem.title}/>{ownedItem.signature_ai_label ? <KingOpinion label={ownedItem.signature_ai_label} note={ownedItem.signature_ai_note}/> : <p className="field-note">King Credion has not given an opinion on this signature yet.</p>}</div>}</div><section className="item-info"><span className="pill">{ownedItem.category}</span><h1>{ownedItem.title}</h1>{ownedItem.attributes?.subject && ownedItem.media?.some(asset=>asset.kind==='signature') && <p className="signer-badge"><img className="signed-by-quill" src="/brand/signed-by-quill.webp" alt="" aria-hidden="true"/> Signed by {ownedItem.attributes.subject}</p>}<p className="seller-name">Purchased {new Date(ownedItem.purchased_at).toLocaleDateString()}</p><p className="detail-price">{money(ownedItem.price_cents)}</p><p>{ownedItem.description}</p><ListingDetailSummary item={ownedItem}/><PurchasedItemFulfillment item={ownedItem} payout={payoutByPurchase[ownedItem.purchase_id]} onConfirmed={refresh}/><BuyerRefundPanel item={ownedItem} onRequested={refresh}/><SellerRatingForm item={ownedItem} onRated={refresh}/><MessageThread conversationId={ownedItem.conversation_id} service={service} session={session} counterpartyLabel="seller" messageCount={ownedItem.message_count} autoOpen={focusConversationId === ownedItem.conversation_id} onFocused={() => setFocusConversationId(null)} onRead={refresh} pickupStation={ownedItem.fulfillment_method === 'pickup' ? ownedItem.pickup_station : null}/><CertificateDetails item={ownedItem}/><button className="primary" onClick={()=>setModal('relist')}><RefreshCw size={16}/>Relist this item</button></section></div>
+          <div className="detail-grid"><div>{ownedItem.media?.some(asset=>asset.kind==='item') ? <PhotoGallery service={service} key={ownedItem.id} media={ownedItem.media} title={ownedItem.title}/> : <ItemArt category={ownedItem.category} large/>}<PhotoGallery service={service} key={ownedItem.id+'cert'} media={ownedItem.media} kind="certificate" title={ownedItem.title}/>{ownedItem.media?.some(asset=>asset.kind==='signature') && <div className="evidence-box"><p className="field-note">Signature close-up</p><PhotoGallery service={service} key={ownedItem.id+'sig'} media={ownedItem.media} kind="signature" title={ownedItem.title}/>{ownedItem.signature_ai_label ? <KingOpinion label={ownedItem.signature_ai_label} note={ownedItem.signature_ai_note}/> : <p className="field-note">King Credion has not given an opinion on this signature yet.</p>}</div>}</div><section className="item-info"><span className="pill">{ownedItem.category}</span><h1>{ownedItem.title}</h1>{ownedItem.attributes?.subject && ownedItem.media?.some(asset=>asset.kind==='signature') && <p className="signer-badge"><img className="signed-by-quill" src="/brand/signed-by-quill.webp" alt="" aria-hidden="true"/> Signed by {ownedItem.attributes.subject}</p>}<p className="seller-name">Purchased {new Date(ownedItem.purchased_at).toLocaleDateString()}</p><p className="detail-price">{money(ownedItem.price_cents)}</p><p>{ownedItem.description}</p><ListingDetailSummary item={ownedItem}/><PurchasedItemFulfillment item={ownedItem} payout={payoutByPurchase[ownedItem.purchase_id]} onOpenMessages={openOrderConversation}/><BuyerRefundPanel item={ownedItem} onRequested={refresh}/><SellerRatingForm item={ownedItem} onRated={refresh}/><MessageThread conversationId={ownedItem.conversation_id} service={service} session={session} counterpartyLabel="seller" messageCount={ownedItem.message_count} autoOpen={focusConversationId === ownedItem.conversation_id} onFocused={() => setFocusConversationId(null)} onRead={refresh} pickupStation={ownedItem.fulfillment_method === 'pickup' ? ownedItem.pickup_station : null}/><CertificateDetails item={ownedItem}/><button className="primary" onClick={()=>setModal('relist')}><RefreshCw size={16}/>Relist this item</button></section></div>
         </> : pendingBuy ? <>
           <button className="back-button" onClick={() => setSelectedId(null)}><ArrowLeft size={17}/>Back to listings</button>
           <div className="detail-grid"><div>{pendingBuy.media?.some(asset=>asset.kind==='item') ? <PhotoGallery service={service} key={pendingBuy.listing_id} media={pendingBuy.media} title={pendingBuy.title}/> : <ItemArt category={pendingBuy.category} large/>}</div><section className="item-info"><span className="pill">{pendingBuy.category}</span><h1>{pendingBuy.title}</h1><p className="detail-price">{money(pendingBuy.price_cents)}</p>{pendingBuy.status === 'confirmed' ? <><p className="field-note">The seller confirmed this is still available.</p><button className="primary" disabled={busy} onClick={()=>setModal('checkout-address')}>Continue to checkout<ArrowRight size={16}/></button></> : <p role="status" className="field-note">Waiting for the seller to confirm this item is still available…</p>}</section></div>
@@ -2200,7 +2160,7 @@ export default function App() {
             {workspace === 'seller' && sellerTab === 'active' && session && <SellerStorefrontBanner slug={profile?.slug} onSetup={() => setModal('profile')}/>}
             {workspace === 'collector' && session && <div className="categories" aria-label="My collection"><button aria-pressed={collectionFilter === 'all'} className={collectionFilter === 'all' ? 'active' : ''} onClick={() => setCollectionFilter('all')}>All items</button><button aria-pressed={collectionFilter === 'saved'} className={collectionFilter === 'saved' ? 'active' : ''} onClick={() => setCollectionFilter('saved')}><Heart size={14}/> Saved</button><button aria-pressed={collectionFilter === 'owned'} className={collectionFilter === 'owned' ? 'active' : ''} onClick={() => setCollectionFilter('owned')}>Owned</button></div>}
             {workspace === 'seller' && sellerTab === 'sold' ? (!sales.length ? <div className="empty-state"><Layers size={34}/><h3>Nothing sold yet.</h3><p>Sales will show up here, ready to ship.</p></div>
-              : <div className="items-grid">{sales.map(sale => <SoldItemCard key={sale.id} sale={sale} payout={payoutByPurchase[sale.id]} session={session} onShipped={shipped => setSales(list => list.map(s => s.id === shipped.id ? shipped : s))} onRefundChanged={refresh} focusConversationId={focusConversationId} onFocused={() => setFocusConversationId(null)}/>)}</div>)
+              : <div className="items-grid">{sales.map(sale => <SoldItemCard key={sale.id} sale={sale} payout={payoutByPurchase[sale.id]} onOpenMessages={openOrderConversation} session={session} onShipped={shipped => setSales(list => list.map(s => s.id === shipped.id ? shipped : s))} onRefundChanged={refresh} focusConversationId={focusConversationId} onFocused={() => setFocusConversationId(null)}/>)}</div>)
               : workspace === 'seller' && sellerTab === 'requests' ? (!sellerBuyRequests.length ? <div className="empty-state"><Layers size={34}/><h3>No buy requests right now.</h3><p>When a buyer wants to purchase one of your active listings, it'll show up here for you to confirm.</p></div>
               : <div className="items-grid">{sellerBuyRequests.map(request => <BuyRequestCard key={request.id} request={request} onResolved={id => setSellerBuyRequests(list => list.filter(r => r.id !== id))}/>)}</div>) : <>
             {collectionFilter !== 'owned' && <div className="filters"><div className="categories" aria-label="Filter by category">{['All items', ...CATEGORIES].map(c => <button key={c} aria-pressed={category === c} className={category === c ? 'active' : ''} onClick={() => setCategory(c)}>{c}</button>)}</div><label className="search"><Search size={17}/><input aria-label="Search listings" value={query} onChange={e => setQuery(e.target.value)} placeholder="Find your next discovery"/></label></div>}

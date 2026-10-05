@@ -199,7 +199,7 @@ export function createDemoService(storage = window.localStorage) {
     async myPayoutStatus() {
       return state.purchases.filter(p=>p.buyer_id===state.userId || p.seller_id===state.userId).map(p=>({
         purchase_id:p.id,role:p.buyer_id===state.userId?'buyer':'seller',fulfillment_method:p.fulfillment_method || 'ship',escrow_status:p.escrow_status || 'held',
-        delivered_at:null,release_after:null,hold_tier:null,under_review:false,has_open_dispute:false,can_release_early:false,
+        delivered_at:p.delivered_at || null,release_after:p.release_after || null,hold_tier:p.hold_tier || null,under_review:false,has_open_dispute:state.refundRequests.some(r=>r.purchase_id===p.id && ['pending','contested','partial_offered','return_required','accepted'].includes(r.status)),can_release_early:false,
         handoff_verified_at:p.handoff_verified_at || null,
         inspection_accepted_at:p.inspection_accepted_at || null,
         pickup_code:p.buyer_id===state.userId && p.fulfillment_method==='pickup' && !p.handoff_verified_at && p.inspection_accepted_at ? '123456' : null,
@@ -217,7 +217,13 @@ export function createDemoService(storage = window.localStorage) {
       save();
       return {ok:true,release_after:null,hold_tier:'new'};
     },
-    async acceptDelivery() { throw new Error('Not available in this practice preview.'); },
+    async acceptDelivery(purchaseId) {
+      requireUser();
+      const purchase=state.purchases.find(p=>p.id===purchaseId && p.buyer_id===state.userId && p.fulfillment_method!=='pickup');
+      if(!purchase || !purchase.delivered_at) throw new Error('This order is not waiting on a payout.');
+      purchase.inspection_accepted_at=new Date().toISOString(); save();
+      return {ok:true,released_early:false,release_after:purchase.release_after || null};
+    },
     async acceptPickupInspection(purchaseId) {
       requireUser();
       const purchase=state.purchases.find(p=>p.id===purchaseId && p.buyer_id===state.userId && p.fulfillment_method==='pickup');

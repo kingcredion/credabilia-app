@@ -1,6 +1,7 @@
 <!-- Klaviyo "Item Delivered" body (paste into an HTML block between the logo and the footer).
-     Trigger metric: "Item Delivered", sent to the BUYER by update_tracking_status the first time the carrier reports DELIVERED (migration 090).
-     Event properties: title, tracking_url, image_url, item_url, listing_id. No other party's identity is sent. -->
+     Trigger metric: "Item Delivered", sent to the BUYER by update_tracking_status the first time the carrier reports DELIVERED (migration 090, link added in 099).
+     Event properties: title, tracking_url, conversation_url, image_url, item_url, listing_id. No other party's identity is sent.
+     The button opens the order's conversation, where the buyer's inspection checklist is pinned. -->
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="max-width:560px;margin:0 auto;font-family:Georgia,'Times New Roman',serif;color:#1d2b25;">
   <tr><td style="height:4px;background:#c9a227;font-size:0;line-height:0;">&nbsp;</td></tr>
   <tr><td align="center" style="padding:28px 16px 6px 16px;">
@@ -17,10 +18,10 @@
     <div style="font-size:22px;line-height:28px;color:#0d3b2e;">{{ event.title|default:'Your item' }}</div>
   </td></tr>
   <tr><td style="padding:18px 24px 6px 24px;font-family:Arial,Helvetica,sans-serif;font-size:15px;line-height:23px;color:#33423b;">
-    The carrier reports that your purchase has arrived. We hope you love it. If something is not right, open your order and the details are there.
+    The carrier reports that your purchase has arrived. Please check it against the listing: the photos, the certificate number and the signature. Open your order to tell us it looks good, or to report a problem. The seller is not paid until your inspection period ends, so you have time to look it over.
   </td></tr>
   <tr><td align="center" style="padding:20px 24px 8px 24px;">
-    <a href="{{ event.item_url }}" style="display:inline-block;background:#0d3b2e;color:#f3d77a;text-decoration:none;font-family:Arial,Helvetica,sans-serif;font-size:16px;font-weight:bold;padding:14px 32px;border-radius:8px;border:1px solid #c9a227;">View your order</a>
+    <a href="{{ event.conversation_url|default:event.item_url }}" style="display:inline-block;background:#0d3b2e;color:#f3d77a;text-decoration:none;font-family:Arial,Helvetica,sans-serif;font-size:16px;font-weight:bold;padding:14px 32px;border-radius:8px;border:1px solid #c9a227;">Check your item</a>
   </td></tr>
   <tr><td align="center" style="padding:14px 24px 28px 24px;font-family:Georgia,'Times New Roman',serif;font-size:15px;line-height:22px;color:#33423b;font-style:italic;">
     Welcome to your collection.<br>&mdash; King Credion
