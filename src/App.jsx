@@ -48,7 +48,7 @@ function Modal({ title, children, onClose }) {
   </dialog>;
 }
 
-function NotificationBell({ notifications, onNavigate, variant }) {
+function NotificationBell({ notifications, onNavigate, variant, glow }) {
   const [open, setOpen] = useState(false);
   const wrap = useRef(null);
   useEffect(() => {
@@ -60,21 +60,21 @@ function NotificationBell({ notifications, onNavigate, variant }) {
   const bottomBar = variant === 'bottombar';
   const label = `Notifications${notifications.length ? ` (${notifications.length} need attention)` : ''}`;
   return <div className={bottomBar ? 'bottom-nav-item-wrap' : 'notif-wrap header-bell'} ref={wrap}>
-    <button className={bottomBar ? 'bottom-nav-item' : 'icon-button'} aria-label={label} title="Notifications" onClick={() => setOpen(o => !o)}>
+    <button className={`${bottomBar ? 'bottom-nav-item' : 'icon-button'}${glow ? ' attention-glow' : ''}`} aria-label={label} title="Notifications" onClick={() => setOpen(o => !o)}>
       {bottomBar
         ? <><span className="bottom-nav-indicator"><Bell size={22}/>{notifications.length > 0 && <span className="notif-badge">{notifications.length}</span>}</span><span>Alerts</span></>
         : <>{<Bell size={18}/>}{notifications.length > 0 && <span className="notif-badge">{notifications.length}</span>}</>}
     </button>
     {open && <div className={bottomBar ? 'notif-panel bottom-nav-panel' : 'notif-panel'} role="menu">
       {!notifications.length ? <p className="notif-empty field-note">Nothing needs your attention.</p>
-        : notifications.map(n => <button key={`${n.purchase_id}-${n.conversation_id}-${n.listing_id}-${n.kind}`} type="button" className="notif-row" role="menuitem" onClick={() => { onNavigate(n); setOpen(false); }}>
-            {n.kind === 'message' ? <MessageCircle size={16}/> : <AlertCircle size={16}/>}<span>{n.message}</span>
+        : notifications.map(n => <button key={`${n.purchase_id}-${n.conversation_id}-${n.listing_id}-${n.kind}`} type="button" className={n.kind === 'ship_pending' ? 'notif-row notif-row-urgent' : 'notif-row'} role="menuitem" onClick={() => { onNavigate(n); setOpen(false); }}>
+            {n.kind === 'message' ? <MessageCircle size={16}/> : n.kind === 'ship_pending' ? <Package size={16}/> : <AlertCircle size={16}/>}<span>{n.message}</span>
           </button>)}
     </div>}
   </div>;
 }
 
-function BottomNav({ session, workspace, onSwitchWorkspace, profile, onProfile, onSignIn, authReady }) {
+function BottomNav({ session, workspace, onSwitchWorkspace, profile, onProfile, onSignIn, authReady, sellGlow }) {
   const tabs = [
     { key: 'collector', label: 'Discover', Icon: Compass },
     { key: 'seller', label: 'Sell', Icon: Store },
@@ -83,7 +83,7 @@ function BottomNav({ session, workspace, onSwitchWorkspace, profile, onProfile, 
   ];
   return <nav className="bottom-nav" aria-label="Main navigation">
     {tabs.map(tab => { const active = workspace === tab.key; return (
-      <button key={tab.key} type="button" className={active ? 'bottom-nav-item active' : 'bottom-nav-item'} aria-current={active ? 'page' : undefined} onClick={() => onSwitchWorkspace(tab.key)}>
+      <button key={tab.key} type="button" className={`${active ? 'bottom-nav-item active' : 'bottom-nav-item'}${sellGlow && tab.key === 'seller' && !active ? ' attention-glow' : ''}`} aria-current={active ? 'page' : undefined} onClick={() => onSwitchWorkspace(tab.key)}>
         <span className="bottom-nav-indicator"><tab.Icon size={22}/></span><span>{tab.label}</span>
       </button>
     ); })}
@@ -1301,7 +1301,7 @@ function SoldItemCard({ sale, payout, session, onShipped, onRefundChanged, focus
           {sale.conversation_id && !payout?.handoff_verified_at && <button type="button" className="text-button" onClick={() => onOpenMessages(sale.conversation_id)}><MessageCircle size={16}/>Open in messages</button>}
         </>
       : sale.shipped_at ? <p className="field-note">Shipped · {sale.tracking_number ? <a href={sale.tracking_url} target="_blank" rel="noreferrer">Track {sale.tracking_number}</a> : 'Tracking pending'}{sale.label_url && <> · <a href={sale.label_url} target="_blank" rel="noreferrer">Print label</a></>}</p>
-        : !shipping ? <button type="button" className="text-button" onClick={startShipping}><Package size={16}/>Ship now</button>
+        : !shipping ? <button type="button" className="text-button attention-glow" onClick={startShipping}><Package size={16}/>Ship now</button>
         : needsParcel ? <form className="form-stack" onSubmit={getRatesWithParcel}>
             <p className="field-note">This listing predates saved package sizes — enter it once here.</p>
             <div className="form-row">
@@ -2036,7 +2036,13 @@ export default function App() {
     : collectionFilter === 'saved' ? items.filter(item => favoriteIds.includes(item.id)) : items;
   const filtered = eligible.filter(item => (category === 'All items' || item.category === category) && listingMatches(item, query));
   const collectionItems = workspace === 'collector' && collectionFilter === 'owned' ? purchases : filtered;
-  const switchWorkspace = value => { setWorkspace(value); setSelectedId(null); setSelectedConversationId(null); setCategory('All items'); setQuery(''); setError(''); setCollectionFilter('all'); setSellerTab('active'); window.scrollTo({ top: 0 }); };
+  // What needs the member right now. The bell glows for anything actionable; Sell glows (until you are there) for seller work;
+  // the Sold and Requests tabs glow for their own work, and opening Sell lands on the tab that has something waiting.
+  const soldAttention = notifications.some(n => ['ship_pending', 'pickup_awaiting_handoff', 'refund_pending'].includes(n.kind));
+  const requestsAttention = notifications.some(n => n.kind === 'buy_request_pending');
+  const bellGlow = notifications.some(n => n.kind !== 'message');
+  const sellGlow = soldAttention || requestsAttention;
+  const switchWorkspace = value => { setWorkspace(value); setSelectedId(null); setSelectedConversationId(null); setCategory('All items'); setQuery(''); setError(''); setCollectionFilter('all'); setSellerTab(value === 'seller' ? (soldAttention ? 'sold' : requestsAttention ? 'requests' : 'active') : 'active'); window.scrollTo({ top: 0 }); };
   function auditItem(id) { setFocusAuditItemId(id); switchWorkspace('auditor'); }
   async function messageSeller(listingId) {
     if (!session) { setModal('login'); return; }
@@ -2115,12 +2121,12 @@ export default function App() {
     <header className="topbar">
       <button className="brand" onClick={() => switchWorkspace('collector')} aria-label="Credabilia home"><Brand/></button>
       <nav aria-label="Main navigation"><button className={workspace === 'collector' ? 'nav-current' : ''} onClick={() => switchWorkspace('collector')}>Discover</button><button className={workspace === 'auditor' ? 'nav-current' : ''} onClick={() => switchWorkspace('auditor')}>Community audits</button></nav>
-      <div className="account-actions"><ThemeToggle/>{session && <button className="icon-button king-credion-button" aria-label="Ask King Credion" title="Ask King Credion" onClick={() => setModal('support')}><img src="/brand/screen-face-v1/chat.webp" alt="" style={{objectFit:'contain'}}/></button>}{session && <NotificationBell notifications={notifications} onNavigate={focusNotification}/>}{session ? <><button className="avatar" aria-label="Profile and settings" title={profile?.display_name} onClick={() => setModal('profile')}>{profile?.display_name?.slice(0,1) || 'C'}</button><button className="icon-button" aria-label="Sign out" title="Sign out" onClick={signOut}><LogOut size={18}/></button></> : <button className="primary compact" onClick={() => setModal('login')} disabled={!authReady}>Sign in <ArrowUpRight size={16}/></button>}</div>
+      <div className="account-actions"><ThemeToggle/>{session && <button className="icon-button king-credion-button" aria-label="Ask King Credion" title="Ask King Credion" onClick={() => setModal('support')}><img src="/brand/screen-face-v1/chat.webp" alt="" style={{objectFit:'contain'}}/></button>}{session && <NotificationBell notifications={notifications} onNavigate={focusNotification} glow={bellGlow}/>}{session ? <><button className="avatar" aria-label="Profile and settings" title={profile?.display_name} onClick={() => setModal('profile')}>{profile?.display_name?.slice(0,1) || 'C'}</button><button className="icon-button" aria-label="Sign out" title="Sign out" onClick={signOut}><LogOut size={18}/></button></> : <button className="primary compact" onClick={() => setModal('login')} disabled={!authReady}>Sign in <ArrowUpRight size={16}/></button>}</div>
     </header>
     <div className="page-layout">
       <aside className="sidebar">
         <p className="eyebrow">YOUR WORKSPACE</p>
-        <div className="workspace-list" role="group" aria-label="Choose workspace">{WORKSPACES.map((value, index) => { const Icon = [Compass, Store, ClipboardCheck, MessageCircle][index]; const label = { collector: 'Collect', seller: 'Sell', auditor: 'Audit', messages: 'Messages' }[value]; return <button key={value} aria-pressed={workspace === value} onClick={() => switchWorkspace(value)} className={workspace === value ? 'workspace selected' : 'workspace'}><Icon size={19}/><span>{label}</span>{workspace === value && <span className="selected-dot"/>}</button>; })}</div>
+        <div className="workspace-list" role="group" aria-label="Choose workspace">{WORKSPACES.map((value, index) => { const Icon = [Compass, Store, ClipboardCheck, MessageCircle][index]; const label = { collector: 'Collect', seller: 'Sell', auditor: 'Audit', messages: 'Messages' }[value]; return <button key={value} aria-pressed={workspace === value} onClick={() => switchWorkspace(value)} className={`${workspace === value ? 'workspace selected' : 'workspace'}${value === 'seller' && sellGlow && workspace !== 'seller' ? ' attention-glow' : ''}`}><Icon size={19}/><span>{label}</span>{workspace === value && <span className="selected-dot"/>}</button>; })}</div>
         <p className="workspace-note">One account.<br/>Every side of collecting.</p>
         <div className="learning-card"><BookOpen size={23}/><h3>Build your eye.</h3><p>Look closely. Ask questions. Let the evidence guide you.</p><button onClick={() => setModal('learn')}>A guide to auditing <ArrowUpRight size={15}/></button></div>
         <div className="progress-card"><span>PARTICIPATION XP</span><strong>{profile?.xp ?? '—'} <Sparkles size={17}/></strong><p>Learning and participation.<br/>Not an expertise rating.</p></div>
@@ -2156,7 +2162,7 @@ export default function App() {
           <section className={workspace === 'collector' ? 'hero mobile-launch-hero' : 'hero'}><div className="hero-copy"><p className="eyebrow"><span className="small-line"/>{workspace === 'collector' ? 'YOUR KINGDOM. SOON IN YOUR POCKET.' : workspace === 'seller' ? 'YOUR NEXT GREAT FIND STARTS HERE' : 'OBSERVATION OVER ASSUMPTION'}</p><h1>{workspace === 'collector' ? <>The Kingdom<br/><em>is going mobile.</em></> : workspace === 'seller' ? <>Your collection.<br/><em>A new chapter.</em></> : <>Look closer.<br/><em>Share what you see.</em></>}</h1><p>{workspace === 'collector' ? 'Coming soon to the App Store and Google Play. We’ll email our registered members when the apps are ready to download. Keep discovering and collecting here in the meantime.' : workspace === 'seller' ? 'Give every piece the context it deserves. Share its story, its condition, and what you know.' : 'Help collectors make informed decisions. Review evidence, explain your reasoning, and keep learning.'}</p><img className="ai-marketplace-badge" src="/brand/ai-powered-marketplace-badge-v2.png" width="2048" height="683" alt="AI powered marketplace"/><button className="primary" onClick={workspace === 'seller' ? openCreate : () => document.getElementById('listings').scrollIntoView({ behavior: 'smooth' })}>{workspace === 'seller' ? 'Create a listing' : workspace === 'auditor' ? 'Explore the audit queue' : 'Explore the collection'}<ArrowUpRight size={18}/></button>{workspace === 'seller' && <button className="text-button" onClick={openBulkCreate}><Layers size={16}/>Bulk list items</button>}</div><div className="hero-mascot"><img key={workspace} src={HERO_IMAGES[workspace].src} width={HERO_IMAGES[workspace].width} height={HERO_IMAGES[workspace].height} alt={HERO_IMAGES[workspace].alt} fetchPriority={workspace === 'collector' ? 'high' : 'auto'} /></div></section>
           <div className="values-strip"><span><Search size={16}/>Discover the details</span><span><ClipboardCheck size={16}/>Share your perspective</span><span><BookOpen size={16}/>Keep learning</span></div>
           <section id="listings" className="listings-section"><div className="section-heading"><div><p className="eyebrow">{workspace === 'auditor' ? 'A FRESH PERSPECTIVE' : 'THE COLLECTION'}</p><h2>{workspace === 'seller' ? (sellerTab === 'sold' ? 'Sold items' : sellerTab === 'requests' ? 'Buy requests' : 'Your listings') : workspace === 'auditor' ? 'Ready for a closer look' : collectionFilter === 'owned' ? 'Items you own' : collectionFilter === 'saved' ? 'Items you saved' : 'Discover something worth keeping'}</h2></div><span className="item-count">{workspace === 'seller' && sellerTab === 'sold' ? sales.length : workspace === 'seller' && sellerTab === 'requests' ? sellerBuyRequests.length : collectionItems.length} {(workspace === 'seller' && sellerTab === 'sold' ? sales.length : workspace === 'seller' && sellerTab === 'requests' ? sellerBuyRequests.length : collectionItems.length) === 1 ? 'item' : 'items'}</span></div>
-            {workspace === 'seller' && session && <div className="categories" aria-label="Your listings"><button aria-pressed={sellerTab === 'active'} className={sellerTab === 'active' ? 'active' : ''} onClick={() => setSellerTab('active')}>Active</button><button aria-pressed={sellerTab === 'requests'} className={sellerTab === 'requests' ? 'active' : ''} onClick={() => setSellerTab('requests')}>Requests {sellerBuyRequests.length ? `(${sellerBuyRequests.length})` : ''}</button><button aria-pressed={sellerTab === 'sold'} className={sellerTab === 'sold' ? 'active' : ''} onClick={() => setSellerTab('sold')}>Sold {sales.length ? `(${sales.length})` : ''}</button></div>}
+            {workspace === 'seller' && session && <div className="categories" aria-label="Your listings"><button aria-pressed={sellerTab === 'active'} className={sellerTab === 'active' ? 'active' : ''} onClick={() => setSellerTab('active')}>Active</button><button aria-pressed={sellerTab === 'requests'} className={`${sellerTab === 'requests' ? 'active' : ''}${requestsAttention && sellerTab !== 'requests' ? ' attention-glow' : ''}`} onClick={() => setSellerTab('requests')}>Requests {sellerBuyRequests.length ? `(${sellerBuyRequests.length})` : ''}</button><button aria-pressed={sellerTab === 'sold'} className={`${sellerTab === 'sold' ? 'active' : ''}${soldAttention && sellerTab !== 'sold' ? ' attention-glow' : ''}`} onClick={() => setSellerTab('sold')}>Sold {sales.length ? `(${sales.length})` : ''}</button></div>}
             {workspace === 'seller' && sellerTab === 'active' && session && <SellerStorefrontBanner slug={profile?.slug} onSetup={() => setModal('profile')}/>}
             {workspace === 'collector' && session && <div className="categories" aria-label="My collection"><button aria-pressed={collectionFilter === 'all'} className={collectionFilter === 'all' ? 'active' : ''} onClick={() => setCollectionFilter('all')}>All items</button><button aria-pressed={collectionFilter === 'saved'} className={collectionFilter === 'saved' ? 'active' : ''} onClick={() => setCollectionFilter('saved')}><Heart size={14}/> Saved</button><button aria-pressed={collectionFilter === 'owned'} className={collectionFilter === 'owned' ? 'active' : ''} onClick={() => setCollectionFilter('owned')}>Owned</button></div>}
             {workspace === 'seller' && sellerTab === 'sold' ? (!sales.length ? <div className="empty-state"><Layers size={34}/><h3>Nothing sold yet.</h3><p>Sales will show up here, ready to ship.</p></div>
@@ -2173,7 +2179,7 @@ export default function App() {
         <footer><span>© {new Date().getFullYear()} Credabilia LLC · 732 S 6th St, Ste 7531, Las Vegas, NV 89101</span><img className="footer-tagline" src="/brand/the-memorabilia-kingdom-gold-quill-v1-optimized.webp" alt="The Memorabilia Kingdom" width="2172" height="724"/><span className="footer-legal"><a href="tel:+18667500255">1 (866) 750-0255</a><a href="/help">Help</a><a href="/terms">Terms</a><a href="/privacy">Privacy</a></span></footer>
       </main>
     </div>
-    <BottomNav session={session} workspace={workspace} onSwitchWorkspace={switchWorkspace} profile={profile} authReady={authReady} onProfile={() => setModal('profile')} onSignIn={() => setModal('login')}/>
+    <BottomNav sellGlow={sellGlow} session={session} workspace={workspace} onSwitchWorkspace={switchWorkspace} profile={profile} authReady={authReady} onProfile={() => setModal('profile')} onSignIn={() => setModal('login')}/>
     {modal === 'login' && <Modal title="Welcome to Credabilia" onClose={() => setModal(null)}><p className="muted">One account to collect, sell, and share your perspective.</p>{service.mode === 'demo' ? <><div className="evidence-box"><h3>Try the local preview</h3><p>These two separate practice accounts stay in this browser. Each can switch between all three workspaces. Real sign-in is available when the Supabase project is connected.</p></div><div className="form-stack">{DEMO_ACCOUNTS.map(account => <button key={account.id} className="primary full-width" onClick={() => signIn(account.id)} disabled={busy}>{busy ? 'Opening…' : `Continue as ${account.display_name}`}<ArrowRight size={18}/></button>)}</div></> : <><button className="primary full-width" onClick={() => signIn()} disabled={busy}>{busy ? 'Opening…' : 'Continue with Google'}<ArrowRight size={18}/></button><p className="field-note">or</p><EmailLogin/><p className="field-note">By continuing, you agree to Credabilia's <a href="/terms" target="_blank" rel="noreferrer">Terms of Service</a> and <a href="/privacy" target="_blank" rel="noreferrer">Privacy Policy</a>.</p></>}<p className="field-note">Your sign-in method does not determine your workspace. You can switch between all three after signing in.</p></Modal>}
     {modal === 'checkout-address' && (selected || pendingBuy) && <CheckoutAddress item={selected || pendingBuy} profile={profile} busy={busy} onClose={() => setModal(null)} onConfirm={(address, applyCreditCents, wantInsurance, fulfillmentMethod) => { const id = selected?.id || pendingBuy?.listing_id; setModal(null); buyNow(id, address, applyCreditCents, wantInsurance, fulfillmentMethod); }}/>}
     {modal === 'create' && <CreateListing onClose={() => setModal(null)} onCreated={(id,fit) => { setModal(null); setNotice(fit ? `Your listing was saved, but it needs a quick review before buyers can see it — ${fit.reason || "it didn't clearly look like a collectible."}` : 'Your listing is published.'); setSelectedId(id); refresh(); }}/>}

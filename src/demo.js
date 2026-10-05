@@ -386,6 +386,11 @@ export function createDemoService(storage = window.localStorage) {
         if(refund?.buyer_id===state.userId && refund.status==='partial_offered') notifications.push({kind:'partial_offered',role:'buyer',purchase_id:p.id,listing_id:item.id,title:item.title,message:`Partial refund offered for "${item.title}"`,conversation_id:null});
         if(refund?.buyer_id===state.userId && refund.status==='return_required' && !refund.return_shipped_at) notifications.push({kind:'return_required',role:'buyer',purchase_id:p.id,listing_id:item.id,title:item.title,message:`Ship "${item.title}" back to get your refund`,conversation_id:null});
       }
+      for(const p of state.purchases) {
+        if(p.seller_id!==state.userId || p.fulfillment_method==='pickup' || p.escrow_status!=='held' || p.shipped_at) continue;
+        const item=state.listings.find(x=>x.id===p.listing_id);
+        if(item) notifications.push({kind:'ship_pending',role:'seller',purchase_id:p.id,listing_id:item.id,title:item.title,message:`Ship "${item.title}" — your buyer is waiting`,conversation_id:null});
+      }
       for(const c of state.conversations) {
         const item=state.listings.find(x=>x.id===c.listing_id);
         if(!item) continue;
