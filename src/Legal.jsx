@@ -1,20 +1,51 @@
 import React from 'react';
+import { ArrowLeft } from 'lucide-react';
 import { Brand } from './Brand.jsx';
 
 const LAST_UPDATED = 'October 5, 2026';
 const TERMS_UPDATED = 'October 5, 2026';
 
-function LegalShell({ title, children, updated = LAST_UPDATED }) {
+const LEGAL_PATHS = ['/terms', '/privacy', '/help'];
+const RETURN_KEY = 'credabilia-legal-return';
+
+// Where "Back to Credabilia" goes: the page the visitor was on before they opened Terms, Privacy or Help (remembered for the visit, so it
+// still works after they hop between those three pages), or the home page.
+function returnTarget() {
+  try {
+    const referrer = document.referrer ? new URL(document.referrer) : null;
+    if (referrer && referrer.origin === window.location.origin && !LEGAL_PATHS.includes(referrer.pathname)) {
+      sessionStorage.setItem(RETURN_KEY, referrer.pathname + referrer.search);
+    }
+    return sessionStorage.getItem(RETURN_KEY) || '/';
+  } catch { return '/'; }
+}
+
+// The bar at the top (stays in view while scrolling) and bottom of Terms, Privacy and Help: a clear way back, and a way across to the
+// other two pages.
+export function LegalNav({ current, footer = false }) {
+  const back = returnTarget();
+  const pages = [['/terms', 'Terms', 'terms'], ['/privacy', 'Privacy', 'privacy'], ['/help', 'Help', 'help']];
+  return <nav className={`legal-nav${footer ? ' legal-nav-footer' : ''}`} aria-label="Credabilia pages">
+    <a className="legal-back-button" href={back}><ArrowLeft size={16}/>Back to Credabilia</a>
+    <span className="legal-nav-links">{pages.map(([href, label, key]) => key === current
+      ? <span key={key} aria-current="page">{label}</span>
+      : <a key={key} href={href}>{label}</a>)}</span>
+  </nav>;
+}
+
+function LegalShell({ title, children, updated = LAST_UPDATED, current }) {
   return <div className="legal-page">
+    <LegalNav current={current}/>
     <a className="legal-back brand" href="/"><Brand/></a>
     <h1>{title}</h1>
     <p className="legal-updated">Last updated: {updated}</p>
     {children}
+    <LegalNav current={current} footer/>
   </div>;
 }
 
 export function TermsPage() {
-  return <LegalShell title="Terms of Service" updated={TERMS_UPDATED}>
+  return <LegalShell title="Terms of Service" updated={TERMS_UPDATED} current="terms">
     <section>
       <p>These Terms of Service ("Terms") govern your access to and use of Credabilia, including the websites located at credabilia.com and credabilia.app and any related apps (together, the "Service"), operated by Credabilia LLC ("Credabilia," "we," "us," or "our"). By creating an account or using the Service, you agree to these Terms. If you do not agree, do not use the Service.</p>
     </section>
@@ -73,7 +104,7 @@ export function TermsPage() {
     <p>Credabilia may award Credion Coins (for example, through community participation rewards) that can be applied toward a future purchase's price, up to the limits shown at checkout. Credion Coins have no cash value, are non-transferable, and may expire or be forfeited if your account is closed or terminated.</p>
 
     <h2>12. Prohibited conduct</h2>
-    <p>You agree not to: list stolen, counterfeit, or illegal items; submit false certificate information or fraudulent community assessments; harass, threaten, or impersonate another user; attempt to complete a transaction outside the Service to avoid fees; interfere with or attempt to circumvent the Service's security; or use the Service in a way that violates any applicable law.</p>
+    <p>You agree not to: list stolen, counterfeit, or illegal items; submit false certificate information or fraudulent community assessments; harass, threaten, or impersonate another user; attempt to complete a transaction outside the Service to avoid fees; bid on your own listing, use other accounts or people to drive up a bid, or place bids you do not intend to pay for; open another account to get around a suspension or ban; interfere with or attempt to circumvent the Service's security; or use the Service in a way that violates any applicable law.</p>
 
     <h2>13. Content you submit</h2>
     <p>You keep ownership of the photos, descriptions, messages, and other content you submit. By submitting it, you grant Credabilia a non-exclusive, worldwide, royalty-free license to host, display, reproduce, and distribute that content as needed to operate and promote the Service (for example, showing your listing photos to potential buyers). You are solely responsible for content you submit and for having the rights to submit it.</p>
@@ -107,7 +138,7 @@ export function TermsPage() {
 }
 
 export function PrivacyPage() {
-  return <LegalShell title="Privacy Policy">
+  return <LegalShell title="Privacy Policy" current="privacy">
     <section>
       <p>This Privacy Policy explains what information Credabilia LLC ("Credabilia," "we," "us," or "our") collects through credabilia.com, credabilia.app, and related apps (the "Service"), how we use it, and who we share it with. It's part of our <a href="/terms">Terms of Service</a>.</p>
     </section>
@@ -118,13 +149,13 @@ export function PrivacyPage() {
     <h3>Marketplace and transaction information</h3>
     <p>Listings you create (title, description, category, photos, price, certificate details, package dimensions); your purchase and sales history; the shipping address you provide for an order (name, street address, city, state, ZIP, country, and phone number if you provide one); and refund, return, and shipment tracking details tied to your orders.</p>
     <h3>Messages and support</h3>
-    <p>Messages you send to another user about an order, and messages you send to our AI support assistant, King Credion, including by phone if you call our support line.</p>
+    <p>Messages you send to another user about an order, and messages you send to our AI support assistant, King Credion, including by phone if you call our support line. If you use "Report a problem", we also record the page you were on and your browser type to help us find the problem.</p>
     <h3>Mobile number and notification choices</h3>
     <p>If you opt in to text-message alerts, we collect your mobile number, the time you opted in, and your notification preferences. Adding a mobile number is optional, and alerts stay off unless you turn them on.</p>
     <h3>Community activity</h3>
     <p>Assessments you submit on other members' listings, and your trivia responses and participation/learning XP.</p>
     <h3>Information we don't collect</h3>
-    <p>We do not ask for or store your Social Security number, government ID, date of birth, or full payment card number. Payment card details are entered directly with Stripe, our payment processor. To help prevent fraud, we keep the opaque identifiers Stripe assigns to the payment cards and bank accounts used on your account (these are not card or account numbers). If an account is banned, we may use those identifiers to recognise the same card or bank account on another account.</p>
+    <p>We do not ask for or store your Social Security number, government ID, date of birth, or full payment card number. Payment card details are entered directly with Stripe, our payment processor, including when you save a card so you can bid in auctions (a saved card is not charged). To help prevent fraud, we keep the opaque identifiers Stripe assigns to the payment cards and bank accounts used on your account (these are not card or account numbers). If an account is banned, we may use those identifiers to recognise the same card or bank account on another account.</p>
 
     <h2>2. How we use this information</h2>
     <ul>

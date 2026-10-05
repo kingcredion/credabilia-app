@@ -163,3 +163,13 @@
 .shipping-choice .shipping-option input{flex:none;width:auto;margin:0}
 .shipping-option-text{display:flex;flex-direction:column;flex:1}.shipping-option-text small{opacity:.75;font-weight:500}
 .shipping-option-price{font-weight:700}
+
+/* Terms, Privacy and Help: a clear way back to the site, and across to the other two pages */
+.legal-nav{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;position:sticky;top:0;z-index:5;margin:-8px -8px 12px;padding:10px 12px;background:var(--surface);border-bottom:1px solid var(--border);border-radius:16px 16px 0 0}
+.legal-nav-footer{position:static;margin:32px -8px -8px;border-bottom:0;border-top:1px solid var(--border);border-radius:0 0 16px 16px}
+.legal-back-button{display:inline-flex;align-items:center;gap:8px;min-height:40px;padding:0 16px;border-radius:999px;border:1px solid var(--border);font-weight:700;text-decoration:none}
+.legal-back-button:hover{border-color:var(--brand-teal)}
+.legal-nav-links{display:flex;align-items:center;gap:16px;font-size:.95rem}
+.legal-nav-links [aria-current=page]{font-weight:700;opacity:.7}
+/* The page body is normally its own scroll container, which stops a sticky bar from sticking; these three pages scroll with the window. */
+body:has(.legal-page){overflow:visible}

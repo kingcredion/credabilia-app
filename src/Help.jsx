@@ -1,8 +1,10 @@
 import React from 'react';
 import { Brand } from './Brand.jsx';
+import { LegalNav } from './Legal.jsx';
 
 export function HelpPage() {
   return <div className="legal-page">
+    <LegalNav current="help"/>
     <a className="legal-back brand" href="/"><Brand/></a>
     <h1>Help &amp; Contact</h1>
     <p className="legal-updated">We're here to help, day or night.</p>
@@ -55,5 +57,6 @@ export function HelpPage() {
     <p>We are a new site, so we want to hear about it. Open the chat with King Credion (chat icon in the header after signing in) and choose "Report a problem". It goes straight to the Credabilia team.</p>
 
     <p className="field-note">Didn't find your answer? Call, email, or ask King Credion above — a real question always gets a real answer.</p>
+    <LegalNav current="help" footer/>
   </div>;
 }
