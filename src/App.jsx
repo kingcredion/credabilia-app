@@ -826,6 +826,7 @@ function ShippingAddressFields({ value, onChange, disabled, onVerifiedChange }) 
   useEffect(() => { onVerifiedChange?.(resolved); }, [resolved]);
   const set = key => event => { onChange({ ...value, [key]: event.target.value }); setVerification(null); setResolved(false); };
   const canVerify = REQUIRED_ADDRESS_FIELDS.every(key => value[key]?.trim());
+  const needsVerify = canVerify && !resolved && !verifying && !verification;
   const differs = verification && REQUIRED_ADDRESS_FIELDS.concat('street2').some(key => (verification.suggested[key] || '').trim().toLowerCase() !== (value[key] || '').trim().toLowerCase());
   async function verify() {
     setVerifying(true); setVerifyError(''); setVerification(null); setResolved(false);
@@ -855,7 +856,9 @@ function ShippingAddressFields({ value, onChange, disabled, onVerifiedChange }) 
       <label>Country<input value={value.country || ''} onChange={set('country')} maxLength={2} placeholder="US" required disabled={disabled}/></label>
       <label>Phone <span className="optional">optional</span><input value={value.phone || ''} onChange={set('phone')} maxLength={30} disabled={disabled}/></label>
     </div>
-    <button type="button" className="text-button" onClick={verify} disabled={disabled || verifying || !canVerify}><ShieldCheck size={16}/>{verifying ? 'Checking…' : 'Verify address'}</button>
+    {/* The step buyers missed in testing: shipping options and the Continue button stay locked until the address is verified, so once the
+        form is complete this button glows and says so. */}
+    <button type="button" className={`verify-address-button${needsVerify ? ' needs-attention' : ''}${resolved ? ' done' : ''}`} onClick={verify} disabled={disabled || verifying || !canVerify}><ShieldCheck size={18}/>{verifying ? 'Checking…' : resolved ? 'Address verified' : 'Verify address'}</button>
     {verifyError && <p role="alert" className="error">{verifyError}</p>}
     {verification && !differs && <p className="field-note bg-removed-ok">{verification.is_valid ? '✓ Address verified.' : 'Checked — no standardized match found. Double-check for typos, or continue if you\'re sure it\'s correct.'}</p>}
     {resolved && !verification && <p className="field-note bg-removed-ok">✓ Ready to continue.</p>}
@@ -867,7 +870,7 @@ function ShippingAddressFields({ value, onChange, disabled, onVerifiedChange }) 
         <button type="button" className="text-button" disabled={disabled} onClick={keepAsEntered}>Keep as entered</button>
       </div>
     </div>}
-    {!resolved && !verifying && <p className="field-note">Verify your address above before continuing.</p>}
+    {!resolved && !verifying && !verification && <p className={`verify-callout${needsVerify ? ' ready' : ''}`} role="status">{needsVerify ? 'Next step: tap Verify address. We check it with the carrier, then show your shipping options and prices.' : 'Fill in your address, then tap Verify address to see shipping options and prices.'}</p>}
   </div>;
 }
 

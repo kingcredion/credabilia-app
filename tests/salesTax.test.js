@@ -37,7 +37,7 @@ function harness({tax,customers=[],sessionError=null}) {
     auth:{getUser:async()=>({data:{user:{id:'buyer-1',email:'buyer@example.test'}},error:null})},
     rpc:async name=>{
       if(name==='shipping_quote_inputs') return {data:{seller_id:'seller-1',status:'active',title:'Signed Ball',price_cents:12000,free_shipping:false,is_king:false,seller_shipping_address:{name:'Sam',street1:'1 Seller Way',city:'Austin',state:'TX',zip:'78701',country:'US'},parcel:{weight_oz:12,length_in:10,width_in:8,height_in:4}},error:null};
-      if(name==='reserve_listing_checkout') return {data:{checkout_session_id:CHECKOUT,price_cents:12000,title:'Signed Ball',applied_credit_cents:0,free_shipping:false,seller_shipping_address:null,want_insurance:false,parcel:null},error:null};
+      if(name==='reserve_listing_checkout') return {data:{checkout_session_id:CHECKOUT,price_cents:12000,title:'Signed Ball',applied_credit_cents:0,free_shipping:false,seller_shipping_address:null,want_insurance:false},error:null};
       return {data:null,error:null};
     },
   });

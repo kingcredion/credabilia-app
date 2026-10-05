@@ -186,3 +186,13 @@ body:has(.legal-page){overflow:visible}
 .lock-overlay.large span{font-size:.95rem;padding:10px 16px;max-width:min(88%,420px)}
 .lock-note{display:flex;align-items:flex-start;gap:8px}
 .lock-banner{display:flex;flex-direction:column;gap:10px;margin-bottom:16px}
+
+/* Verify address: shipping options and Continue stay locked until it is done, so it is a real button that glows once the form is complete. */
+.verify-address-button{display:inline-flex;align-items:center;justify-content:center;gap:10px;min-height:48px;padding:12px 20px;border-radius:8px;border:2px solid var(--green);background:var(--surface);color:var(--green);font-weight:700;font-size:15px;width:100%}
+.verify-address-button.needs-attention{background:var(--green);color:var(--on-brand);animation:verify-glow 1.8s ease-in-out infinite}
+.verify-address-button.done{background:var(--surface);color:var(--green);border-color:var(--brand-teal);animation:none}
+.verify-address-button:disabled:not(.done){opacity:.55;border-style:dashed}
+.verify-callout{margin:0;padding:10px 12px;border-radius:8px;background:var(--surface);border:1px dashed var(--border);font-size:13.5px;line-height:1.45}
+.verify-callout.ready{border:1px solid var(--green);font-weight:600}
+@keyframes verify-glow{0%,100%{box-shadow:0 0 0 0 color-mix(in srgb,var(--brand-teal) 55%,transparent),0 0 10px 1px color-mix(in srgb,var(--brand-teal) 35%,transparent)}50%{box-shadow:0 0 0 7px color-mix(in srgb,var(--brand-teal) 0%,transparent),0 0 22px 5px color-mix(in srgb,var(--brand-teal) 55%,transparent)}}
+@media (prefers-reduced-motion:reduce){.verify-address-button.needs-attention{animation:none;box-shadow:0 0 0 4px color-mix(in srgb,var(--brand-teal) 50%,transparent)}}

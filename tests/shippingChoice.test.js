@@ -121,7 +121,7 @@ function checkoutHarness({inputs=INPUTS,rateSet,reserveFreeShipping=false}={}) {
       rpcCalls.push([name,args]);
       if(name==='shipping_quote_inputs') return {data:inputs,error:null};
       if(name==='listing_is_king_collection') return {data:inputs.is_king,error:null};
-      if(name==='reserve_listing_checkout') return {data:{checkout_session_id:CHECKOUT,price_cents:inputs.price_cents,title:inputs.title,applied_credit_cents:0,free_shipping:reserveFreeShipping||inputs.free_shipping,seller_shipping_address:inputs.seller_shipping_address,want_insurance:false,parcel:inputs.parcel},error:null};
+      if(name==='reserve_listing_checkout') return {data:{checkout_session_id:CHECKOUT,price_cents:inputs.price_cents,title:inputs.title,applied_credit_cents:0,free_shipping:reserveFreeShipping||inputs.free_shipping,seller_shipping_address:inputs.seller_shipping_address,want_insurance:false},error:null};
       return {data:null,error:null};
     },
   });

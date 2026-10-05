@@ -67,13 +67,16 @@ export function createHandler({createClient,env,fetchImpl=fetch}) {
 
       const {data:reservation,error:reserveError}=await client.rpc('reserve_listing_checkout',{p_listing_id:listingId,p_shipping_address:shippingAddress,p_apply_credit_cents:applyCreditCents,p_want_insurance:wantInsurance,p_fulfillment_method:fulfillmentMethod});
       if(reserveError) return reply({error:reserveError.message},400);
-      const {checkout_session_id:checkoutSessionId,price_cents:priceCents,title,applied_credit_cents:appliedCreditCents,free_shipping:freeShipping,seller_shipping_address:sellerAddress,want_insurance:insuranceRequested,parcel}=reservation;
+      const {checkout_session_id:checkoutSessionId,price_cents:priceCents,title,applied_credit_cents:appliedCreditCents,free_shipping:freeShipping,seller_shipping_address:sellerAddress,want_insurance:insuranceRequested}=reservation;
 
       // Real shipping (and, if requested, insurance) cost for the service the buyer picked, marked up 10% except for King's Collection
       // items where it is passed through at the carrier rate (see markup.js). Free shipping is always the cheapest service, which the
       // seller pays for. No quote (legacy listing without a parcel, or Shippo unreachable) just means no shipping cost this time.
       let shippingOnlyCents=0, insuranceCostCents=0, chosenService=null;
-      if(fulfillmentMethod==='ship' && parcel && quote?.options.length) {
+      // A shipped order always has a quote here (the checks above refuse the purchase otherwise), so this must not also depend on anything the
+      // reservation returns: it once required reserve_listing_checkout to hand back the parcel, which a later migration stopped doing, and every
+      // shipped order was silently charged $0 shipping.
+      if(fulfillmentMethod==='ship' && quote?.options.length) {
         const picked=freeShipping ? quote.options[0] : (findChoice(quote.options,shippingChoice) || quote.options[0]);
         const price=buyerPrice(picked,markup);
         shippingOnlyCents=price.shipping_cents;
