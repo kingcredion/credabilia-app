@@ -45,14 +45,32 @@ export function MediaPicker({service,media,onChange,busy,onBusy,onError}) {
   </fieldset>;
 }
 
-export function PhotoGallery({media=[],kind='item',title}) {
+function GalleryPhoto({asset,service,title,kind,index}) {
+  const [url,setUrl]=useState(asset.url);
+  const [failed,setFailed]=useState(!asset.url);
+  const [retrying,setRetrying]=useState(false);
+  async function retry() {
+    setRetrying(true);
+    try {
+      const [fresh]=await service.signMediaUrls([asset]);
+      if (!fresh?.url) throw new Error('Photo unavailable');
+      setUrl(fresh.url);
+      setFailed(false);
+    } catch { setFailed(true); }
+    finally { setRetrying(false); }
+  }
+  if (failed) return <div role="status"><p>This photo couldn’t load.</p>{service?.signMediaUrls && <button type="button" className="text-button" disabled={retrying} onClick={retry}>{retrying ? 'Retrying…' : 'Retry photo'}</button>}</div>;
+  return <a href={url} target="_blank" rel="noopener noreferrer"><img className="gallery-main" src={url} decoding="async" fetchPriority={kind==='item' ? 'high' : 'auto'} loading={kind==='item' ? 'eager' : 'lazy'} onError={()=>setFailed(true)} alt={`${title} · ${kind} photo ${index+1}`}/></a>;
+}
+
+export function PhotoGallery({media=[],kind='item',title,service}) {
   const [index,setIndex]=useState(0);
   const photos=media.filter(x=>x.kind===kind);
   if(!photos.length) return null;
   const current=photos[Math.min(index,photos.length-1)];
   return <section className="photo-gallery" aria-label={KIND_LABELS[kind] || 'Item photos'}>
     {kind!=='item' && <h3>{KIND_LABELS[kind]}</h3>}
-    {current.url ? <a href={current.url} target="_blank" rel="noopener noreferrer"><img className="gallery-main" src={current.url} alt={`${title} · ${kind} photo ${index+1}`}/></a> : <p>Photo unavailable. Refresh to try again.</p>}
-    <div className="photo-thumbnails">{photos.map((asset,i)=><button key={asset.path} type="button" onClick={()=>setIndex(i)} aria-pressed={i===index} aria-label={`Show ${kind} photo ${i+1}`}>{asset.url && <img src={asset.url} alt=""/>}</button>)}</div>
+    <GalleryPhoto key={current.path+current.url} asset={current} service={service} title={title} kind={kind} index={Math.min(index,photos.length-1)}/>
+    <div className="photo-thumbnails">{photos.map((asset,i)=><button key={asset.path} type="button" onClick={()=>setIndex(i)} aria-pressed={i===index} aria-label={`Show ${kind} photo ${i+1}`}>{asset.url && <img src={asset.url} loading="lazy" decoding="async" alt=""/>}</button>)}</div>
   </section>;
 }
