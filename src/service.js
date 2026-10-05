@@ -4,6 +4,7 @@ import { createClient } from '@supabase/supabase-js';
 import { createDemoService } from './demo.js';
 import { listingInput, auditInput } from './domain.js';
 import { pushSupported, currentPushSubscription, enablePush, disablePush } from './push.js';
+import { NATIVE_REDIRECT, isNativeApp, parseAuthRedirect, cleanEmailCode, EMAIL_CODE_LENGTH } from './nativeAuth.js';
 
 const url = import.meta.env.VITE_SUPABASE_URL?.trim();
 const key = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY?.trim();
@@ -14,6 +15,18 @@ export function makeService() {
   if (demo) return createDemoService();
   if (!url || !key) return { mode: 'unconfigured' };
   const client = createClient(url, key, { auth: { flowType: 'pkce', detectSessionInUrl: true, persistSession: true, autoRefreshToken: true } });
+  // In the apps, the system browser hands the finished Google sign-in (or an emailed link) back through NATIVE_REDIRECT.
+  if (isNativeApp()) {
+    import('@capacitor/app').then(({ App }) => App.addListener('appUrlOpen', async ({ url: link }) => {
+      const result = parseAuthRedirect(link);
+      if (!result) return;
+      try { const { Browser } = await import('@capacitor/browser'); await Browser.close(); } catch { /* nothing open */ }
+      try {
+        if (result.code) { const { error } = await client.auth.exchangeCodeForSession(result.code); if (error) throw error; }
+        else if (result.error) throw new Error(result.error);
+      } catch (err) { window.dispatchEvent(new CustomEvent('credabilia:auth-error', { detail: err.message })); }
+    })).catch(() => {});
+  }
   async function signMedia(items) {
     const paths=items.flatMap(item=>(item.media || []).map(asset=>asset.path));
     if(!paths.length) return items;
@@ -37,9 +50,22 @@ export function makeService() {
       return session;
     },
     onAuthChange(fn) { const { data } = client.auth.onAuthStateChange((_event, session) => fn(session)); return () => data.subscription.unsubscribe(); },
-    async signIn() { unwrap(await client.auth.signInWithOAuth({ provider: 'google', options: { redirectTo: `${window.location.origin}/auth/callback` } })); },
+    // On the phone, Google's page opens in the system browser (it refuses embedded web views) and returns through NATIVE_REDIRECT, which
+    // listenForNativeSignIn() finishes below.
+    async signIn() {
+      if (!isNativeApp()) { unwrap(await client.auth.signInWithOAuth({ provider: 'google', options: { redirectTo: `${window.location.origin}/auth/callback` } })); return; }
+      const { Browser } = await import('@capacitor/browser');
+      const data = unwrap(await client.auth.signInWithOAuth({ provider: 'google', options: { redirectTo: NATIVE_REDIRECT, skipBrowserRedirect: true } }));
+      await Browser.open({ url: data.url });
+    },
+    // The email carries both a link and an 8-digit code. The code works everywhere, including the apps, where a link opens the browser instead.
     async signInWithEmail(email) {
-      unwrap(await client.auth.signInWithOtp({ email: email.trim(), options: { emailRedirectTo: `${window.location.origin}/auth/callback` } }));
+      unwrap(await client.auth.signInWithOtp({ email: email.trim(), options: { emailRedirectTo: isNativeApp() ? NATIVE_REDIRECT : `${window.location.origin}/auth/callback` } }));
+    },
+    async verifyEmailCode(email, code) {
+      const token = cleanEmailCode(code);
+      if (token.length !== EMAIL_CODE_LENGTH) throw new Error(`Enter the ${EMAIL_CODE_LENGTH}-digit code from your email.`);
+      unwrap(await client.auth.verifyOtp({ email: email.trim(), token, type: 'email' }));
     },
     // Signing out here ends this browser's session only; the member's other devices stay signed in.
     async signOut() { const { error } = await client.auth.signOut({ scope: 'local' }); if (error) throw error; },

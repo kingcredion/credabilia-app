@@ -13,6 +13,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { ArrowUpRight, ArrowRight, Search, ShieldCheck, Plus, Store, Compass, ClipboardCheck, LogOut, X, Check, BookOpen, Sparkles, Layers, ArrowLeft, AlertCircle, Heart, Settings, RefreshCw, Package, Bell, MessageCircle, Sun, Moon, Monitor, Star, Flag, User, Crown, Share2, Copy, Lock } from 'lucide-react';
 import { DEMO_ACCOUNTS } from './demo.js';
 import { makeService } from './service.js';
+import { isNativeApp, EMAIL_CODE_LENGTH } from './nativeAuth.js';
 const Storefront = React.lazy(() => import('./Storefront.jsx').then(module => ({ default: module.Storefront })));
 const TermsPage = React.lazy(() => import('./Legal.jsx').then(module => ({ default: module.TermsPage })));
 const PrivacyPage = React.lazy(() => import('./Legal.jsx').then(module => ({ default: module.PrivacyPage })));
@@ -1956,20 +1957,35 @@ function AuditQueue({ items, session, profile, onNeedLogin, onAudited, focusItem
 }
 
 function EmailLogin() {
-  const [busy, setBusy] = useState(false), [sent, setSent] = useState(false), [error, setError] = useState('');
-  async function submit(event) {
-    event.preventDefault(); if (busy) return;
-    const email = new FormData(event.currentTarget).get('email');
+  const [busy, setBusy] = useState(false), [sentTo, setSentTo] = useState(''), [error, setError] = useState(''), [resent, setResent] = useState(false);
+  async function send(email) {
     setBusy(true); setError('');
-    try { await service.signInWithEmail(email); setSent(true); }
-    catch (err) { setError(err.message); }
+    try { await service.signInWithEmail(email); setSentTo(email.trim()); return true; }
+    catch (err) { setError(err.message); return false; }
     finally { setBusy(false); }
   }
-  return sent ? <div role="status" className="evidence-box"><h3>Check your inbox</h3><p>Open your sign-in link in this browser to continue. It also creates your account if you're new.</p><p>You can close this window while you check your email.</p></div> : <form className="form-stack" onSubmit={submit}>
-    <label>Email address<input name="email" type="email" autoComplete="email" required placeholder="you@example.com" autoFocus /></label>
-    <p className="field-note">We'll email you a secure sign-in link. No password to remember.</p>
+  function submit(event) { event.preventDefault(); if (!busy) send(new FormData(event.currentTarget).get('email')); }
+  async function verify(event) {
+    event.preventDefault(); if (busy) return;
+    const code = new FormData(event.currentTarget).get('code');
+    setBusy(true); setError('');
+    try { await service.verifyEmailCode(sentTo, code); }
+    catch (err) { setError(/expired|invalid/i.test(err.message) ? 'That code is not right or has expired. Check the newest email, or send a new code.' : err.message); setBusy(false); }
+  }
+  async function resend() { setResent(false); if (await send(sentTo)) setResent(true); }
+  return sentTo ? <form className="form-stack" onSubmit={verify}>
+    <div role="status" className="evidence-box"><h3>Check your inbox</h3><p>We emailed an {EMAIL_CODE_LENGTH}-digit code to {sentTo}. Enter it below to sign in. It also creates your account if you're new.</p>{!isNativeApp() && <p>You can also open the sign-in link in the email in this browser.</p>}</div>
+    <label>Sign-in code<input name="code" inputMode="numeric" autoComplete="one-time-code" pattern="[0-9 \-]*" maxLength={EMAIL_CODE_LENGTH + 2} required placeholder="12345678" autoFocus /></label>
     {error && <p className="error" role="alert">{error}</p>}
-    <button className="primary full-width" disabled={busy}>{busy ? 'Sending link…' : 'Continue with email'}<ArrowRight size={18}/></button>
+    {resent && !error && <p className="field-note" role="status">A new code is on its way. Only the newest one works.</p>}
+    <button className="primary full-width" disabled={busy}>{busy ? 'Checking…' : 'Sign in'}<ArrowRight size={18}/></button>
+    <button type="button" className="text-button" onClick={resend} disabled={busy}>Send a new code</button>
+    <button type="button" className="text-button" onClick={() => { setSentTo(''); setError(''); setResent(false); }} disabled={busy}>Use a different email</button>
+  </form> : <form className="form-stack" onSubmit={submit}>
+    <label>Email address<input name="email" type="email" autoComplete="email" required placeholder="you@example.com" autoFocus /></label>
+    <p className="field-note">We'll email you a secure sign-in code. No password to remember.</p>
+    {error && <p className="error" role="alert">{error}</p>}
+    <button className="primary full-width" disabled={busy}>{busy ? 'Sending code…' : 'Continue with email'}<ArrowRight size={18}/></button>
   </form>;
 }
 
@@ -2011,7 +2027,10 @@ export default function App() {
     const params = new URLSearchParams(window.location.search);
     const authError = params.get('error_description');
     if (authError) { setError(authError); window.history.replaceState({}, '', '/'); }
-    return () => { alive = false; unsubscribe(); };
+    // The apps finish Google sign-in in a separate step (see service.js); a failure there arrives as an event.
+    const onNativeAuthError = event => { if (alive) setError(event.detail || 'Sign-in did not finish. Please try again.'); };
+    window.addEventListener('credabilia:auth-error', onNativeAuthError);
+    return () => { alive = false; unsubscribe(); window.removeEventListener('credabilia:auth-error', onNativeAuthError); };
   }, []);
   useEffect(() => {
     if (service.mode === 'unconfigured' || storefrontSlug || legalPage) return;

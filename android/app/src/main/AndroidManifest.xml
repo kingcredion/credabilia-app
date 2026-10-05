@@ -22,6 +22,14 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
 
+            <!-- Sign-in return link: the system browser opens com.credabilia.app://auth/callback to hand a finished Google sign-in back to the app -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="com.credabilia.app" android:host="auth" />
+            </intent-filter>
+
         </activity>
 
         <provider
