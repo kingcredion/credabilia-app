@@ -7,9 +7,12 @@ import Stripe from 'npm:stripe@17';
 export function createHandler({createClient,env}) {
   const cors={'Access-Control-Allow-Origin':'*','Access-Control-Allow-Headers':'stripe-signature, content-type','Access-Control-Allow-Methods':'POST, OPTIONS'};
   const reply=(body,status=200)=>Response.json(body,{status,headers:cors});
+  // Best-effort email to the operator (kingcredion@credabilia.com) when money moved but we could not record it. Never throws.
+  const alertOperator=async(client,props)=>{try{await client.rpc('notify_operator_alert',{p_event:'Admin Alert: Payment Problem',p_properties:props});}catch{}};
   return async request=>{
     if(request.method==='OPTIONS') return new Response(null,{status:204,headers:cors});
     if(request.method!=='POST') return reply({error:'Use POST.'},405);
+    let client,object,event;
     try {
       if(!env('STRIPE_SECRET_KEY') || !env('STRIPE_WEBHOOK_SECRET')) return reply({error:'Webhook is not connected yet.'},503);
       const signature=request.headers.get('Stripe-Signature');
@@ -21,15 +24,14 @@ export function createHandler({createClient,env}) {
       // and connected-account-scope account.updated events) -- each has its own signing
       // secret, so STRIPE_WEBHOOK_SECRET may be a comma-separated list; try each in turn.
       const secrets=(env('STRIPE_WEBHOOK_SECRET')||'').split(',').map(value=>value.trim()).filter(Boolean);
-      let event;
       for(const secret of secrets) {
         try { event=await stripe.webhooks.constructEventAsync(body,signature,secret,undefined,Stripe.createSubtleCryptoProvider()); break; }
         catch {}
       }
       if(!event) return reply({error:'Invalid signature.'},400);
 
-      const client=createClient(env('SUPABASE_URL'),env('SUPABASE_SERVICE_ROLE_KEY'));
-      const object=event.data.object;
+      client=createClient(env('SUPABASE_URL'),env('SUPABASE_SERVICE_ROLE_KEY'));
+      object=event.data.object;
       let result;
       if(event.type==='checkout.session.completed') {
         if(object.payment_status!=='paid') return reply({received:true});
@@ -39,8 +41,14 @@ export function createHandler({createClient,env}) {
       } else if(event.type==='account.updated') {
         result=await client.rpc('update_stripe_account_status',{p_stripe_account_id:object.id,p_charges_enabled:object.charges_enabled,p_details_submitted:object.details_submitted});
       }
-      if(result?.error) return reply({error:'Webhook handling failed.'},500);
+      if(result?.error) {
+        if(event.type==='checkout.session.completed') await alertOperator(client,{summary:'A customer paid, but the order could not be recorded.',reference:object.id,detail:String(result.error.message||'').slice(0,300)});
+        return reply({error:'Webhook handling failed.'},500);
+      }
       return reply({received:true});
-    } catch {return reply({error:'Webhook handling failed.'},500);}
+    } catch {
+      if(client && event?.type==='checkout.session.completed') await alertOperator(client,{summary:'A customer paid, but the order could not be recorded.',reference:object?.id,detail:'The webhook crashed while handling the payment.'});
+      return reply({error:'Webhook handling failed.'},500);
+    }
   };
 }

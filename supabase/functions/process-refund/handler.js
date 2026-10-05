@@ -13,9 +13,12 @@ const UUID_RE=/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 export function createHandler({createClient,env}) {
   const cors={'Access-Control-Allow-Origin':'*','Access-Control-Allow-Headers':'authorization, x-client-info, apikey, content-type','Access-Control-Allow-Methods':'POST, OPTIONS'};
   const reply=(body,status=200)=>Response.json(body,{status,headers:cors});
+  // Best-effort email to the operator (kingcredion@credabilia.com) when a refund needs a human. Never throws.
+  const alertOperator=async(client,props)=>{try{await client.rpc('notify_operator_alert',{p_event:'Admin Alert: Payment Problem',p_properties:props});}catch{}};
   return async request=>{
     if(request.method==='OPTIONS') return new Response(null,{status:204,headers:cors});
     if(request.method!=='POST') return reply({error:'Use POST.'},405);
+    let service,refundRequestId,refundIssued=false;
     try {
       const authorization=request.headers.get('Authorization');
       if(!authorization?.startsWith('Bearer ')) return reply({error:'Sign in required.'},401);
@@ -23,10 +26,10 @@ export function createHandler({createClient,env}) {
 
       const text=await request.text(); if(text.length>512) return reply({error:'Invalid request.'},400);
       let body;try{body=JSON.parse(text);}catch{return reply({error:'Invalid request.'},400);}
-      const refundRequestId=body?.refund_request_id;
+      refundRequestId=body?.refund_request_id;
       if(typeof refundRequestId!=='string' || !UUID_RE.test(refundRequestId)) return reply({error:'Invalid request.'},400);
 
-      const service=createClient(env('SUPABASE_URL'),env('SUPABASE_SERVICE_ROLE_KEY'));
+      service=createClient(env('SUPABASE_URL'),env('SUPABASE_SERVICE_ROLE_KEY'));
 
       const userClient=createClient(env('SUPABASE_URL'),env('SUPABASE_ANON_KEY'),{global:{headers:{Authorization:authorization}},auth:{persistSession:false,autoRefreshToken:false}});
       const {data:identity}=await userClient.auth.getUser();
@@ -48,11 +51,18 @@ export function createHandler({createClient,env}) {
         await stripe.transferReversals.create({transfer:purchase.stripe_transfer_id, ...(amount!==undefined?{amount}:{})});
       }
       const refund=await stripe.refunds.create({payment_intent:purchase.stripe_payment_intent_id, ...(amount!==undefined?{amount}:{})});
+      refundIssued=true;
 
       const {error:markError}=await service.rpc('mark_refund_processed',{p_request_id:refundRequestId,p_stripe_refund_id:refund.id});
-      if(markError) return reply({error:'Refund issued, but could not be recorded. Contact support.'},500);
+      if(markError) {
+        await alertOperator(service,{summary:'A refund was issued in Stripe, but could not be recorded.',reference:refund.id,detail:'Refund request '+refundRequestId});
+        return reply({error:'Refund issued, but could not be recorded. Contact support.'},500);
+      }
 
       return reply({refunded:true,stripe_refund_id:refund.id});
-    } catch {return reply({error:'Payment service is temporarily unavailable. Try again later.'},503);}
+    } catch {
+      if(service && refundRequestId) await alertOperator(service,{summary:refundIssued?'A refund was issued in Stripe, but the system failed before recording it.':'A refund could not be processed with Stripe.',reference:'Refund request '+refundRequestId,detail:'Check the refund in the Stripe dashboard.'});
+      return reply({error:'Payment service is temporarily unavailable. Try again later.'},503);
+    }
   };
 }

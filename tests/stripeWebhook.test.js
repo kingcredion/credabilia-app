@@ -8,20 +8,23 @@ const load=new Function('Stripe',source.replace("import Stripe from 'npm:stripe@
 
 test('webhook rejects invalid signatures and retries database failures without accepting unpaid checkout',async()=>{
   let event={type:'checkout.session.completed',data:{object:{id:'cs_test',payment_status:'paid',payment_intent:'pi_test'}}};
-  let invalid=false,dbError=true,calls=0;
+  let invalid=false,dbError=true,calls=0;const alerts=[];
   class Stripe {
     static createFetchHttpClient(){}
     static createSubtleCryptoProvider(){}
     webhooks={constructEventAsync:async()=>{if(invalid) throw Error('bad signature');return event;}};
   }
-  const handler=load(Stripe)({env:()=> 'test',createClient:()=>({rpc:async()=>{calls++;return {error:dbError?{message:'unavailable'}:null};}})});
+  const handler=load(Stripe)({env:()=> 'test',createClient:()=>({rpc:async(name,args)=>{if(name==='notify_operator_alert'){alerts.push(args);return {error:null};}calls++;return {error:dbError?{message:'unavailable'}:null};}})});
   const req=signature=>new Request('https://example.test',{method:'POST',headers:signature?{'Stripe-Signature':'test'}:{},body:'{}'});
   assert.equal((await handler(req(false))).status,400);
   invalid=true;assert.equal((await handler(req(true))).status,400);assert.equal(calls,0);
   invalid=false;assert.equal((await handler(req(true))).status,500);assert.equal(calls,1);
+  assert.equal(alerts.length,1,'a paid checkout that could not be recorded alerts the operator');
+  assert.equal(alerts[0].p_event,'Admin Alert: Payment Problem');assert.equal(alerts[0].p_properties.reference,'cs_test');
   dbError=false;assert.equal((await handler(req(true))).status,200);assert.equal(calls,2);
   event.data.object.payment_status='unpaid';assert.equal((await handler(req(true))).status,200);assert.equal(calls,2);
   for(const type of ['checkout.session.expired','account.updated']) {
     event.type=type;dbError=true;assert.equal((await handler(req(true))).status,500);
   }
+  assert.equal(alerts.length,1,'expired sessions and account updates failing do not alert');
 });

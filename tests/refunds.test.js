@@ -105,7 +105,7 @@ test('refund requests: request/respond/process lifecycle, permissions, and the o
 
 test('process-refund handler: held purchases refund directly, released purchases reverse the transfer first',async()=>{
   let calls=[];
-  function makeHandler({requestStatus='accepted',escrowStatus='held',sellerId='seller-1',validUser=true}={}) {
+  function makeHandler({requestStatus='accepted',escrowStatus='held',sellerId='seller-1',validUser=true,markFails=false}={}) {
     const marked=[];
     class Stripe {
       static createFetchHttpClient(){}
@@ -122,7 +122,7 @@ test('process-refund handler: held purchases refund directly, released purchases
           if(table==='purchases') return {data:{id:'purchase-1',stripe_payment_intent_id:'pi_test',escrow_status:escrowStatus,stripe_transfer_id:'tr_test'},error:null};
           throw new Error('unexpected table '+table);
         }})})}),
-        rpc:(name,args)=>{marked.push([name,args]);return Promise.resolve({error:null});},
+        rpc:(name,args)=>{marked.push([name,args]);return Promise.resolve({error:markFails&&name==='mark_refund_processed'?{message:'db down'}:null});},
       }),
     })};
   }
@@ -141,6 +141,15 @@ test('process-refund handler: held purchases refund directly, released purchases
     const res=await handler(request({refund_request_id:'11111111-1111-4111-8111-111111111111'}));
     assert.equal(res.status,200);
     assert.deepEqual(calls.map(c=>c[0]),['reversal','refund']);
+    calls.length=0;
+  }
+  {
+    // Refund went out in Stripe but could not be recorded: the operator is emailed.
+    const {handler,calls:marked}=makeHandler({markFails:true});
+    const res=await handler(request({refund_request_id:'11111111-1111-4111-8111-111111111111'}));
+    assert.equal(res.status,500);
+    const alert=marked.find(c=>c[0]==='notify_operator_alert');
+    assert.ok(alert,'operator alerted');assert.equal(alert[1].p_event,'Admin Alert: Payment Problem');assert.equal(alert[1].p_properties.reference,'re_test_stub');
     calls.length=0;
   }
   {
