@@ -32,7 +32,9 @@ export function createHandler({createClient,env}) {
 
       if(transaction.status!=='SUCCESS') return reply({error:transaction.messages?.[0]?.text || 'Could not buy this label. Try a different carrier option.'},400);
 
-      const {error:recordError}=await client.rpc('record_shipment',{p_purchase_id:purchaseId,p_shippo_transaction_id:transaction.object_id,p_tracking_number:transaction.tracking_number,p_tracking_url:transaction.tracking_url_provider,p_label_url:transaction.label_url});
+      // record_shipment is service_role only (a seller must never be able to record a made-up shipment); the seller's id comes from the verified session above.
+      const service=createClient(env('SUPABASE_URL'),env('SUPABASE_SERVICE_ROLE_KEY'),{auth:{persistSession:false,autoRefreshToken:false}});
+      const {error:recordError}=await service.rpc('record_shipment',{p_purchase_id:purchaseId,p_seller_id:identity.user.id,p_shippo_transaction_id:transaction.object_id,p_tracking_number:transaction.tracking_number,p_tracking_url:transaction.tracking_url_provider,p_label_url:transaction.label_url});
       if(recordError) return reply({error:`Label purchased, but could not be saved. Keep this tracking number: ${transaction.tracking_number}`},500);
 
       return reply({label_url:transaction.label_url,tracking_number:transaction.tracking_number,tracking_url:transaction.tracking_url_provider,shipped_at:new Date().toISOString()});

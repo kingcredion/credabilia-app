@@ -29,14 +29,9 @@ export function createHandler({createClient,env}) {
       const {error}=await service.rpc('update_tracking_status',{p_tracking_number:trackingNumber,p_tracking_status:trackingStatus});
       if(error) console.error('update_tracking_status failed:',error.message);
 
-      // Escrow release: delivery confirmed is the primary trigger (the daily
-      // release-stale-escrow sweep is the fallback for tracking that never resolves).
+      // A DELIVERED status no longer pays the seller here: update_tracking_status starts the seller's payout hold, and the
+      // hourly release-stale-escrow sweep pays out once the hold has passed with no open dispute.
       if(trackingStatus==='DELIVERED' && env('STRIPE_SECRET_KEY')) {
-        try {
-          const {data:purchase}=await service.from('purchases').select('id,seller_id,stripe_payment_intent_id,seller_payout_cents,escrow_status').eq('tracking_number',trackingNumber).maybeSingle();
-          if(purchase && purchase.escrow_status==='held') await releaseEscrow(service,env,purchase);
-        } catch (err) { console.error('escrow release failed:',err); }
-
         // Required-return leg: the same tracking table, keyed on refund_requests.return_tracking_number
         // instead of purchases.tracking_number. update_tracking_status above only ever touches
         // purchases, so refund_requests.return_tracking_status is set here directly.
@@ -55,21 +50,6 @@ export function createHandler({createClient,env}) {
       return reply({ok:true});
     } catch (err) { console.error('shippo-webhook error:',err); return reply({error:'Could not process webhook.'},503); }
   };
-}
-
-// Same release logic is duplicated in release-stale-escrow/handler.js (the day-based fallback) --
-// each edge function deploys as an isolated bundle, so this stays a small self-contained helper
-// rather than a cross-function import, matching this codebase's existing style (e.g. shippoAddress
-// is already duplicated between create-checkout-session and shippo-get-rates).
-async function releaseEscrow(service, env, purchase) {
-  const {data:account}=await service.from('stripe_accounts').select('stripe_account_id').eq('user_id',purchase.seller_id).maybeSingle();
-  if(!account?.stripe_account_id) return;
-  const stripe=new Stripe(env('STRIPE_SECRET_KEY'),{apiVersion:'2024-06-20',httpClient:Stripe.createFetchHttpClient()});
-  const intent=await stripe.paymentIntents.retrieve(purchase.stripe_payment_intent_id);
-  const chargeId=typeof intent.latest_charge==='string' ? intent.latest_charge : intent.latest_charge?.id;
-  if(!chargeId) return;
-  const transfer=await stripe.transfers.create({amount:purchase.seller_payout_cents,currency:'usd',destination:account.stripe_account_id,source_transaction:chargeId});
-  await service.rpc('mark_purchase_released',{p_purchase_id:purchase.id,p_stripe_transfer_id:transfer.id});
 }
 
 // Same held/released branching as process-refund/handler.js -- duplicated for the same reason

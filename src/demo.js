@@ -196,25 +196,26 @@ export function createDemoService(storage = window.localStorage) {
       return {completed:true};
     },
     async pickupStations() { return DEMO_PICKUP_STATIONS; },
-    async markPickedUp(purchaseId) {
-      requireUser();
-      const purchase=state.purchases.find(p=>p.id===purchaseId && p.seller_id===state.userId);
-      if(!purchase || purchase.fulfillment_method!=='pickup' || purchase.escrow_status!=='held' || purchase.seller_marked_picked_up_at) throw new Error('Sale not found or already marked picked up.');
-      purchase.seller_marked_picked_up_at=new Date().toISOString();
-      save();
+    async myPayoutStatus() {
+      return state.purchases.filter(p=>p.buyer_id===state.userId || p.seller_id===state.userId).map(p=>({
+        purchase_id:p.id,role:p.buyer_id===state.userId?'buyer':'seller',fulfillment_method:p.fulfillment_method || 'ship',escrow_status:p.escrow_status || 'held',
+        delivered_at:null,release_after:null,hold_tier:null,under_review:false,has_open_dispute:false,can_release_early:false,
+        handoff_verified_at:p.handoff_verified_at || null,
+        pickup_code:p.buyer_id===state.userId && p.fulfillment_method==='pickup' && !p.handoff_verified_at ? '123456' : null,
+        pickup_attempts_left:p.seller_id===state.userId && p.fulfillment_method==='pickup' ? 5 : null}));
     },
-    async confirmPickupReceived(purchaseId) {
+    async completePickup(purchaseId,code) {
       requireUser();
-      const purchase=state.purchases.find(p=>p.id===purchaseId && p.buyer_id===state.userId);
-      if(!purchase || purchase.fulfillment_method!=='pickup' || purchase.escrow_status!=='held' || !purchase.seller_marked_picked_up_at || purchase.buyer_confirmed_pickup_at) throw new Error('Ask the seller to confirm the handoff first, or this was already confirmed.');
-      // No multi-day wait to model in demo mode, same reasoning buyShippingLabel already uses --
-      // confirming receipt immediately simulates the real Stripe transfer + mark_purchase_released.
-      purchase.buyer_confirmed_pickup_at=new Date().toISOString();
-      purchase.escrow_status='released'; purchase.funds_released_at=new Date().toISOString();
+      const purchase=state.purchases.find(p=>p.id===purchaseId && p.seller_id===state.userId && p.fulfillment_method==='pickup');
+      if(!purchase) throw new Error('Sale not found.');
+      if(purchase.handoff_verified_at) throw new Error('This handoff is already complete.');
+      if(String(code||'').replace(/\s/g,'')!=='123456') return {ok:false,attempts_left:4};
+      // No multi-day wait to model in demo mode, same reasoning buyShippingLabel already uses.
+      purchase.handoff_verified_at=new Date().toISOString(); purchase.escrow_status='released'; purchase.funds_released_at=purchase.handoff_verified_at;
       save();
-      return {ok:true};
+      return {ok:true,release_after:null,hold_tier:'new'};
     },
-    async myCreditBalance() { requireUser(); return state.credits.filter(c=>c.user_id===state.userId).reduce((sum,c)=>sum+c.amount_cents,0); },
+    async releaseEarly() { throw new Error('Not available in this practice preview.'); },
     async myPurchases() {
       requireUser();
       return state.purchases.filter(p=>p.buyer_id===state.userId).map(p=>{
