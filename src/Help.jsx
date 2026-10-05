@@ -26,6 +26,9 @@ export function HelpPage() {
     <h3>What does Credabilia charge?</h3>
     <p>Sellers pay a platform fee on each sale — about 13.6% of the price, plus $0.30 for orders $10 or under, or $0.40 for orders over $10. The exact fee is always shown before you publish a listing.</p>
 
+    <h3>Do you charge sales tax?</h3>
+    <p>Where the law requires it, yes. Tax is worked out from the address your order is delivered to (or the meetup spot for a local pickup) and shown as its own line at checkout before you pay. It is added on top of the item price, and sellers are not charged it. If an order is refunded, the matching tax is refunded too.</p>
+
     <h3>How does payment protection work?</h3>
     <p>When you buy an item, Credabilia holds your payment in escrow. The seller is paid after delivery is confirmed by tracking, followed by a short protection period: 72 hours to 7 days for new sellers (depending on the price), 72 hours for established sellers, and as little as 48 hours for trusted sellers. If you accept your delivery sooner, an established or trusted seller can be paid sooner. An open refund request pauses the payout. If tracking never shows delivery, the payout waits up to 21 days. Sellers are not paid instantly at purchase.</p>
 

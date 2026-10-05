@@ -3,6 +3,17 @@ import { shippingMarkupFactor } from './markup.js';
 import { shippoAddress, quoteRates, buyerPrice, findChoice } from './shippingRates.js';
 
 const UUID_RE=/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+// Stripe product tax codes: "General - Tangible Goods" and "Shipping".
+const TAX_CODE_GOODS='txcd_99999999', TAX_CODE_SHIPPING='txcd_92010001';
+
+// Finds (by email) or creates the buyer's Stripe customer and puts the shipping address on it, so Stripe Tax can tax the order.
+async function ensureTaxCustomer(stripe,{email,userId,address}) {
+  const stripeAddress={line1:address.street1,line2:address.street2||undefined,city:address.city,state:address.state,postal_code:address.zip,country:address.country||'US'};
+  const details={email,name:address.name||undefined,address:stripeAddress,shipping:{name:address.name||email,address:stripeAddress},metadata:{user_id:userId}};
+  const existing=(await stripe.customers.list({email,limit:1})).data?.[0];
+  const customer=existing ? await stripe.customers.update(existing.id,details) : await stripe.customers.create(details);
+  return customer.id;
+}
 
 export function createHandler({createClient,env,fetchImpl=fetch}) {
   const cors={'Access-Control-Allow-Origin':'*','Access-Control-Allow-Headers':'authorization, x-client-info, apikey, content-type','Access-Control-Allow-Methods':'POST, OPTIONS'};
@@ -64,28 +75,44 @@ export function createHandler({createClient,env,fetchImpl=fetch}) {
         chosenService={provider:picked.provider,service:picked.service,name:picked.name,quote_cents:picked.amount_cents};
       }
 
+      // Sales tax: only when STRIPE_TAX_ENABLED is 'true' (it stays off until Stripe Tax has the state registrations). Each line says what
+      // it is (goods or shipping) and that tax is added on top of the price, and Stripe works out the tax from the buyer's address.
+      const taxOn=env('STRIPE_TAX_ENABLED')==='true';
+      const line=(name,amount,taxCode)=>({quantity:1,price_data:{currency:'usd',unit_amount:amount,product_data:{name,...(taxOn?{tax_code:taxCode}:{})},...(taxOn?{tax_behavior:'exclusive'}:{})}});
       const itemAmount=priceCents-appliedCreditCents;
-      const lineItems=[{quantity:1,price_data:{currency:'usd',unit_amount:itemAmount,product_data:{name:title}}}];
-      if(shippingOnlyCents>0 && !freeShipping) lineItems.push({quantity:1,price_data:{currency:'usd',unit_amount:shippingOnlyCents,product_data:{name:'Shipping'}}});
+      const lineItems=[line(title,itemAmount,TAX_CODE_GOODS)];
+      if(shippingOnlyCents>0 && !freeShipping) lineItems.push(line('Shipping',shippingOnlyCents,TAX_CODE_SHIPPING));
       // Insurance is always buyer-paid, regardless of free_shipping -- that flag only ever meant
-      // "seller absorbs the shipping cost," never the insurance premium.
-      if(insuranceCostCents>0) lineItems.push({quantity:1,price_data:{currency:'usd',unit_amount:insuranceCostCents,product_data:{name:'Shipping insurance'}}});
+      // "seller absorbs the shipping cost," never the insurance premium. It is taxed with shipping (a delivery-related charge).
+      if(insuranceCostCents>0) lineItems.push(line('Shipping insurance',insuranceCostCents,TAX_CODE_SHIPPING));
 
       const stripe=new Stripe(env('STRIPE_SECRET_KEY'),{apiVersion:'2024-06-20',httpClient:Stripe.createFetchHttpClient()});
+      // A shipped order is taxed at the address it ships to: that address goes on a Stripe customer so the buyer does not type it twice.
+      // A pickup order has no shipping address, so Stripe asks for a billing address at payment and taxes at that location.
+      const customerId=taxOn && fulfillmentMethod==='ship' ? await ensureTaxCustomer(stripe,{email:identity.user.email,userId:identity.user.id,address:shippingAddress}) : null;
       // Escrow: no application_fee_amount/transfer_data here -- the full charge lands on the
       // platform's own Stripe balance. The seller is paid via a separate Transfer once delivery
       // is confirmed (see shippo-webhook and release-stale-escrow), not instantly at checkout.
       // If Stripe's own call fails here, nothing has been attached to the reservation yet --
       // reserve_listing_checkout's lazy-expiry sweep releases the listing again on the next attempt.
-      const session=await stripe.checkout.sessions.create({
-        mode:'payment',
-        customer_email:identity.user.email,
-        client_reference_id:checkoutSessionId,
-        line_items:lineItems,
-        expires_at:Math.floor(Date.now()/1000)+1800,
-        success_url:`${env('APP_URL')}/?checkout=success&session={CHECKOUT_SESSION_ID}`,
-        cancel_url:`${env('APP_URL')}/?checkout=cancel&session={CHECKOUT_SESSION_ID}`,
-      });
+      let session;
+      try {
+        session=await stripe.checkout.sessions.create({
+          mode:'payment',
+          ...(customerId?{customer:customerId}:{customer_email:identity.user.email}),
+          ...(taxOn?{automatic_tax:{enabled:true}}:{}),
+          ...(taxOn && fulfillmentMethod==='pickup'?{billing_address_collection:'required'}:{}),
+          client_reference_id:checkoutSessionId,
+          line_items:lineItems,
+          expires_at:Math.floor(Date.now()/1000)+1800,
+          success_url:`${env('APP_URL')}/?checkout=success&session={CHECKOUT_SESSION_ID}`,
+          cancel_url:`${env('APP_URL')}/?checkout=cancel&session={CHECKOUT_SESSION_ID}`,
+        });
+      } catch(error) {
+        // An address Stripe cannot place on the map cannot be taxed; say so instead of guessing (the held item is released by the usual 30 minute expiry).
+        if(taxOn && error?.code==='customer_tax_location_invalid') return reply({error:'We could not work out sales tax for that address. Check the street, city, state and ZIP and try again.'},400);
+        throw error;
+      }
 
       const {error:attachError}=await client.rpc('attach_stripe_checkout_session',{p_checkout_session_id:checkoutSessionId,p_stripe_session_id:session.id,p_shipping_cost_cents:shippingOnlyCents,p_insurance_cost_cents:insuranceCostCents});
       if(attachError) return reply({error:'Could not start checkout. Try again.'},500);

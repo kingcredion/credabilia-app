@@ -39,7 +39,7 @@ export function createHandler({createClient,env}) {
       if(identity?.user && identity.user.id!==refundRequest.seller_id && identity.user.id!==refundRequest.buyer_id) return reply({error:'You can only process your own purchases and sales.'},403);
       if(refundRequest.status!=='accepted') return reply({error:'This request is not ready to be refunded.'},400);
 
-      const {data:purchase,error:purchaseError}=await service.from('purchases').select('id,stripe_payment_intent_id,escrow_status,stripe_transfer_id').eq('id',refundRequest.purchase_id).maybeSingle();
+      const {data:purchase,error:purchaseError}=await service.from('purchases').select('id,stripe_payment_intent_id,escrow_status,stripe_transfer_id,tax_cents,charged_cents').eq('id',refundRequest.purchase_id).maybeSingle();
       if(purchaseError || !purchase) return reply({error:'Purchase not found.'},404);
 
       const stripe=new Stripe(env('STRIPE_SECRET_KEY'),{apiVersion:'2024-06-20',httpClient:Stripe.createFetchHttpClient()});
@@ -50,7 +50,12 @@ export function createHandler({createClient,env}) {
       if(purchase.escrow_status==='released' && purchase.stripe_transfer_id) {
         await stripe.transferReversals.create({transfer:purchase.stripe_transfer_id, ...(amount!==undefined?{amount}:{})});
       }
-      const refund=await stripe.refunds.create({payment_intent:purchase.stripe_payment_intent_id, ...(amount!==undefined?{amount}:{})});
+      // A full refund returns the whole payment, tax included. A partial refund of an order that carried sales tax also returns the matching
+      // share of the tax (the seller's transfer reversal above is only ever the price portion: tax never went to the seller).
+      let refundAmount=amount;
+      const tax=Number(purchase.tax_cents||0), charged=Number(purchase.charged_cents||0);
+      if(amount!==undefined && tax>0 && charged>tax) refundAmount=Math.min(charged,amount+Math.round(tax*amount/(charged-tax)));
+      const refund=await stripe.refunds.create({payment_intent:purchase.stripe_payment_intent_id, ...(refundAmount!==undefined?{amount:refundAmount}:{})});
       refundIssued=true;
 
       const {error:markError}=await service.rpc('mark_refund_processed',{p_request_id:refundRequestId,p_stripe_refund_id:refund.id});

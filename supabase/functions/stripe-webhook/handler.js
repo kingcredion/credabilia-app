@@ -52,7 +52,10 @@ export function createHandler({createClient,env}) {
       }
       // Best effort, never affects the webhook's result: remember which card / bank account this member used, so a banned
       // member's payment details can be recognised on a new account.
-      if(event.type==='checkout.session.completed') await recordCardFingerprint(client,stripe,object,result?.data,alertOperator);
+      if(event.type==='checkout.session.completed') {
+        await recordPurchaseTax(client,object,result?.data);
+        await recordCardFingerprint(client,stripe,object,result?.data,alertOperator);
+      }
       else if(event.type==='account.updated') await recordBankFingerprints(client,object,alertOperator);
       return reply({received:true});
     } catch {
@@ -60,6 +63,17 @@ export function createHandler({createClient,env}) {
       return reply({error:'Webhook handling failed.'},500);
     }
   };
+}
+
+// Remembers how much sales tax a paid order carried (0 when tax is off) and what the buyer was charged in total, so a partial refund can give
+// back the right share. Best effort: never fails the webhook.
+async function recordPurchaseTax(client, session, purchaseId) {
+  try {
+    if(!purchaseId) return;
+    const tax=Number(session.total_details?.amount_tax||0), total=Number.isFinite(Number(session.amount_total))?Number(session.amount_total):null;
+    if(!tax) return;
+    await client.rpc('record_purchase_tax',{p_purchase_id:purchaseId,p_tax_cents:tax,p_charged_cents:total});
+  } catch {}
 }
 
 // Records the card a member saved to be allowed to bid. A card already tied to a banned member does not count and alerts the operator.
