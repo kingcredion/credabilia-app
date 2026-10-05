@@ -16,6 +16,33 @@
   margin-right: 4px;
 }
 .signer-badge.compact .signed-by-quill { width: 32px; height: 13px; }
+.item-card-content.has-signature-watermark {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+}
+.item-card-content.has-signature-watermark::before {
+  content: '';
+  position: absolute;
+  right: 4%;
+  bottom: 12px;
+  width: 65%;
+  height: 60%;
+  background: url('/brand/signed-by-quill.webp') right bottom / contain no-repeat;
+  opacity: .07;
+  pointer-events: none;
+  z-index: -1;
+}
+:root[data-theme="dark"] .has-signature-watermark::before {
+  opacity: .08;
+  filter: brightness(1.2);
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme]) .has-signature-watermark::before {
+    opacity: .08;
+    filter: brightness(1.2);
+  }
+}
 .ai-marketplace-badge {
   display: block;
   width: 300px;
