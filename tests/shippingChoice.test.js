@@ -296,3 +296,32 @@ test('free-shipping orders: the seller picks any service, the real price is char
   assert.ok(!shippo.calls.some(c=>c.url.endsWith('/transactions/')),'no label was bought');
   assert.ok(!clients.rpcCalls.some(c=>c[0]==='set_seller_shipping_charge'));
 });
+
+test('a shipped order cannot be bought without a real shipping quote, so a buyer is never charged $0 for delivery; pickup is unaffected', async () => {
+  const buy=async({inputs=INPUTS,rateSet,key=true,unreachable=false,pickup=false}={})=>{
+    const h=checkoutHarness({inputs,rateSet});
+    const handler=await h.build();
+    if(unreachable) { const {createHandler}=await loadWithStripe('create-checkout-session',class{static createFetchHttpClient(){}checkout={sessions:{create:async()=>({id:'cs',url:'u'})}}}); const throwing=createHandler({createClient:()=>({auth:{getUser:async()=>({data:{user:{id:'buyer-1',email:'b@example.test'}},error:null})},rpc:async name=>name==='shipping_quote_inputs'?{data:INPUTS,error:null}:{data:null,error:null}}),env:k=>({SUPABASE_URL:'u',SUPABASE_ANON_KEY:'a',SUPABASE_SERVICE_ROLE_KEY:'s',SHIPPO_API_KEY:'shippo',STRIPE_SECRET_KEY:'sk',APP_URL:'x'}[k]),fetchImpl:async()=>{throw new Error('down');}}); const res=await throwing(req(checkoutBody({}))); return {res,h}; }
+    const res=await handler(req(pickup?{listing_id:LISTING,fulfillment_method:'pickup',shipping_address:null}:checkoutBody({})));
+    return {res,h};
+  };
+  // carriers return nothing (a package too small, or an address they cannot reach): refused, nothing reserved, nothing charged
+  let {res,h}=await buy({rateSet:[]});
+  assert.equal(res.status,409); assert.match((await res.json()).error,/No shipping service is available/);
+  assert.ok(!h.rpcCalls.some(c=>c[0]==='reserve_listing_checkout')); assert.equal(h.stripeCalls.length,0);
+  // the carrier is unreachable: try again later, nothing reserved
+  ({res}=await buy({unreachable:true}));
+  assert.equal(res.status,503); assert.match((await res.json()).error,/temporarily unavailable/);
+  // no package size / no seller address on file
+  ({res,h}=await buy({inputs:{...INPUTS,parcel:null}}));
+  assert.equal(res.status,409); assert.match((await res.json()).error,/package size or shipping address/);
+  assert.ok(!h.rpcCalls.some(c=>c[0]==='reserve_listing_checkout'));
+  ({res}=await buy({inputs:{...INPUTS,seller_shipping_address:null}}));
+  assert.equal(res.status,409);
+  // pickup needs no shipping quote at all
+  ({res,h}=await buy({pickup:true}));
+  assert.equal(res.status,200); assert.equal(h.shippo.calls.length,0);
+  // and a normal quote still goes through
+  ({res}=await buy({}));
+  assert.equal(res.status,200);
+});

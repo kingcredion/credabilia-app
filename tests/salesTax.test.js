@@ -36,13 +36,15 @@ function harness({tax,customers=[],sessionError=null}) {
   const createClient=()=>({
     auth:{getUser:async()=>({data:{user:{id:'buyer-1',email:'buyer@example.test'}},error:null})},
     rpc:async name=>{
+      if(name==='shipping_quote_inputs') return {data:{seller_id:'seller-1',status:'active',title:'Signed Ball',price_cents:12000,free_shipping:false,is_king:false,seller_shipping_address:{name:'Sam',street1:'1 Seller Way',city:'Austin',state:'TX',zip:'78701',country:'US'},parcel:{weight_oz:12,length_in:10,width_in:8,height_in:4}},error:null};
       if(name==='reserve_listing_checkout') return {data:{checkout_session_id:CHECKOUT,price_cents:12000,title:'Signed Ball',applied_credit_cents:0,free_shipping:false,seller_shipping_address:null,want_insurance:false,parcel:null},error:null};
       return {data:null,error:null};
     },
   });
-  // no SHIPPO_API_KEY: this is about tax, so no shipping line is added
-  const env=key=>({SUPABASE_URL:'u',SUPABASE_ANON_KEY:'a',SUPABASE_SERVICE_ROLE_KEY:'s',STRIPE_SECRET_KEY:'sk',APP_URL:'https://app.example',...(tax!==undefined?{STRIPE_TAX_ENABLED:tax}:{})}[key]);
-  return {stripeCalls,customerCalls,build:async()=>{const {createHandler}=await loadWithStripe('create-checkout-session',Stripe);return createHandler({createClient,env});}};
+  // a carrier that always returns one usable rate
+  const fetchImpl=async()=>({json:async()=>({object_id:'shp_1',rates:[{object_id:'r1',provider:'USPS',servicelevel:{token:'usps_ground_advantage',name:'Ground Advantage'},amount:'6.40',included_insurance_price:'0.00',estimated_days:5}]})});
+  const env=key=>({SUPABASE_URL:'u',SUPABASE_ANON_KEY:'a',SUPABASE_SERVICE_ROLE_KEY:'s',SHIPPO_API_KEY:'shippo',STRIPE_SECRET_KEY:'sk',APP_URL:'https://app.example',...(tax!==undefined?{STRIPE_TAX_ENABLED:tax}:{})}[key]);
+  return {stripeCalls,customerCalls,build:async()=>{const {createHandler}=await loadWithStripe('create-checkout-session',Stripe);return createHandler({createClient,env,fetchImpl});}};
 }
 
 test('with the tax switch off, checkout is exactly what it was: no tax settings, no Stripe customer', async () => {

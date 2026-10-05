@@ -908,15 +908,15 @@ function ShippingChoice({ itemId, address, wantInsurance, verified, onChoice }) 
         const options = result?.options || [];
         setState({ status: 'ready', options, locked: !!result?.locked, free: !!result?.free_shipping });
         const first = options[0] ? { provider: options[0].provider, service: options[0].service } : null;
-        setPicked(first); onChoice(first, true);
+        setPicked(first); onChoice(first, !!first);
       })
       .catch(() => { if (alive) { setState({ status: 'error', options: [], locked: false, free: false }); setPicked(null); onChoice(null, false); } });
     return () => { alive = false; };
   }, [verified, itemId, wantInsurance, address.street1, address.city, address.state, address.zip, address.country]);
   if (!verified) return <p className="field-note">Verify your address to see shipping options and prices.</p>;
   if (state.status === 'loading') return <p role="status" className="field-note">Finding shipping options…</p>;
-  if (state.status === 'error') return <p className="field-note">We couldn't load shipping options just now. You can still continue; we'll use the lowest-cost service and show the exact price at payment.</p>;
-  if (!state.options.length) return null;
+  if (state.status === 'error') return <p role="alert" className="error">We couldn't load shipping options just now. Please try again in a moment.</p>;
+  if (!state.options.length) return <p role="alert" className="error">No shipping service is available for this item to that address. Check the address, or message the seller.</p>;
   const isPicked = option => picked && picked.provider === option.provider && picked.service === option.service;
   return <fieldset className="shipping-choice">
     <legend>{state.locked ? 'Shipping' : 'Choose how it ships'}</legend>
@@ -941,6 +941,7 @@ function CheckoutAddress({ item, profile, busy, onClose, onConfirm }) {
   const [wantInsurance, setWantInsurance] = useState(true);
   const [verified, setVerified] = useState(false);
   const [shippingChoice, setShippingChoice] = useState(null);
+  const [shippingReady, setShippingReady] = useState(false);
   useEffect(() => { service.myCreditBalance().then(setBalance).catch(() => {}); }, []);
   const isPickup = fulfillmentMethod === 'pickup';
   // Mirrors reserve_listing_checkout()'s own cap -- the server re-validates and clamps this
@@ -970,9 +971,9 @@ function CheckoutAddress({ item, profile, busy, onClose, onConfirm }) {
         : <ShippingAddressFields value={address} onChange={setAddress} disabled={busy} onVerifiedChange={setVerified}/>}
       {!!balance && <label className="certificate-confirm"><input type="checkbox" checked={applyCredit} onChange={event => setApplyCredit(event.target.checked)} disabled={busy}/><img src="/brand/screen-face-v1/coin-simple.webp" alt="" className="coin-icon"/>Apply {money(Math.min(balance, coinCap))} in Credion Coins to this order (you have {money(balance)} available)</label>}
       {!isPickup && <label className="certificate-confirm"><input type="checkbox" checked={wantInsurance} onChange={event => setWantInsurance(event.target.checked)} disabled={busy}/>Insure this item for shipping (covers loss or damage in transit — exact cost shown at payment)</label>}
-      {!isPickup && <ShippingChoice itemId={item.listing_id || item.id} address={address} wantInsurance={wantInsurance} verified={verified} onChoice={choice => setShippingChoice(choice)}/>}
+      {!isPickup && <ShippingChoice itemId={item.listing_id || item.id} address={address} wantInsurance={wantInsurance} verified={verified} onChoice={(choice, ready) => { setShippingChoice(choice); setShippingReady(!!ready); }}/>}
       {error && <p role="alert" className="error">{error}</p>}
-      <button className="primary" disabled={busy || (!isPickup && !verified)}>{busy ? 'Processing…' : 'Continue to payment'}<ArrowRight size={16}/></button>
+      <button className="primary" disabled={busy || (!isPickup && (!verified || !shippingReady))}>{busy ? 'Processing…' : 'Continue to payment'}<ArrowRight size={16}/></button>
     </form>
   </Modal>;
 }

@@ -43,20 +43,26 @@ export function createHandler({createClient,env,fetchImpl=fetch}) {
       // for the price.
       const shippingChoice=body?.shipping_choice;
       let quote=null, markup=1;
-      if(fulfillmentMethod==='ship' && env('SHIPPO_API_KEY')) {
+      if(fulfillmentMethod==='ship') {
+        // A shipped order must have a real carrier quote: with none, the buyer would pay $0 shipping and Credabilia would pay the postage.
+        // So an item that cannot be quoted (no package size, a seller with no address, a package the carriers will not take, or the carrier
+        // being unreachable) cannot be bought for shipping, and the buyer is told why instead of being charged nothing for delivery.
+        if(!env('SHIPPO_API_KEY')) return reply({error:'Shipping is not connected yet. Please try again later.'},503);
         const service=createClient(env('SUPABASE_URL'),env('SUPABASE_SERVICE_ROLE_KEY'),{auth:{persistSession:false,autoRefreshToken:false}});
         const {data:inputs}=await service.rpc('shipping_quote_inputs',{p_listing_id:listingId});
-        if(inputs?.parcel && inputs.seller_shipping_address) {
-          markup=shippingMarkupFactor(inputs.is_king);
-          try {
-            quote=await quoteRates({
-              shippoKey:env('SHIPPO_API_KEY'), fetchImpl,
-              from:shippoAddress(inputs.seller_shipping_address), to:shippoAddress(shippingAddress), parcel:inputs.parcel,
-              insurance:wantInsurance ? {amount_cents:Math.min(inputs.price_cents,1000000),content:inputs.title||'Item'} : null,
-            });
-          } catch { /* the quote is a best-effort estimate: if Shippo is unreachable, skip shipping this time rather than block the sale */ }
-        }
-        if(quote?.options.length && !inputs.free_shipping && shippingChoice && !findChoice(quote.options,shippingChoice)) return reply({error:'That shipping option is no longer available. Pick another one and try again.'},409);
+        if(!inputs?.parcel || !inputs.seller_shipping_address) return reply({error:'This item cannot be shipped yet: the seller still needs to add its package size or shipping address. You can message the seller.'},409);
+        markup=shippingMarkupFactor(inputs.is_king);
+        let quoteFailed=false;
+        try {
+          quote=await quoteRates({
+            shippoKey:env('SHIPPO_API_KEY'), fetchImpl,
+            from:shippoAddress(inputs.seller_shipping_address), to:shippoAddress(shippingAddress), parcel:inputs.parcel,
+            insurance:wantInsurance ? {amount_cents:Math.min(inputs.price_cents,1000000),content:inputs.title||'Item'} : null,
+          });
+        } catch { quoteFailed=true; }
+        if(quoteFailed) return reply({error:'Shipping rates are temporarily unavailable. Please try again in a few minutes.'},503);
+        if(!quote.options.length) return reply({error:'No shipping service is available for this item to that address. Check the address, or message the seller.'},409);
+        if(!inputs.free_shipping && shippingChoice && !findChoice(quote.options,shippingChoice)) return reply({error:'That shipping option is no longer available. Pick another one and try again.'},409);
       }
 
       const {data:reservation,error:reserveError}=await client.rpc('reserve_listing_checkout',{p_listing_id:listingId,p_shipping_address:shippingAddress,p_apply_credit_cents:applyCreditCents,p_want_insurance:wantInsurance,p_fulfillment_method:fulfillmentMethod});

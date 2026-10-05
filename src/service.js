@@ -21,6 +21,13 @@ export function makeService() {
     const urls=new Map((data || []).map(asset=>[asset.path,asset.signedUrl]));
     return items.map(item=>({...item,media:(item.media || []).map(asset=>({...asset,url:urls.get(asset.path)||null}))}));
   }
+  // A signed-in request that comes back 401 means the server no longer recognises this session (the member signed out somewhere else, or it
+  // expired). Drop the stale local session so the page shows the sign-in screen, instead of a signed-in page where nothing works.
+  async function invokeFn(name, options) {
+    const result = await client.functions.invoke(name, options);
+    if (result.error?.context?.status === 401) { try { await client.auth.signOut({ scope: 'local' }); } catch { /* already gone */ } }
+    return result;
+  }
   return {
     mode: 'live', detailsEnabled: import.meta.env.VITE_LISTING_DETAILS_ENABLED === 'true',
     async getSession() {
@@ -34,7 +41,8 @@ export function makeService() {
     async signInWithEmail(email) {
       unwrap(await client.auth.signInWithOtp({ email: email.trim(), options: { emailRedirectTo: `${window.location.origin}/auth/callback` } }));
     },
-    async signOut() { const { error } = await client.auth.signOut(); if (error) throw error; },
+    // Signing out here ends this browser's session only; the member's other devices stay signed in.
+    async signOut() { const { error } = await client.auth.signOut({ scope: 'local' }); if (error) throw error; },
     async profile(userId) {
       const [profile, permission, progress, stripeAccount] = await Promise.all([
         client.from('profiles').select('id,display_name,slug,shipping_address,phone_number,sms_opt_in').eq('id', userId).single(),
@@ -74,7 +82,7 @@ export function makeService() {
       return media.map(asset=>({...asset,url:urls.get(asset.path)||null}));
     },
     async removeBackground(path) {
-      const {data,error}=await client.functions.invoke('remove-background',{body:{path}});
+      const {data,error}=await invokeFn('remove-background',{body:{path}});
       if(error) { let detail; try {detail=await error.context?.json();} catch {} throw new Error(detail?.error || 'Could not remove the background right now.'); }
       const user=unwrap(await client.auth.getUser()).user;
       if(!user) throw new Error('Sign in to add photos.');
@@ -89,12 +97,12 @@ export function makeService() {
       return {path:newPath,kind:'item',url:signed.signedUrl};
     },
     async extractCertificate(path) {
-      const {data,error}=await client.functions.invoke('extract-certificate',{body:{path}});
+      const {data,error}=await invokeFn('extract-certificate',{body:{path}});
       if(error) { let detail; try {detail=await error.context?.json();} catch {} throw new Error(detail?.error || 'Certificate reading is not available yet. Enter the details manually.'); }
       return data;
     },
     async draftListing({notes,photoPath}) {
-      const {data,error}=await client.functions.invoke('draft-listing',{body:{notes,photo_path:photoPath}});
+      const {data,error}=await invokeFn('draft-listing',{body:{notes,photo_path:photoPath}});
       if(error) { let detail; try {detail=await error.context?.json();} catch {} throw new Error(detail?.error || 'AI listing drafts are not available yet. Fill in the details manually.'); }
       return data;
     },
@@ -117,7 +125,7 @@ export function makeService() {
     async myAudits() { return unwrap(await client.from('audits').select('id,listing_id,verdict,explanation,created_at,listing_version').order('created_at', { ascending: false })); },
     async getTrivia(listingId) { return unwrap(await client.rpc('get_listing_trivia', { p_listing_id: listingId })); },
     async generateTrivia(listingId) {
-      const {data,error}=await client.functions.invoke('generate-trivia',{body:{listing_id:listingId}});
+      const {data,error}=await invokeFn('generate-trivia',{body:{listing_id:listingId}});
       if(error) { let detail; try {detail=await error.context?.json();} catch {} throw new Error(detail?.error || 'AI trivia is not available yet.'); }
       return data;
     },
@@ -136,7 +144,7 @@ export function makeService() {
     async acceptPickupInspection(purchaseId, checks) { return unwrap(await client.rpc('accept_pickup_inspection', { p_purchase_id: purchaseId, p_checks: checks })); },
     async rejectPickupInspection(purchaseId, reason) { return unwrap(await client.rpc('reject_pickup_inspection', { p_purchase_id: purchaseId, p_reason: reason })); },
     async analyzeSignature(path,subject,listingId) {
-      const {data,error}=await client.functions.invoke('analyze-signature',{body:{path,subject:subject||undefined,listing_id:listingId||undefined}});
+      const {data,error}=await invokeFn('analyze-signature',{body:{path,subject:subject||undefined,listing_id:listingId||undefined}});
       if(error) { let detail; try {detail=await error.context?.json();} catch {} throw new Error(detail?.error || 'AI signature review is not available yet.'); }
       return data;
     },
@@ -144,7 +152,7 @@ export function makeService() {
     async placeBid(listingId, amountCents) { return unwrap(await client.rpc('place_bid', { p_listing_id: listingId, p_amount_cents: amountCents })); },
     async myBidStatus(listingId) { return unwrap(await client.rpc('my_bid_status', { p_listing_id: listingId })); },
     async setupBiddingCard() {
-      const {data,error}=await client.functions.invoke('setup-bidding-card',{body:{}});
+      const {data,error}=await invokeFn('setup-bidding-card',{body:{}});
       if(error) { let detail; try {detail=await error.context?.json();} catch {} throw new Error(detail?.error || 'Could not start card setup right now.'); }
       return data;
     },
@@ -168,17 +176,17 @@ export function makeService() {
     async myPurchases() { return signMedia(unwrap(await client.rpc('my_purchases'))); },
     async rateSeller(purchaseId, rating, comment) { return unwrap(await client.rpc('rate_seller', { p_purchase_id: purchaseId, p_rating: rating, p_comment: comment || null })); },
     async startStripeOnboarding() {
-      const {data,error}=await client.functions.invoke('stripe-connect-onboarding',{body:{}});
+      const {data,error}=await invokeFn('stripe-connect-onboarding',{body:{}});
       if(error) { let detail; try {detail=await error.context?.json();} catch {} throw new Error(detail?.error || 'Stripe onboarding is not available right now.'); }
       return data;
     },
     async refreshStripeOnboardingStatus() {
-      const {data,error}=await client.functions.invoke('stripe-connect-status',{body:{}});
+      const {data,error}=await invokeFn('stripe-connect-status',{body:{}});
       if(error) { let detail; try {detail=await error.context?.json();} catch {} throw new Error(detail?.error || 'Could not check payout status.'); }
       return data;
     },
     async openStripeDashboard() {
-      const {data,error}=await client.functions.invoke('stripe-connect-dashboard-link',{body:{}});
+      const {data,error}=await invokeFn('stripe-connect-dashboard-link',{body:{}});
       if(error) { let detail; try {detail=await error.context?.json();} catch {} throw new Error(detail?.error || 'Could not open your Stripe dashboard.'); }
       return data;
     },
@@ -187,18 +195,18 @@ export function makeService() {
     async myOpenBuyRequests() { return signMedia(unwrap(await client.rpc('my_open_buy_requests'))); },
     async myBuyRequests() { return signMedia(unwrap(await client.rpc('my_buy_requests'))); },
     async shippingOptions(listingId, shippingAddress, wantInsurance) {
-      const {data,error}=await client.functions.invoke('checkout-shipping-options',{body:{listing_id:listingId,shipping_address:shippingAddress,want_insurance:wantInsurance!==false}});
+      const {data,error}=await invokeFn('checkout-shipping-options',{body:{listing_id:listingId,shipping_address:shippingAddress,want_insurance:wantInsurance!==false}});
       if(error) { let detail; try {detail=await error.context?.json();} catch {} throw new Error(detail?.error || 'Could not load shipping options.'); }
       return data;
     },
     async startCheckout(listingId, shippingAddress, applyCreditCents, wantInsurance, fulfillmentMethod, shippingChoice) {
-      const {data,error}=await client.functions.invoke('create-checkout-session',{body:{listing_id:listingId,shipping_address:shippingAddress,apply_credit_cents:applyCreditCents||0,want_insurance:wantInsurance!==false,fulfillment_method:fulfillmentMethod==='pickup'?'pickup':'ship',shipping_choice:shippingChoice||undefined}});
+      const {data,error}=await invokeFn('create-checkout-session',{body:{listing_id:listingId,shipping_address:shippingAddress,apply_credit_cents:applyCreditCents||0,want_insurance:wantInsurance!==false,fulfillment_method:fulfillmentMethod==='pickup'?'pickup':'ship',shipping_choice:shippingChoice||undefined}});
       if(error) { let detail; try {detail=await error.context?.json();} catch {} throw new Error(detail?.error || 'This item could not be purchased right now.'); }
       return data;
     },
     async myCreditBalance() { return unwrap(await client.rpc('my_credit_balance')); },
     async confirmCheckout(stripeSessionId) {
-      const {data,error}=await client.functions.invoke('confirm-checkout',{body:{stripe_session_id:stripeSessionId}});
+      const {data,error}=await invokeFn('confirm-checkout',{body:{stripe_session_id:stripeSessionId}});
       if(error) { let detail; try {detail=await error.context?.json();} catch {} throw new Error(detail?.error || 'Could not confirm your purchase.'); }
       return data;
     },
@@ -213,18 +221,18 @@ export function makeService() {
     async myDashboardStats() { return unwrap(await client.rpc('my_dashboard_stats')); },
     async saveShippingAddress(address) { unwrap(await client.rpc('save_shipping_address', { p_address: address })); },
     async validateAddress(address) {
-      const {data,error}=await client.functions.invoke('validate-address',{body:{address}});
+      const {data,error}=await invokeFn('validate-address',{body:{address}});
       if(error) { let detail; try {detail=await error.context?.json();} catch {} throw new Error(detail?.error || 'Could not verify this address right now.'); }
       return data;
     },
     async mySales() { return signMedia(unwrap(await client.rpc('my_sales'))); },
     async getShippingRates(purchaseId, parcel) {
-      const {data,error}=await client.functions.invoke('shippo-get-rates',{body:{purchase_id:purchaseId,parcel}});
+      const {data,error}=await invokeFn('shippo-get-rates',{body:{purchase_id:purchaseId,parcel}});
       if(error) { let detail; try {detail=await error.context?.json();} catch {} throw new Error(detail?.error || 'Could not get shipping rates right now.'); }
       return data.rates;
     },
     async buyShippingLabel(purchaseId, rateId) {
-      const {data,error}=await client.functions.invoke('shippo-buy-label',{body:{purchase_id:purchaseId,rate_id:rateId}});
+      const {data,error}=await invokeFn('shippo-buy-label',{body:{purchase_id:purchaseId,rate_id:rateId}});
       if(error) { let detail; try {detail=await error.context?.json();} catch {} throw new Error(detail?.error || 'Could not buy this label right now.'); }
       return data;
     },
@@ -237,7 +245,7 @@ export function makeService() {
     async myNotifications() { return unwrap(await client.rpc('my_notifications')); },
     async getSupportMessages() { return unwrap(await client.rpc('get_support_messages')); },
     async sendSupportMessage(body) {
-      const {data,error}=await client.functions.invoke('support-chat',{body:{body}});
+      const {data,error}=await invokeFn('support-chat',{body:{body}});
       if(error) { let detail; try {detail=await error.context?.json();} catch {} throw new Error(detail?.error || 'King Credion is unavailable right now.'); }
       return data;
     },
@@ -251,7 +259,7 @@ export function makeService() {
     async contestRefundRequest(requestId, response) { return unwrap(await client.rpc('respond_to_refund_request', { p_request_id: requestId, p_accept: false, p_response: response })); },
     async acceptRefundRequest(requestId) {
       await client.rpc('respond_to_refund_request', { p_request_id: requestId, p_accept: true }).then(unwrap);
-      const {data,error}=await client.functions.invoke('process-refund',{body:{refund_request_id:requestId}});
+      const {data,error}=await invokeFn('process-refund',{body:{refund_request_id:requestId}});
       if(error) { let detail; try {detail=await error.context?.json();} catch {} throw new Error(detail?.error || 'The refund could not be processed right now.'); }
       return data;
     },
@@ -260,17 +268,17 @@ export function makeService() {
     async respondToPartialOffer(requestId, accept) {
       await client.rpc('respond_to_partial_offer', { p_request_id: requestId, p_accept: accept }).then(unwrap);
       if (!accept) return;
-      const {data,error}=await client.functions.invoke('process-refund',{body:{refund_request_id:requestId}});
+      const {data,error}=await invokeFn('process-refund',{body:{refund_request_id:requestId}});
       if(error) { let detail; try {detail=await error.context?.json();} catch {} throw new Error(detail?.error || 'The refund could not be processed right now.'); }
       return data;
     },
     async getReturnLabelRates(refundRequestId) {
-      const {data,error}=await client.functions.invoke('refund-return-rates',{body:{refund_request_id:refundRequestId}});
+      const {data,error}=await invokeFn('refund-return-rates',{body:{refund_request_id:refundRequestId}});
       if(error) { let detail; try {detail=await error.context?.json();} catch {} throw new Error(detail?.error || 'Could not get return shipping rates right now.'); }
       return data.rates;
     },
     async buyReturnLabel(refundRequestId, rateId) {
-      const {data,error}=await client.functions.invoke('refund-buy-return-label',{body:{refund_request_id:refundRequestId,rate_id:rateId}});
+      const {data,error}=await invokeFn('refund-buy-return-label',{body:{refund_request_id:refundRequestId,rate_id:rateId}});
       if(error) { let detail; try {detail=await error.context?.json();} catch {} throw new Error(detail?.error || 'Could not buy this return label right now.'); }
       return data;
     },
@@ -306,7 +314,7 @@ export function makeService() {
     async unblockUser(userId) { return unwrap(await client.rpc('unblock_user', { p_user_id: userId })); },
     async myBlockedUsers() { return unwrap(await client.rpc('my_blocked_users')); },
     async deleteMyAccount() {
-      const {data,error}=await client.functions.invoke('delete-account',{body:{}});
+      const {data,error}=await invokeFn('delete-account',{body:{}});
       if(error) { let detail; try {detail=await error.context?.json();} catch {} throw new Error(detail?.error || 'Could not delete your account right now.'); }
       return data;
     },

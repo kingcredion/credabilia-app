@@ -154,7 +154,7 @@ export function createDemoService(storage = window.localStorage) {
     },
     async shippingOptions(listingId) {
       const item=state.listings.find(x=>x.id===listingId);
-      if(!item || !item.weight_oz) return {options:[],free_shipping:false,locked:false,insured:false};
+      if(!item) return {options:[],free_shipping:false,locked:false,insured:false};
       const options=[{provider:'USPS',service:'usps_ground_advantage',name:'Ground Advantage',estimated_days:5,shipping_cents:704,insurance_cents:55},{provider:'USPS',service:'usps_priority',name:'Priority Mail',estimated_days:2,shipping_cents:1078,insurance_cents:55},{provider:'UPS',service:'ups_next_day_air',name:'Next Day Air',estimated_days:1,shipping_cents:4840,insurance_cents:55}].map(o=>({...o,total_cents:o.shipping_cents+o.insurance_cents}));
       return {options:item.free_shipping?options.slice(0,1).map(o=>({...o,shipping_cents:0,total_cents:o.insurance_cents})):options,free_shipping:!!item.free_shipping,locked:!!item.free_shipping,insured:true};
     },
