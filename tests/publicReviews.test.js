@@ -132,6 +132,9 @@ test('reviews are public with a first-name-and-initial reviewer, the item bought
     assert.equal(item.slug, 'sam-seller'); assert.equal(item.reviews.length, 3); assert.equal(item.seller_name, 'Sam Seller');
     const limited = (await db.query('select public.get_listing_seller_reviews($1,1) as r', [listing])).rows[0].r;
     assert.equal(limited.reviews.length, 1);
+    const pageTwo = (await db.query('select public.get_listing_seller_reviews($1,2,2) as r', [listing])).rows[0].r;
+    assert.equal(pageTwo.reviews.length, 1, "the item page can page through the seller's reviews too");
+    assert.equal(pageTwo.rating_count, 3);
     await assert.rejects(db.query('select * from public.seller_ratings'), /permission denied/, 'the raw table stays private');
   } finally { await db.close(); }
 });

@@ -1,8 +1,8 @@
-import React, { useState } from 'react';
-import { Flag, ShieldCheck } from 'lucide-react';
+import React, { useRef, useState } from 'react';
+import { ChevronLeft, ChevronRight, Flag, ShieldCheck } from 'lucide-react';
 import { RatingStars } from './ItemArt.jsx';
 
-const PAGE = 20;
+const STOREFRONT_PAGE = 10, ITEM_PAGE = 5;
 const REASONS = ['Abusive or hateful', 'Not a real customer', 'Not about this seller or sale', 'Spam or advertising', 'Something else'];
 
 // One public review: stars, the buyer's words, who ("Pat J." only) and what they bought. Anyone signed in can report it.
@@ -29,34 +29,52 @@ function ReviewCard({ review, service }) {
   </div>;
 }
 
-// The seller's reviews on their storefront: the first page arrives with the storefront, "Show more" loads the rest.
-export function ReviewList({ slug, firstPage, total, service }) {
-  const [reviews, setReviews] = useState(firstPage || []), [busy, setBusy] = useState(false), [error, setError] = useState('');
-  async function more() {
+// One page of reviews at a time with Previous / Next, so a seller with a hundred reviews is a short list, not a long scroll.
+// `firstPage` is page 1 when the caller already has it; `loadPage(offset, size)` returns { reviews } for any other page.
+function PagedReviews({ firstPage, total, pageSize, loadPage, service }) {
+  const [page, setPage] = useState(0), [reviews, setReviews] = useState(firstPage || []), [busy, setBusy] = useState(false), [error, setError] = useState('');
+  const top = useRef(null);
+  const pages = Math.max(1, Math.ceil((total || reviews.length) / pageSize));
+  async function go(next) {
+    if (busy || next < 0 || next >= pages) return;
     setBusy(true); setError('');
-    try { const next = await service.getSellerReviews(slug, PAGE, reviews.length); setReviews(current => [...current, ...(next?.reviews || [])]); }
-    catch (err) { setError(err.message); } finally { setBusy(false); }
+    try {
+      const result = next === 0 && firstPage ? { reviews: firstPage } : await loadPage(next * pageSize, pageSize);
+      setReviews(result?.reviews || []); setPage(next);
+      top.current?.scrollIntoView?.({ block: 'nearest', behavior: 'smooth' });
+    } catch (err) { setError(err.message); } finally { setBusy(false); }
   }
-  if (!reviews.length) return null;
-  return <div className="form-stack">
+  if (!reviews.length && page === 0) return null;
+  return <div className="form-stack" ref={top}>
     {reviews.map(review => <ReviewCard key={review.id} review={review} service={service}/>)}
-    {reviews.length < (total || 0) && <button type="button" className="text-button" disabled={busy} onClick={more}>{busy ? 'Loading…' : `Show more reviews (${total - reviews.length} more)`}</button>}
+    {pages > 1 && <nav className="review-pager" aria-label="Review pages">
+      <button type="button" className="text-button" disabled={busy || page === 0} onClick={() => go(page - 1)}><ChevronLeft size={16}/> Previous</button>
+      <span role="status">Page {page + 1} of {pages}</span>
+      <button type="button" className="text-button" disabled={busy || page >= pages - 1} onClick={() => go(page + 1)}>Next <ChevronRight size={16}/></button>
+    </nav>}
     {error && <p role="alert" className="error">{error}</p>}
   </div>;
 }
 
-// On the item page: a compact "Read N reviews" that opens the seller's latest few reviews right there, with a link to all of them.
+// The seller's reviews on their storefront: page 1 arrives with the storefront, the other pages load as you flip through.
+export function ReviewList({ slug, firstPage, total, service }) {
+  return <PagedReviews firstPage={(firstPage || []).slice(0, STOREFRONT_PAGE)} total={total} pageSize={STOREFRONT_PAGE} service={service}
+    loadPage={async (offset, size) => service.getSellerReviews(slug, size, offset)}/>;
+}
+
+// On the item page: a compact "Read N reviews" that opens the seller's reviews right there, five at a time, with a link to their storefront.
 export function SellerReviewsPeek({ listingId, count, service }) {
   const [data, setData] = useState(null), [error, setError] = useState('');
   if (!count) return null;
   function onToggle(event) {
-    if (event.currentTarget.open && !data) service.getListingSellerReviews(listingId).then(setData).catch(err => setError(err.message));
+    if (event.currentTarget.open && !data) service.getListingSellerReviews(listingId, ITEM_PAGE, 0).then(setData).catch(err => setError(err.message));
   }
   return <details className="seller-reviews" onToggle={onToggle}>
     <summary>Read what buyers say about this seller ({count} {count === 1 ? 'review' : 'reviews'})</summary>
-    {error ? <p role="alert" className="error">{error}</p> : !data ? <p role="status" className="field-note">Loading…</p> : <div className="form-stack">
-      {data.reviews.map(review => <ReviewCard key={review.id} review={review} service={service}/>)}
-      {data.slug && count > data.reviews.length && <a className="text-button" href={`/${data.slug}`}>See all {count} reviews</a>}
-    </div>}
+    {error ? <p role="alert" className="error">{error}</p> : !data ? <p role="status" className="field-note">Loading…</p> : <>
+      <PagedReviews firstPage={data.reviews} total={data.rating_count} pageSize={ITEM_PAGE} service={service}
+        loadPage={async (offset, size) => service.getListingSellerReviews(listingId, size, offset)}/>
+      {data.slug && <a className="text-button" href={`/${data.slug}`}>Open {data.seller_name || 'the seller'}'s storefront</a>}
+    </>}
   </details>;
 }

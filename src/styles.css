@@ -271,3 +271,7 @@ body:has(.legal-page){overflow:visible}
 .seller-reviews{margin:8px 0}
 .seller-reviews summary{cursor:pointer;color:var(--brand-green,#0d3b2e);font-weight:600}
 .seller-reviews .form-stack{margin-top:10px}
+.review-pager{display:flex;align-items:center;justify-content:space-between;gap:8px;padding-top:4px}
+.review-pager span{font-size:.9rem;color:var(--muted,#5a6a62)}
+.review-pager .text-button{display:inline-flex;align-items:center;gap:2px;min-height:40px}
+.review-pager .text-button:disabled{opacity:.4}

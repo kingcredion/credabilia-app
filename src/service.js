@@ -256,7 +256,7 @@ export function makeService() {
     },
     // "Show more" on a storefront, and the item page's peek at the seller's latest reviews.
     async getSellerReviews(slug, limit = 20, offset = 0) { return unwrap(await client.rpc('get_seller_reviews', { p_slug: slug, p_limit: limit, p_offset: offset })); },
-    async getListingSellerReviews(listingId, limit = 3) { return unwrap(await client.rpc('get_listing_seller_reviews', { p_listing_id: listingId, p_limit: limit })); },
+    async getListingSellerReviews(listingId, limit = 5, offset = 0) { return unwrap(await client.rpc('get_listing_seller_reviews', { p_listing_id: listingId, p_limit: limit, p_offset: offset })); },
     async updateStoreSlug(slug) { unwrap(await client.rpc('update_store_slug', { p_slug: slug })); },
     async myDashboardStats() { return unwrap(await client.rpc('my_dashboard_stats')); },
     async saveShippingAddress(address) { unwrap(await client.rpc('save_shipping_address', { p_address: address })); },

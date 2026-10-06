@@ -63,17 +63,17 @@ $$;
 revoke all on function public.get_seller_reviews(text,integer,integer) from public;
 grant execute on function public.get_seller_reviews(text,integer,integer) to anon, authenticated;
 
--- The item page: the listing's seller, their average and their latest few reviews, with the storefront address for "See all reviews".
-create function public.get_listing_seller_reviews(p_listing_id uuid, p_limit integer default 3) returns jsonb
+-- The item page: the listing's seller, their average and one page of their reviews (newest first, page by page), with the storefront address.
+create function public.get_listing_seller_reviews(p_listing_id uuid, p_limit integer default 5, p_offset integer default 0) returns jsonb
 language sql stable security definer set search_path='' as $$
   select jsonb_build_object('seller_name',p.display_name,'slug',p.slug,
     'rating_avg',(select round(avg(rating)::numeric,2) from public.seller_ratings where seller_id=p.id and hidden_at is null),
     'rating_count',(select count(*) from public.seller_ratings where seller_id=p.id and hidden_at is null),
-    'reviews',public.seller_review_list(p.id,p_limit,0))
+    'reviews',public.seller_review_list(p.id,p_limit,p_offset))
   from public.listings l join public.profiles p on p.id=l.seller_id where l.id=p_listing_id;
 $$;
-revoke all on function public.get_listing_seller_reviews(uuid,integer) from public;
-grant execute on function public.get_listing_seller_reviews(uuid,integer) to anon, authenticated;
+revoke all on function public.get_listing_seller_reviews(uuid,integer,integer) from public;
+grant execute on function public.get_listing_seller_reviews(uuid,integer,integer) to anon, authenticated;
 
 -- The star average on every listing card and item page leaves hidden reviews out too.
 do $patch$

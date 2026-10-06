@@ -626,13 +626,13 @@ const demoReview = r => { const purchase = state.purchases.find(p => p.id === r.
       const all=state.sellerRatings.filter(r=>r.seller_id===userId).sort((a,b)=>new Date(b.created_at)-new Date(a.created_at));
       return {rating_avg:avg,rating_count:count,reviews:all.slice(offset,offset+limit).map(r=>demoReview(r))};
     },
-    async getListingSellerReviews(listingId, limit=3) {
+    async getListingSellerReviews(listingId, limit=5, offset=0) {
       const listing=state.listings.find(item=>item.id===listingId);
       if(!listing) return null;
       const slug=state.slugs[listing.seller_id] || null;
       const {avg,count}=sellerRatingStats(listing.seller_id);
       const all=state.sellerRatings.filter(r=>r.seller_id===listing.seller_id).sort((a,b)=>new Date(b.created_at)-new Date(a.created_at));
-      return {seller_name:listing.seller_name || 'Collector',slug,rating_avg:avg,rating_count:count,reviews:all.slice(0,limit).map(r=>demoReview(r))};
+      return {seller_name:listing.seller_name || 'Collector',slug,rating_avg:avg,rating_count:count,reviews:all.slice(offset,offset+limit).map(r=>demoReview(r))};
     },
     async getStorefront(slug) {
       const clean=String(slug || '').trim().toLowerCase();
