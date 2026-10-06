@@ -1,5 +1,7 @@
 // "Items near me": local-pickup listings, sorted by how far their safe-exchange station is from the member. All the distance maths happens in the
-// browser, so where the member is never has to be sent to or kept by us. Station positions are in the browse results (pickup_station.lat/lng).
+// browser, so where the member is never has to be sent to or kept by us. Station positions come from a small file shipped with the site
+// (public/pickup-station-locations.json: { stationId: [lat, lng, 's' | 'c'] }, 's' = the station itself, 'c' = the middle of its city or county).
+// Positions are from OpenStreetMap, not Google (Google's terms do not allow storing its coordinates).
 
 export const RADIUS_CHOICES = [10, 25, 50, 100];
 export const DEFAULT_RADIUS = 50;
@@ -18,24 +20,31 @@ export function validPoint(point) {
   return !!point && Number.isFinite(point.lat) && Number.isFinite(point.lng) && Math.abs(point.lat) <= 90 && Math.abs(point.lng) <= 180;
 }
 
+let locationsPromise = null;
+export function loadStationLocations(fetchImpl = fetch) {
+  if (!locationsPromise) locationsPromise = fetchImpl('/pickup-station-locations.json').then(r => (r.ok ? r.json() : {})).catch(() => ({}));
+  return locationsPromise;
+}
+
 // The pickup station's position for a listing, or null when the listing has no pickup or the station has not been located.
-export function stationPoint(item) {
+export function stationPoint(item, locations) {
   const station = item?.pickup_enabled ? item.pickup_station : null;
-  const point = station && { lat: Number(station.lat), lng: Number(station.lng) };
-  return station && station.lat != null && station.lng != null && validPoint(point) ? point : null;
+  const entry = station && locations?.[station.id];
+  const point = entry && { lat: Number(entry[0]), lng: Number(entry[1]) };
+  return point && validPoint(point) ? { ...point, precision: entry[2] === 's' ? 'station' : 'city' } : null;
 }
 
 // Listings that offer pickup within `radiusMiles` of `origin`, nearest first, each with its distance. Everything else is left out.
-export function nearMeListings(items, origin, radiusMiles = DEFAULT_RADIUS) {
+export function nearMeListings(items, origin, radiusMiles = DEFAULT_RADIUS, locations) {
   if (!validPoint(origin)) return [];
   const found = [];
   for (const item of items || []) {
-    const point = stationPoint(item);
+    const point = stationPoint(item, locations);
     if (!point) continue;
     const distance = haversineMiles(origin, point);
-    if (distance <= radiusMiles) found.push({ item, distance });
+    if (distance <= radiusMiles) found.push({ item, distance, precision: point.precision });
   }
-  return found.sort((a, b) => a.distance - b.distance).map(({ item, distance }) => ({ ...item, distance_miles: distance }));
+  return found.sort((a, b) => a.distance - b.distance).map(({ item, distance, precision }) => ({ ...item, distance_miles: distance, distance_precision: precision }));
 }
 
 // A position that is only the middle of a city is not a place to navigate to, so say "about" for those.
