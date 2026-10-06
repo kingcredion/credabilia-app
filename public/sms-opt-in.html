@@ -1,0 +1,98 @@
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex"><title>SMS Opt-In Proof</title>
+<style>
+  :root {
+    --bg: #f4f6f4;
+    --card-bg: #ffffff;
+    --fg: #16241e;
+    --muted: #5b6b63;
+    --border: #d9e0db;
+    --accent: #1a6b52;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #11170f;
+      --card-bg: #19231d;
+      --fg: #e9efe9;
+      --muted: #9fb0a7;
+      --border: #2b3a32;
+      --accent: #5fd6a8;
+      color-scheme: dark;
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #11170f;
+    --card-bg: #19231d;
+    --fg: #e9efe9;
+    --muted: #9fb0a7;
+    --border: #2b3a32;
+    --accent: #5fd6a8;
+    color-scheme: dark;
+  }
+  body {
+    background: var(--bg);
+    color: var(--fg);
+    font-family: 'DM Sans', system-ui, sans-serif;
+    margin: 0;
+    padding: 32px 16px;
+    display: flex;
+    justify-content: center;
+  }
+  main {
+    max-width: 640px;
+    width: 100%;
+  }
+  h1 {
+    font-size: 20px;
+    margin: 0 0 4px;
+  }
+  p.lede {
+    color: var(--muted);
+    font-size: 13px;
+    margin: 0 0 24px;
+    line-height: 1.6;
+  }
+  .card {
+    background: var(--card-bg);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    overflow: hidden;
+  }
+  .card img {
+    display: block;
+    width: 100%;
+    height: auto;
+  }
+  .caption {
+    padding: 14px 18px;
+    font-size: 12px;
+    color: var(--muted);
+    border-top: 1px solid var(--border);
+    line-height: 1.6;
+  }
+  .caption code {
+    color: var(--accent);
+  }
+  dl {
+    margin: 24px 0 0;
+    font-size: 12px;
+    color: var(--muted);
+    display: grid;
+    grid-template-columns: auto 1fr;
+    gap: 6px 14px;
+  }
+  dt { font-weight: 600; color: var(--fg); }
+  dd { margin: 0; }
+</style>
+<main>
+  <h1>SMS Opt-In Documentation</h1>
+  <p class="lede">Screenshot of Credabilia's live "Text message alerts" opt-in form, captured directly from production for Twilio toll-free verification (checkbox is unchecked by default &mdash; opt-in only, no pre-selection).</p>
+  <div class="card">
+    <img src="/sms-opt-in-screenshot.jpg" alt="Credabilia's Text message alerts opt-in form, showing a phone number field and an unchecked consent checkbox reading: Text me about my orders and bids. Message frequency varies. Msg and data rates may apply. Reply STOP to opt out, HELP for help." />
+    <div class="caption">Captured from <code>credabilia.com</code> &rarr; account Profile and settings &rarr; Text message alerts, signed in as the account holder.</div>
+  </div>
+  <dl>
+    <dt>Business</dt><dd>Credabilia LLC</dd>
+    <dt>Location</dt><dd>Profile &amp; settings &rarr; Settings &rarr; Text message alerts</dd>
+    <dt>Consent text</dt><dd>&ldquo;Text me about my orders and bids. Message frequency varies. Msg &amp; data rates may apply. Reply STOP to opt out, HELP for help.&rdquo;</dd>
+  </dl>
+</main>
