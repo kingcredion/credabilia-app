@@ -36,7 +36,7 @@ function InspectionChecklist({ item, acceptLabel, onAccept, onProblem }) {
       <div className="form-stack">{checks.map(check => <label key={check.key} className="check-row"><input type="checkbox" checked={!!ticked[check.key]} onChange={event => setTicked({ ...ticked, [check.key]: event.target.checked })}/><span>{check.label}</span></label>)}</div>
       {error && <p role="alert" className="error">{error}</p>}
       <div className="submit-row">
-        <button type="button" className="primary" disabled={busy || !allTicked} onClick={accept}>{busy ? 'Saving…' : acceptLabel}</button>
+        <button type="button" className={`primary${allTicked && !busy ? ' attention-glow' : ''}`} disabled={busy || !allTicked} onClick={accept}>{busy ? 'Saving…' : acceptLabel}</button>
         <button type="button" className="text-button" disabled={busy} onClick={() => setReporting(true)}>Something's off</button>
       </div>
     </> : <form className="form-stack" onSubmit={report}>

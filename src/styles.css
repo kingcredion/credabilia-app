@@ -202,3 +202,7 @@ body:has(.legal-page){overflow:visible}
 .ended-photo.has-stamp .listing-cover,.ended-photo.has-stamp .item-art{filter:grayscale(1) brightness(.82)}
 .lock-overlay.ended-stamp{height:100%;padding:0}
 .lock-overlay.ended-stamp img{width:min(170px,62%);height:auto;transform:rotate(-8deg);filter:drop-shadow(0 6px 10px rgba(0,0,0,.5))}
+
+/* A buyer's order that needs them: the owned card glows and carries a badge. */
+.item-card.needs-action{position:relative}
+.action-badge{position:absolute;top:10px;left:10px;z-index:3;padding:5px 10px;border-radius:99px;background:var(--green);color:var(--on-brand);font-size:11px;font-weight:700;letter-spacing:.2px;box-shadow:0 2px 8px rgba(0,0,0,.25)}
