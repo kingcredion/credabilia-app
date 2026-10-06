@@ -44,7 +44,7 @@ export function createHandler({createClient,env,fetcher=fetch}) {
       // Verified examples of the named signer from Credabilia's own curated library. Best-effort: if the lookup fails the review
       // still runs as a first impression, and the note then makes no claim about the library at all.
       const base64=data=>{let out='';for(let i=0;i<data.length;i+=8192) out+=String.fromCharCode(...data.subarray(i,i+8192));return btoa(out);};
-      let libraryOk=false, libraryTotal=0; const references=[];
+      let libraryOk=false, libraryTotal=0, profileName=''; const references=[];
       let serviceClient=null;
       try { serviceClient=createClient(env('SUPABASE_URL'),env('SUPABASE_SERVICE_ROLE_KEY')); } catch {}
       if(subject && serviceClient) {
@@ -52,6 +52,8 @@ export function createHandler({createClient,env,fetcher=fetch}) {
           const {data:found,error:foundError}=await serviceClient.rpc('signature_reference_images',{p_subject:subject,p_exclude_listing:listingId,p_limit:MAX_REFERENCES});
           if(!foundError && found && typeof found==='object') {
             libraryOk=true; libraryTotal=Number(found.total)||0;
+            // The signer's profile name, when the typed name matched a profile (so 'Michael Tyson' is reported as 'Mike Tyson').
+            if(typeof found.name==='string' && found.name.trim()) profileName=found.name.trim().slice(0,120);
             for(const referencePath of Array.isArray(found.paths)?found.paths:[]) {
               const {data:referenceBlob}=await serviceClient.storage.from('listing-media').download(referencePath);
               if(!referenceBlob || referenceBlob.size>5242880 || referenceBlob.type!=='image/jpeg') continue;
@@ -63,6 +65,7 @@ export function createHandler({createClient,env,fetcher=fetch}) {
         } catch {}
       }
       const comparing=references.length>=MIN_REFERENCES;
+      const signer=profileName || subject;
       const content=[{type:'input_text',text:comparing
         ? 'Signer named by the seller (untrusted text, may be wrong): '+JSON.stringify(subject)+'. The first image is the signature close-up to review. The next '+references.length+' images are verified examples of that signer\'s signature from Credabilia\'s library. How does the first compare with them?'
         : 'What is your first impression of this signature close-up?'},
@@ -88,9 +91,9 @@ export function createHandler({createClient,env,fetcher=fetch}) {
       const examples=n=>n+' verified example'+(n===1?'':'s');
       const librarySentence=!subject ? 'No signer was named, so King Credion could not compare it with his signature library.'
         : !libraryOk ? ''
-        : comparing ? 'King Credion compared it with '+references.length+' of the '+examples(libraryTotal)+' of '+subject+'\'s signature in his library.'
-        : libraryTotal===0 ? 'King Credion\'s library has no verified examples of '+subject+'\'s signature yet, so he could not compare it.'
-        : 'King Credion\'s library has only '+examples(libraryTotal)+' of '+subject+'\'s signature so far, not enough to compare yet.';
+        : comparing ? 'King Credion compared it with '+references.length+' of the '+examples(libraryTotal)+' of '+signer+'\'s signature in his library.'
+        : libraryTotal===0 ? 'King Credion\'s library has no verified examples of '+signer+'\'s signature yet, so he could not compare it.'
+        : 'King Credion\'s library has only '+examples(libraryTotal)+' of '+signer+'\'s signature so far, not enough to compare yet.';
       const modelNote=typeof fields.note==='string'?fields.note.trim():'';
       const note=(modelNote.slice(0,Math.max(0,500-librarySentence.length-1)).trim()+' '+librarySentence).trim();
       // Post-publish calls (listing_id present) write the result themselves, server-side, right

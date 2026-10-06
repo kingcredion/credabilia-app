@@ -333,8 +333,16 @@ export function makeService() {
       const urls=new Map((data||[]).map(a=>[a.path,a.signedUrl]));
       return items.map(item=>({...item,url:urls.get(item.path)||null}));
     },
-    async adminPromoteSignatureReference(id, subjectName) { return unwrap(await client.rpc('admin_promote_signature_reference', { p_id: id, p_subject_name: subjectName || null })); },
+    // subjectId files it under an existing profile; otherwise the typed name finds or starts one. certificateBacked marks it as backed by a third-party certificate.
+    async adminPromoteSignatureReference(id, subjectName, subjectId, certificateBacked) { return unwrap(await client.rpc('admin_promote_signature_reference', { p_id: id, p_subject_name: subjectName || null, p_subject_id: subjectId || null, p_certificate_backed: !!certificateBacked })); },
     async adminRenameSignatureReference(id, subjectName) { return unwrap(await client.rpc('admin_rename_signature_reference', { p_id: id, p_subject_name: subjectName })); },
+    async adminAssignSignatureReference(id, subjectId) { return unwrap(await client.rpc('admin_assign_signature_reference', { p_id: id, p_subject_id: subjectId })); },
+    async adminListSignatureSubjects() { return unwrap(await client.rpc('admin_list_signature_subjects')); },
+    async adminRenameSignatureSubject(id, name) { return unwrap(await client.rpc('admin_rename_signature_subject', { p_id: id, p_name: name })); },
+    async adminMergeSignatureSubjects(fromId, intoId) { return unwrap(await client.rpc('admin_merge_signature_subjects', { p_from: fromId, p_into: intoId })); },
+    async adminRemoveSignatureAlias(id, alias) { unwrap(await client.rpc('admin_remove_signature_alias', { p_id: id, p_alias: alias })); },
+    // "Signed by" suggestions for sellers: existing profile names matching what they have typed so far.
+    async searchSignatureSubjects(query) { const q = String(query || '').trim(); if (q.length < 2) return []; const { data, error } = await client.rpc('search_signature_subjects', { p_query: q }); return error ? [] : (data || []); },
     async adminDiscardSignatureReference(id) { return unwrap(await client.rpc('admin_discard_signature_reference', { p_id: id })); },
     async adminListNeedsReviewListings() { return signMedia(unwrap(await client.rpc('admin_list_needs_review_listings'))); },
     async adminApproveListing(id) { unwrap(await client.rpc('admin_approve_listing', { p_id: id })); },

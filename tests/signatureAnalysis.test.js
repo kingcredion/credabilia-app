@@ -74,14 +74,14 @@ test('analyze-signature handler rejects a listing_id path that is not that listi
 });
 
 // Builds a handler whose library lookup returns {total, paths}; records what the model was shown.
-function libraryHandler({total,paths,lookupError=false,reviewNote='Looks natural.'}) {
+function libraryHandler({total,paths,profile,lookupError=false,reviewNote='Looks natural.'}) {
   const id='11111111-1111-4111-8111-111111111111';
   const seen={rpc:null,content:null,instructions:null,downloads:[]};
   const handler=createHandler({env:key=>key==='OPENAI_API_KEY'?'test-key':'test',
     createClient:()=>({auth:{getUser:async()=>({data:{user:{id}}})},
       storage:{from:()=>({download:async p=>{seen.downloads.push(p);return {data:jpeg()};}})},
       rpc:async(name,args)=>{
-        if(name==='signature_reference_images'){seen.rpc=args;return lookupError?{data:null,error:new Error('boom')}:{data:{total,paths}};}
+        if(name==='signature_reference_images'){seen.rpc=args;return lookupError?{data:null,error:new Error('boom')}:{data:{total,paths,name:profile}};}
         return {error:null};
       }}),
     fetcher:async(url,options)=>{const body=JSON.parse(options.body);seen.content=body.input[0].content;seen.instructions=body.instructions;return opinion('consistent',reviewNote);}});
@@ -140,4 +140,14 @@ test('analyze-signature handler falls back to "inconclusive" for an unrecognized
   const result=await handler(request({path}));
   assert.equal(result.status,200);
   assert.equal((await result.json()).label,'inconclusive');
+});
+
+test('analyze-signature reports the signer under the library profile name, so a different spelling reads correctly and shares the same examples',async()=>{
+  const {handler,seen,path}=libraryHandler({total:4,paths:['r1.jpg','r2.jpg','r3.jpg'],profile:'Mike Tyson',reviewNote:'Slant and flourishes match.'});
+  const data=await (await handler(request({path,subject:'michael tyson'}))).json();
+  assert.equal(seen.rpc.p_subject,'michael tyson','the typed name is what is looked up; the library resolves it through the profile');
+  assert.equal(data.note,'Slant and flourishes match. King Credion compared it with 3 of the 4 verified examples of Mike Tyson\'s signature in his library.');
+  const small=libraryHandler({total:1,paths:['r1.jpg'],profile:'Mike Tyson'});
+  const smallData=await (await small.handler(request({path:small.path,subject:'mike tyson jr'}))).json();
+  assert.match(smallData.note,/only 1 verified example of Mike Tyson's signature so far/);
 });

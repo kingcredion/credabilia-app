@@ -491,7 +491,7 @@ function CreateListing({ onClose, onCreated, relistFrom, bulkPhoto, bulkProgress
       <div className="bulk-form-wrap">
       {bulkPhoto && processingPhoto && <div className="bulk-scan-overlay" role="status" aria-label="King Credion is drafting this listing"><img src="/brand/screen-face-v1/scan.webp" alt=""/><p>Reading this photo…</p></div>}
       <label>Item title<input name="title" placeholder="What are you sharing?" minLength={4} maxLength={120} required autoFocus/></label>
-      <label>Signed by <span className="optional">optional</span><input name="attribute:subject" placeholder="e.g. Mike Tyson" maxLength={120}/></label>
+      <label>Signed by <span className="optional">optional</span><SignedByInput/></label>
       <MediaPicker service={service} media={media} onChange={next=>{setMedia(next);setSuggestion(null);setConfirmed(false);setSignatureAi(null);}} busy={working} onBusy={setUploading} onError={setError}/>
       {signaturePhoto ? <div className="evidence-box"><h3 className="king-heading"><img className="king-icon" src="/brand/king-credion-signature-icon-v2.png" alt="" width="32" height="30"/>King Credion's signature opinion</h3>
         <p className="field-note-caution">If AI spotted this automatically and it isn't actually a signature, remove the photo above in the Signature close-up section.</p>
@@ -733,7 +733,7 @@ function EditListing({item:currentItem,onClose,onSaved}) {
     {reviewed && <p className="field-note">This listing has been audited. Changing anything other than price will archive the current reviews in the item's history and reset the score to neutral — nothing is deleted.</p>}
     <form className="form-stack" onSubmit={submit}>
       <label>Item title<input name="title" defaultValue={item.title} required minLength={4} maxLength={120}/></label>
-      <label>Signed by <span className="optional">optional</span><input name="attribute:subject" defaultValue={item.attributes?.subject||''} placeholder="e.g. Mike Tyson" maxLength={120}/></label>
+      <label>Signed by <span className="optional">optional</span><SignedByInput defaultValue={item.attributes?.subject||''}/></label>
       <label>Category<select name="category" defaultValue={item.category}>{CATEGORIES.map(c=><option key={c}>{c}</option>)}</select></label>
       {(() => { const locked = item.listing_type === 'auction' && (item.bid_count > 0 || new Date(item.auction_ends_at) <= new Date());
         return <label>{item.listing_type === 'auction' ? 'Starting bid (USD)' : 'Price (USD)'}<input name="price" type="number" min="1" max="1000000" step="0.01" defaultValue={(item.price_cents/100).toFixed(2)} required readOnly={locked}/>{locked && <small className="field-note">This auction has bids, so its price and end time can no longer be changed.</small>}</label>; })()}
@@ -1663,38 +1663,99 @@ function AdminUsers() {
 }
 
 function AdminSignatureLibrary() {
-  const [provenance, setProvenance] = useState('self_reported');
-  const [list, setList] = useState(undefined), [error, setError] = useState(''), [busyId, setBusyId] = useState(null), [names, setNames] = useState({});
-  function load() { service.adminListSignatureReferences(provenance).then(items => { setList(items); setNames({}); }).catch(err => setError(err.message)); }
-  useEffect(() => { load(); }, [provenance]);
-  // The name box starts with the AI's / seller's guess; whatever is in it when the operator approves (or saves) is the name the signature is filed under.
-  const nameOf = ref => names[ref.id] ?? ref.subject_name;
-  async function promote(ref) { setBusyId(ref.id); setError(''); try { await service.adminPromoteSignatureReference(ref.id, nameOf(ref)); load(); } catch (err) { setError(err.message); } finally { setBusyId(null); } }
-  async function rename(ref) { setBusyId(ref.id); setError(''); try { await service.adminRenameSignatureReference(ref.id, nameOf(ref)); load(); } catch (err) { setError(err.message); } finally { setBusyId(null); } }
-  async function discard(id) { setBusyId(id); setError(''); try { await service.adminDiscardSignatureReference(id); load(); } catch (err) { setError(err.message); } finally { setBusyId(null); } }
+  const [view, setView] = useState('awaiting');
+  const [list, setList] = useState(undefined), [subjects, setSubjects] = useState([]), [error, setError] = useState(''), [busyId, setBusyId] = useState(null);
+  const [choice, setChoice] = useState({}), [newNames, setNewNames] = useState({});
+  function load() {
+    setError('');
+    const profiles = service.adminListSignatureSubjects().then(setSubjects);
+    if (view === 'profiles') { profiles.catch(err => setError(err.message)); return; }
+    Promise.all([service.adminListSignatureReferences(view === 'awaiting' ? 'self_reported' : 'operator_curated'), profiles])
+      .then(([items]) => { setList(items); setChoice({}); setNewNames({}); }).catch(err => setError(err.message));
+  }
+  useEffect(() => { setList(undefined); load(); }, [view]);
+  async function run(id, action) { setBusyId(id); setError(''); try { await action(); load(); } catch (err) { setError(err.message); } finally { setBusyId(null); } }
+  // Which profile this signature will be filed under: the one it already matched, else the closest suggestion, else a new profile.
+  const choiceOf = ref => choice[ref.id] ?? ref.subject_id ?? ref.suggestions?.[0]?.id ?? 'new';
+  const newNameOf = ref => newNames[ref.id] ?? ref.submitted_name ?? ref.subject_name;
+  const approve = (ref, certificateBacked) => run(ref.id, () => choiceOf(ref) === 'new'
+    ? service.adminPromoteSignatureReference(ref.id, newNameOf(ref).trim(), null, certificateBacked)
+    : service.adminPromoteSignatureReference(ref.id, null, choiceOf(ref), certificateBacked));
+  const move = ref => run(ref.id, () => choiceOf(ref) === 'new' ? service.adminRenameSignatureReference(ref.id, newNameOf(ref).trim()) : service.adminAssignSignatureReference(ref.id, choiceOf(ref)));
+  const discard = id => run(id, () => service.adminDiscardSignatureReference(id));
+  const tabs = [['awaiting', 'Awaiting review'], ['curated', 'Approved library'], ['profiles', 'Profiles']];
   return <div className="form-stack">
-    <p className="field-note">Every signature with a subject filled in is auto-captured here for review. Only promoted references are usable for future comparisons.</p>
+    <p className="field-note">Every signature with a “signed by” name is captured here. Each one is filed under a signature profile for that person, so all of their signatures sit together however the seller spelled the name. Only approved ones are used for comparisons, and certificate-backed ones are shown to the AI first.</p>
     <div className="categories" role="group" aria-label="Signature library view">
-      <button aria-pressed={provenance === 'self_reported'} className={provenance === 'self_reported' ? 'active' : ''} onClick={() => setProvenance('self_reported')}>Awaiting review</button>
-      <button aria-pressed={provenance === 'operator_curated'} className={provenance === 'operator_curated' ? 'active' : ''} onClick={() => setProvenance('operator_curated')}>Curated library</button>
+      {tabs.map(([key, label]) => <button key={key} aria-pressed={view === key} className={view === key ? 'active' : ''} onClick={() => setView(key)}>{label}</button>)}
     </div>
     {error && <p role="alert" className="error">{error}</p>}
-    {list === undefined ? <p role="status">Loading…</p>
-      : !list.length ? <p className="field-note">{provenance === 'self_reported' ? 'No signatures awaiting review.' : 'No curated references yet.'}</p>
-      : <div className="items-grid">{list.map(ref => <div key={ref.id} className="item-card evidence-box">
-          {ref.url ? <img src={ref.url} alt={`Signature for ${ref.subject_name}`} className="admin-signature-photo"/> : <p className="field-note">Photo unavailable</p>}
-          <label>Signature belongs to<input type="text" value={nameOf(ref)} maxLength={120} disabled={busyId === ref.id} onChange={event => setNames(current => ({ ...current, [ref.id]: event.target.value }))}/></label>
-          {names[ref.id] !== undefined && names[ref.id].trim() !== ref.subject_name && <p className="field-note">Was “{ref.subject_name}”. {provenance === 'self_reported' ? 'It will be filed under the new name when you approve it.' : 'Save to change it in the library.'}</p>}
-          <p className="field-note">From "{ref.listing_title}"</p>
-          {ref.description && <p className="field-note">{ref.description}</p>}
-          <p className="field-note">{ref.has_embedding ? 'Indexed' : 'Not yet indexed'}</p>
-          <div className="form-row">
-            {provenance === 'self_reported' && <button type="button" className="text-button" disabled={busyId === ref.id || !nameOf(ref).trim()} onClick={() => promote(ref)}>{busyId === ref.id ? 'Promoting…' : 'Promote to library'}</button>}
-            {provenance === 'operator_curated' && nameOf(ref).trim() !== ref.subject_name && <button type="button" className="text-button" disabled={busyId === ref.id || !nameOf(ref).trim()} onClick={() => rename(ref)}>{busyId === ref.id ? 'Saving…' : 'Save name'}</button>}
-            <button type="button" className="text-button danger-button" disabled={busyId === ref.id} onClick={() => discard(ref.id)}>{busyId === ref.id ? 'Removing…' : 'Discard'}</button>
-          </div>
-        </div>)}</div>}
+    {view === 'profiles' ? <AdminSignatureProfiles subjects={subjects} reload={load} setError={setError}/>
+      : list === undefined ? <p role="status">Loading…</p>
+      : !list.length ? <p className="field-note">{view === 'awaiting' ? 'No signatures awaiting review.' : 'No approved signatures yet.'}</p>
+      : <div className="items-grid">{list.map(ref => {
+          const busy = busyId === ref.id, suggested = ref.subject_id ? [] : (ref.suggestions || []);
+          return <div key={ref.id} className="item-card evidence-box">
+            {ref.url ? <img src={ref.url} alt={`Signature for ${ref.subject_name}`} className="admin-signature-photo"/> : <p className="field-note">Photo unavailable</p>}
+            <p className="field-note">Seller typed: <strong>{ref.submitted_name}</strong></p>
+            {view === 'curated' && <p className="field-note">{ref.provenance === 'authenticated' ? 'Certificate-backed' : 'Approved'} · filed under <strong>{ref.subject_name}</strong></p>}
+            {view === 'awaiting' && (ref.subject_id ? <p className="field-note">Matched to the profile <strong>{ref.subject_name}</strong> automatically.</p> : <p className="field-note">No profile matches that spelling{suggested.length ? ' — closest profiles are listed first.' : ' yet.'}</p>)}
+            <label>{view === 'awaiting' ? 'File under' : 'Move to'}
+              <select value={choiceOf(ref)} disabled={busy} onChange={event => setChoice(current => ({ ...current, [ref.id]: event.target.value }))}>
+                {!!suggested.length && <optgroup label="Suggested">{suggested.map(s => <option key={'s' + s.id} value={s.id}>{s.name}</option>)}</optgroup>}
+                <optgroup label="All profiles">{subjects.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}</optgroup>
+                <option value="new">＋ New profile…</option>
+              </select>
+            </label>
+            {choiceOf(ref) === 'new' && <label>New profile name<input type="text" value={newNameOf(ref)} maxLength={120} disabled={busy} onChange={event => setNewNames(current => ({ ...current, [ref.id]: event.target.value }))}/></label>}
+            {choiceOf(ref) !== 'new' && view === 'awaiting' && choiceOf(ref) !== ref.subject_id && <p className="field-note">“{ref.submitted_name}” will be remembered as another name for that profile.</p>}
+            <p className="field-note">From "{ref.listing_title}"</p>
+            {ref.certificate && <p className="field-note">Listing's certificate: {[ref.certificate.company || ref.certificate.issuer, ref.certificate.number && '#' + ref.certificate.number].filter(Boolean).join(' ')} (self-reported)</p>}
+            {ref.description && <p className="field-note">{ref.description}</p>}
+            <div className="form-row">
+              {view === 'awaiting' && <button type="button" className="text-button" disabled={busy || (choiceOf(ref) === 'new' && !newNameOf(ref).trim())} onClick={() => approve(ref, false)}>{busy ? 'Saving…' : 'Approve'}</button>}
+              {view === 'awaiting' && ref.certificate && <button type="button" className="text-button" disabled={busy || (choiceOf(ref) === 'new' && !newNameOf(ref).trim())} onClick={() => approve(ref, true)}>Approve as certificate-backed</button>}
+              {view === 'curated' && (choiceOf(ref) !== ref.subject_id) && <button type="button" className="text-button" disabled={busy || (choiceOf(ref) === 'new' && !newNameOf(ref).trim())} onClick={() => move(ref)}>{busy ? 'Saving…' : 'Save'}</button>}
+              <button type="button" className="text-button danger-button" disabled={busy} onClick={() => discard(ref.id)}>{busy ? 'Working…' : 'Discard'}</button>
+            </div>
+          </div>;
+        })}</div>}
   </div>;
+}
+
+// One card per person: how many signatures are filed under them, the other spellings that file to them, and tools to tidy up.
+function AdminSignatureProfiles({ subjects, reload, setError }) {
+  const [names, setNames] = useState({}), [mergeInto, setMergeInto] = useState({}), [busyId, setBusyId] = useState(null);
+  async function run(id, action) { setBusyId(id); setError(''); try { await action(); setNames({}); setMergeInto({}); reload(); } catch (err) { setError(err.message); } finally { setBusyId(null); } }
+  if (!subjects.length) return <p className="field-note">No profiles yet. They are created as signatures are approved.</p>;
+  return <div className="items-grid">{subjects.map(profile => {
+    const busy = busyId === profile.id, target = subjects.find(other => other.id === mergeInto[profile.id]);
+    return <div key={profile.id} className="item-card evidence-box">
+      <label>Profile name<input type="text" value={names[profile.id] ?? profile.name} maxLength={120} disabled={busy} onChange={event => setNames(current => ({ ...current, [profile.id]: event.target.value }))}/></label>
+      {names[profile.id] !== undefined && names[profile.id].trim() && names[profile.id].trim() !== profile.name && <button type="button" className="text-button" disabled={busy} onClick={() => run(profile.id, () => service.adminRenameSignatureSubject(profile.id, names[profile.id].trim()))}>Save name</button>}
+      <p className="field-note">{profile.authenticated} certificate-backed · {profile.curated} approved · {profile.pending} awaiting review</p>
+      {!!profile.aliases?.length && <p className="field-note">Also filed here from: {profile.aliases.map(alias => <span key={alias}>“{alias}” <button type="button" className="text-button" aria-label={`Remove the spelling ${alias}`} disabled={busy} onClick={() => run(profile.id, () => service.adminRemoveSignatureAlias(profile.id, alias))}>×</button> </span>)}</p>}
+      {subjects.length > 1 && <label>Same person as another profile?
+        <select value={mergeInto[profile.id] || ''} disabled={busy} onChange={event => setMergeInto(current => ({ ...current, [profile.id]: event.target.value }))}>
+          <option value="">Merge into…</option>
+          {subjects.filter(other => other.id !== profile.id).map(other => <option key={other.id} value={other.id}>{other.name}</option>)}
+        </select>
+      </label>}
+      {target && <button type="button" className="text-button danger-button" disabled={busy} onClick={() => { if (window.confirm(`Merge “${profile.name}” into “${target.name}”? Their signatures move to “${target.name}” and “${profile.name}” becomes another spelling.`)) run(profile.id, () => service.adminMergeSignatureSubjects(profile.id, target.id)); }}>{busy ? 'Merging…' : `Merge into ${target.name}`}</button>}
+    </div>;
+  })}</div>;
+}
+
+// "Signed by" box with suggestions from the existing signature profiles, so sellers pick an existing spelling instead of inventing a new one.
+function SignedByInput({ defaultValue = '' }) {
+  const [options, setOptions] = useState([]), timer = useRef(null);
+  useEffect(() => () => clearTimeout(timer.current), []);
+  function onInput(event) {
+    const value = event.target.value;
+    clearTimeout(timer.current);
+    timer.current = setTimeout(() => { service.searchSignatureSubjects(value).then(setOptions).catch(() => setOptions([])); }, 250);
+  }
+  return <><input name="attribute:subject" list="signed-by-suggestions" defaultValue={defaultValue} onInput={onInput} placeholder="e.g. Mike Tyson" maxLength={120} autoComplete="off"/><datalist id="signed-by-suggestions">{options.map(name => <option key={name} value={name}/>)}</datalist></>;
 }
 
 function AdminListingReview() {
