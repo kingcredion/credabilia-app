@@ -222,3 +222,9 @@ body:has(.legal-page){overflow:visible}
 /* A newer version is installed behind this page: offer a refresh instead of leaving the member on old code. */
 .update-banner{position:fixed;top:0;left:0;right:0;z-index:60;display:flex;gap:12px;align-items:center;justify-content:center;padding:8px 16px;background:#1d4d3e;color:#fff;font-size:14px}
 .update-banner button{background:#fff;color:#1d4d3e;border:0;border-radius:999px;padding:4px 14px;font-weight:600;cursor:pointer}
+
+/* No photo yet: King Credion holding an empty frame, instead of a plain grey box. */
+.item-art.no-photo{padding:0;overflow:hidden;background:#f1ecd9;display:block}
+.item-art.no-photo img{width:100%;height:100%;object-fit:contain;display:block}
+/* A listing held for a buyer: a Reserved stamp over its photo. */
+.reserved-photo{position:relative}
