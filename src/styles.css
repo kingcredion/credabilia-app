@@ -263,3 +263,11 @@ body:has(.legal-page){overflow:visible}
 .rate-sale p{margin:0}
 .rate-sale textarea{width:100%}
 .rate-sale .star-picker{gap:6px}.rate-sale .star-picker button{padding:8px;min-width:44px;min-height:44px;display:inline-flex;align-items:center;justify-content:center}
+.review-card .review-meta{display:flex;flex-wrap:wrap;gap:4px;align-items:center}
+.review-card .verified{display:inline-flex;align-items:center;gap:3px;color:#1b7a56}
+.review-card .review-report{align-self:flex-start;opacity:.75;font-size:.85rem}
+.review-report-form{display:flex;flex-direction:column;gap:8px}
+.review-report-form select{width:100%}
+.seller-reviews{margin:8px 0}
+.seller-reviews summary{cursor:pointer;color:var(--brand-green,#0d3b2e);font-weight:600}
+.seller-reviews .form-stack{margin-top:10px}

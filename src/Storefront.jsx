@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { ArrowUpRight, Layers } from 'lucide-react';
 import { Brand } from './Brand.jsx';
 import { ItemArt, money, RatingStars } from './ItemArt.jsx';
+import { ReviewList } from './Reviews.jsx';
 
 export function Storefront({ slug, service, onBack }) {
   const [store, setStore] = useState(undefined);
@@ -35,7 +36,7 @@ export function Storefront({ slug, service, onBack }) {
                 : <div className="items-grid">{store.listings.map(item => <a className="item-card" key={item.id} href={`/item/${item.id}`} aria-label={`View ${item.title}`}><ItemArt category={item.category} photo={item.media?.[0]?.url}/><div className="item-card-content"><div className="card-meta"><span>{item.category}</span></div><h3>{item.title}</h3><div className="card-bottom"><strong>{money(item.price_cents)}</strong></div></div></a>)}</div>}
             </section>
             {store.reviews?.length > 0 && <section className="listings-section"><div className="section-heading"><div><p className="eyebrow">FEEDBACK</p><h2>What buyers say</h2></div></div>
-              <div className="form-stack">{store.reviews.map((review, index) => <div key={index} className="evidence-box"><RatingStars value={review.rating} size={16}/><p>{review.comment || <em>No comment left.</em>}</p><p className="field-note">{review.buyer_name} · {new Date(review.created_at).toLocaleDateString()}</p></div>)}</div>
+              <ReviewList slug={store.slug} firstPage={store.reviews} total={store.rating_count} service={service}/>
             </section>}
           </>}
         <footer><span>© {new Date().getFullYear()} Credabilia</span><span>Made for the love of the find.</span></footer>

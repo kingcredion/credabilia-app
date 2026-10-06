@@ -6,6 +6,16 @@ import { listingInput, auditInput } from './domain.js';
 import { pushSupported, currentPushSubscription, enablePush, disablePush } from './push.js';
 import { NATIVE_REDIRECT, isNativeApp, parseAuthRedirect, cleanEmailCode, EMAIL_CODE_MIN, EMAIL_CODE_MAX } from './nativeAuth.js';
 
+// Opens the provider's sign-in page. On the phone it opens in the system browser (Google refuses embedded web views) and returns through NATIVE_REDIRECT,
+// which listenForNativeSignIn() finishes; on the web it is an ordinary redirect.
+export async function oauthSignIn(client, provider) {
+  if (!isNativeApp()) { unwrap(await client.auth.signInWithOAuth({ provider, options: { redirectTo: `${window.location.origin}/auth/callback` } })); return; }
+  const { Browser } = await import('@capacitor/browser');
+  const data = unwrap(await client.auth.signInWithOAuth({ provider, options: { redirectTo: NATIVE_REDIRECT, skipBrowserRedirect: true } }));
+  await Browser.open({ url: data.url });
+}
+
+
 const url = import.meta.env.VITE_SUPABASE_URL?.trim();
 const key = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY?.trim();
 const demo = import.meta.env.VITE_DEMO_MODE === 'true' || (import.meta.env.DEV && !url && !key);
@@ -52,12 +62,10 @@ export function makeService() {
     onAuthChange(fn) { const { data } = client.auth.onAuthStateChange((_event, session) => fn(session)); return () => data.subscription.unsubscribe(); },
     // On the phone, Google's page opens in the system browser (it refuses embedded web views) and returns through NATIVE_REDIRECT, which
     // listenForNativeSignIn() finishes below.
-    async signIn() {
-      if (!isNativeApp()) { unwrap(await client.auth.signInWithOAuth({ provider: 'google', options: { redirectTo: `${window.location.origin}/auth/callback` } })); return; }
-      const { Browser } = await import('@capacitor/browser');
-      const data = unwrap(await client.auth.signInWithOAuth({ provider: 'google', options: { redirectTo: NATIVE_REDIRECT, skipBrowserRedirect: true } }));
-      await Browser.open({ url: data.url });
-    },
+    async signIn() { await oauthSignIn(client, 'google'); },
+    // Sign in with Apple (App Store rule 4.8: required in the iPhone app because Google sign-in is offered). Same route as Google; it only works once the
+    // Apple provider is switched on in Supabase, which is why the button is hidden until VITE_APPLE_SIGNIN_ENABLED is set.
+    async signInWithApple() { await oauthSignIn(client, 'apple'); },
     // The email carries both a link and a 6-digit code. The code works everywhere, including the apps, where a link opens the browser instead.
     async signInWithEmail(email) {
       unwrap(await client.auth.signInWithOtp({ email: email.trim(), options: { emailRedirectTo: isNativeApp() ? NATIVE_REDIRECT : `${window.location.origin}/auth/callback` } }));
@@ -246,6 +254,9 @@ export function makeService() {
       if (!storefront) return null;
       return { ...storefront, listings: await signMedia(storefront.listings) };
     },
+    // "Show more" on a storefront, and the item page's peek at the seller's latest reviews.
+    async getSellerReviews(slug, limit = 20, offset = 0) { return unwrap(await client.rpc('get_seller_reviews', { p_slug: slug, p_limit: limit, p_offset: offset })); },
+    async getListingSellerReviews(listingId, limit = 3) { return unwrap(await client.rpc('get_listing_seller_reviews', { p_listing_id: listingId, p_limit: limit })); },
     async updateStoreSlug(slug) { unwrap(await client.rpc('update_store_slug', { p_slug: slug })); },
     async myDashboardStats() { return unwrap(await client.rpc('my_dashboard_stats')); },
     async saveShippingAddress(address) { unwrap(await client.rpc('save_shipping_address', { p_address: address })); },

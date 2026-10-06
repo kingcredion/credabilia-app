@@ -33,6 +33,9 @@ export function createDemoService(storage = window.localStorage) {
   let state;
   try { const saved = JSON.parse(storage.getItem(key)); state = saved && Array.isArray(saved.listings) && Array.isArray(saved.audits) ? saved : fresh(); } catch { state = fresh(); }
   state.uploads ||= {}; state.names ||= {}; state.favorites ||= {}; state.purchases ||= []; state.revisions ||= []; state.slugs ||= {}; state.shippingAddresses ||= {}; state.phones ||= {}; state.smsOptIns ||= {}; state.messages ||= []; state.conversations ||= []; state.credits ||= []; state.supportMessages ||= []; state.refundRequests ||= []; state.buyRequests ||= []; state.sellerRatings ||= []; state.bids ||= []; state.reports ||= []; state.blocks ||= [];
+  // "Pat Buyer Jones" -> "Pat J.", the way the real storefront shows reviewers.
+const reviewerLabel = name => { const parts = String(name || '').trim().split(/\s+/).filter(Boolean); return !parts.length ? 'Collector' : parts.length === 1 ? parts[0] : parts[0] + ' ' + parts[parts.length - 1][0].toUpperCase() + '.'; };
+const demoReview = r => { const purchase = state.purchases.find(p => p.id === r.purchase_id); const item = state.listings.find(x => x.id === purchase?.listing_id); return { id: r.id, rating: r.rating, comment: r.comment, created_at: r.created_at, reviewer: reviewerLabel(state.names[r.buyer_id] || DEMO_ACCOUNTS.find(u => u.id === r.buyer_id)?.display_name), item_title: item?.title || null }; };
   function sellerRatingStats(sellerId) {
     const ratings=state.sellerRatings.filter(r=>r.seller_id===sellerId);
     if(!ratings.length) return {avg:null,count:0};
@@ -85,6 +88,7 @@ export function createDemoService(storage = window.localStorage) {
     async submitTriviaResponse() {throw new Error('AI trivia requires the connected app and an AI service. Not available in this practice preview.');},
     async getSession() { return session(); },
     onAuthChange(fn) { listeners.add(fn); return () => listeners.delete(fn); },
+    async signInWithApple() { throw new Error('Sign in with Apple is not available in this practice preview.'); },
     async signIn(userId = DEMO_USER.id) { if (!DEMO_ACCOUNTS.some(user => user.id === userId)) throw new Error('Choose a practice account.'); state.userId = userId; save(); listeners.forEach(fn => fn(session())); },
     async signOut() { state.userId = null; save(); listeners.forEach(fn => fn(null)); },
     async profile() { requireUser(); return { ...currentUser(), display_name: state.names[state.userId] || currentUser().display_name, xp: state.xp[state.userId] || 0, learning_xp: 0, slug: state.slugs[state.userId] || null, shipping_address: state.shippingAddresses[state.userId] || null, phone_number: state.phones[state.userId] || null, sms_opt_in: !!state.smsOptIns[state.userId] }; },
@@ -614,6 +618,22 @@ export function createDemoService(storage = window.localStorage) {
       if(Object.entries(state.slugs).some(([userId,value])=>value===clean && userId!==state.userId)) throw new Error('That store name is already taken.');
       state.slugs[state.userId]=clean; save();
     },
+    async getSellerReviews(slug, limit=20, offset=0) {
+      const clean=String(slug || '').trim().toLowerCase();
+      const userId=Object.entries(state.slugs).find(([,value])=>value===clean)?.[0];
+      if(!userId) return null;
+      const {avg,count}=sellerRatingStats(userId);
+      const all=state.sellerRatings.filter(r=>r.seller_id===userId).sort((a,b)=>new Date(b.created_at)-new Date(a.created_at));
+      return {rating_avg:avg,rating_count:count,reviews:all.slice(offset,offset+limit).map(r=>demoReview(r))};
+    },
+    async getListingSellerReviews(listingId, limit=3) {
+      const listing=state.listings.find(item=>item.id===listingId);
+      if(!listing) return null;
+      const slug=state.slugs[listing.seller_id] || null;
+      const {avg,count}=sellerRatingStats(listing.seller_id);
+      const all=state.sellerRatings.filter(r=>r.seller_id===listing.seller_id).sort((a,b)=>new Date(b.created_at)-new Date(a.created_at));
+      return {seller_name:listing.seller_name || 'Collector',slug,rating_avg:avg,rating_count:count,reviews:all.slice(0,limit).map(r=>demoReview(r))};
+    },
     async getStorefront(slug) {
       const clean=String(slug || '').trim().toLowerCase();
       const userId=Object.entries(state.slugs).find(([,value])=>value===clean)?.[0];
@@ -628,7 +648,7 @@ export function createDemoService(storage = window.localStorage) {
         sales_count:state.purchases.filter(p=>p.seller_id===userId).length,
         rating_avg:avg,rating_count:count,
         reviews:state.sellerRatings.filter(r=>r.seller_id===userId).sort((a,b)=>new Date(b.created_at)-new Date(a.created_at)).slice(0,20)
-          .map(r=>({rating:r.rating,comment:r.comment,created_at:r.created_at,buyer_name:state.names[r.buyer_id] || DEMO_ACCOUNTS.find(u=>u.id===r.buyer_id)?.display_name || 'A collector'})),
+          .map(r=>demoReview(r)),
         listings:sellerListings.map(item=>({id:item.id,title:item.title,category:item.category,price_cents:item.price_cents,
           media:(item.media||[]).filter(asset=>asset.kind==='item')})),
       };
