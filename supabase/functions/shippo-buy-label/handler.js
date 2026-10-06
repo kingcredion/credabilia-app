@@ -21,10 +21,13 @@ export function createHandler({createClient,env,fetchImpl=fetch}) {
       const purchaseId=body?.purchase_id, rateId=body?.rate_id;
       if(typeof purchaseId!=='string' || !UUID_RE.test(purchaseId) || typeof rateId!=='string' || !rateId) return reply({error:'Invalid request.'},400);
 
-      const {data:sale,error:saleError}=await client.from('purchases').select('id,shipped_at,label_url,tracking_number,tracking_url').eq('id',purchaseId).eq('seller_id',identity.user.id).maybeSingle();
+      const {data:sale,error:saleError}=await client.from('purchases').select('id,shipped_at,label_url,tracking_number,tracking_url,escrow_status').eq('id',purchaseId).eq('seller_id',identity.user.id).maybeSingle();
       if(saleError || !sale) return reply({error:'Sale not found.'},404);
       // Idempotent: a retry after a lost response (network drop, timeout) must not buy a second label.
       if(sale.shipped_at) return reply({label_url:sale.label_url,tracking_number:sale.tracking_number,tracking_url:sale.tracking_url,shipped_at:sale.shipped_at});
+
+      // An order that was refunded (or is otherwise no longer held) is not waiting to ship: a label bought now would be paid for and then refused by record_shipment.
+      if(sale.escrow_status && sale.escrow_status!=='held') return reply({error:'This order is no longer waiting to ship, so a label cannot be bought for it.'},409);
 
       // The label is paid for by the platform, so the seller may only buy the service the buyer chose and paid for at checkout (an order with
       // no recorded choice, from before choices existed, is limited to the cheapest service). The rate is looked up on Shippo's side, so

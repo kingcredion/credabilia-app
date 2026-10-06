@@ -179,9 +179,9 @@ function sellerEnv() {
   const calls=[];
   return {calls,env:key=>({SUPABASE_URL:'u',SUPABASE_ANON_KEY:'a',SUPABASE_SERVICE_ROLE_KEY:'s',SHIPPO_API_KEY:'shippo'}[key])};
 }
-function labelClients({order,openRefund=false}) {
+function labelClients({order,openRefund=false,escrow='held'}) {
   const rpcCalls=[];
-  const sale={id:PURCHASE,shipped_at:null,label_url:null,tracking_number:null,tracking_url:null,shipping_address:BUYER_ADDRESS,listing_id:LISTING,insured:false,insured_value_cents:0,listings:PARCEL};
+  const sale={id:PURCHASE,escrow_status:escrow,shipped_at:null,label_url:null,tracking_number:null,tracking_url:null,shipping_address:BUYER_ADDRESS,listing_id:LISTING,insured:false,insured_value_cents:0,listings:PARCEL};
   const createClient=(url,key,options)=>{
     const asService=key==='s';
     return {
@@ -362,5 +362,16 @@ test('shipping is held while a refund request is open: no rates and, above all, 
     assert.equal(res.status,409,fn);
     assert.match((await res.json()).error,/open refund request/);
     assert.equal(clients.rpcCalls.filter(c=>c[0]==='record_shipment').length,0);
+  }
+});
+
+test('a refunded order is not waiting to ship: no rates and no label, so no money is spent on it', async () => {
+  const order={shipping_provider:'USPS',shipping_service:'usps_priority',shipping_quote_cents:980};
+  for (const fn of ['shippo-get-rates','shippo-buy-label']) {
+    const {createHandler}=await import(new URL('handler.js',FN(fn)));
+    const clients=labelClients({order,escrow:'refunded'});
+    const res=await createHandler({createClient:clients.createClient,env:clients.env,fetchImpl:fakeShippo({}).fetchImpl})(req({purchase_id:PURCHASE,rate_id:'rate_1'}));
+    assert.equal(res.status,409,fn);
+    assert.match((await res.json()).error,/no longer waiting to ship/);
   }
 });

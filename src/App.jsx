@@ -1390,6 +1390,7 @@ function SoldItemCard({ sale, payout, session, onShipped, onRefundChanged, focus
           {sale.conversation_id && !payout?.handoff_verified_at && <button type="button" className="text-button" onClick={() => onOpenMessages(sale.conversation_id)}><MessageCircle size={16}/>Open in messages</button>}
         </>
       : sale.shipped_at ? <p className="field-note">Shipped · {sale.tracking_number ? <a href={sale.tracking_url} target="_blank" rel="noreferrer">Track {sale.tracking_number}</a> : 'Tracking pending'}{sale.label_url && <> · <a href={sale.label_url} target="_blank" rel="noreferrer">Print label</a></>}</p>
+        : sale.escrow_status && sale.escrow_status !== 'held' ? null
         : !shipping ? (['pending', 'contested', 'partial_offered', 'return_required', 'accepted'].includes(sale.refund_status)
             ? <p className="field-note">Hold off shipping while the refund request below is open.</p>
             : <button type="button" className="text-button attention-glow" onClick={startShipping}><Package size={16}/>Ship now</button>)

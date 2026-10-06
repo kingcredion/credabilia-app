@@ -21,8 +21,9 @@ export function createHandler({createClient,env,fetchImpl=fetch}) {
       const purchaseId=body?.purchase_id, bodyParcel=body?.parcel;
       if(typeof purchaseId!=='string' || !UUID_RE.test(purchaseId)) return reply({error:'Invalid request.'},400);
 
-      const {data:sale,error:saleError}=await client.from('purchases').select('id,shipping_address,listing_id,insured,insured_value_cents,listings!purchases_listing_id_fkey(weight_oz,length_in,width_in,height_in)').eq('id',purchaseId).eq('seller_id',identity.user.id).maybeSingle();
+      const {data:sale,error:saleError}=await client.from('purchases').select('id,escrow_status,shipping_address,listing_id,insured,insured_value_cents,listings!purchases_listing_id_fkey(weight_oz,length_in,width_in,height_in)').eq('id',purchaseId).eq('seller_id',identity.user.id).maybeSingle();
       if(saleError || !sale) return reply({error:'Sale not found.'},404);
+      if(sale.escrow_status && sale.escrow_status!=='held') return reply({error:'This order is no longer waiting to ship, so a label cannot be bought for it.'},409);
       // Prefer the listing's own stored dimensions (set at listing time); fall back to the
       // request body only for legacy listings created before that existed.
       const stored=sale.listings;
