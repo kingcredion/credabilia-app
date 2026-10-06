@@ -209,6 +209,8 @@ function CreateListing({ onClose, onCreated, relistFrom, bulkPhoto, bulkProgress
   const working=busy||uploading||analyzing||drafting||copyingPhotos||reviewingSignature||processingPhoto||resuming||discarding;
   const certificates=media.filter(asset=>asset.kind==='certificate');
   const signaturePhoto=media.find(asset=>asset.kind==='signature');
+  const [subjectTick,setSubjectTick]=useState(0); // bumps when the signed-by name is entered or filled in, so the signature review can start
+  const reviewedSubject=useRef(''); // the name the current signature review was run with
   async function analyze() {
     setAnalyzing(true);setError('');setSuggestion(null);
     try {const result=await service.extractCertificate(certificates[0].path);setSuggestion(certificateSuggestion(result));}
@@ -216,7 +218,8 @@ function CreateListing({ onClose, onCreated, relistFrom, bulkPhoto, bulkProgress
   }
   async function reviewSignature() {
     setReviewingSignature(true);setError('');
-    try {const result=await service.analyzeSignature(signaturePhoto.path,formRef.current?.elements.namedItem('attribute:subject')?.value);setSignatureAi(result);}
+    const signer=String(formRef.current?.elements.namedItem('attribute:subject')?.value||'').trim();reviewedSubject.current=signer;
+    try {const result=await service.analyzeSignature(signaturePhoto.path,signer);setSignatureAi(result);}
     catch(err){setError(err.message);}finally{setReviewingSignature(false);}
   }
   // Vision models are consistently better at pointing at roughly *where* something is than at
@@ -359,6 +362,7 @@ function CreateListing({ onClose, onCreated, relistFrom, bulkPhoto, bulkProgress
     const tagsField=form?.elements.namedItem('tags');
     if(tagsField && pendingDraft.tags.length) tagsField.value=pendingDraft.tags.join(', ');
     setPendingDraft(null);
+    setSubjectTick(t=>t+1);
   }, [pendingDraft, step]);
   // Fires automatically the moment a signature photo exists with no opinion yet -- no seller click
   // required. Declared after the pendingDraft-apply effect above so, within the same render commit
@@ -366,9 +370,11 @@ function CreateListing({ onClose, onCreated, relistFrom, bulkPhoto, bulkProgress
   // into the DOM before this reads it. Re-fires whenever signatureAi is cleared (MediaPicker's
   // onChange resets it on any media change), so swapping in a new signature photo tries again too.
   useEffect(() => {
-    if(!signaturePhoto || signatureAi || reviewingSignature) return;
+    // Wait for the signer's name: the review compares against that person's signatures, and the name is required anyway.
+    const signer=String(formRef.current?.elements.namedItem('attribute:subject')?.value||'').trim();
+    if(!signaturePhoto || signatureAi || reviewingSignature || !signer) return;
     reviewSignature();
-  }, [signaturePhoto?.path, signatureAi, reviewingSignature]);
+  }, [signaturePhoto?.path, signatureAi, reviewingSignature, subjectTick]);
   useEffect(() => {
     if(!pendingResume || step!=='form') return;
     const form=formRef.current;
@@ -445,7 +451,12 @@ function CreateListing({ onClose, onCreated, relistFrom, bulkPhoto, bulkProgress
       }
       const form = Object.fromEntries(new FormData(formEl));
       const attributes = Object.fromEntries(Object.entries(form).filter(([key])=>key.startsWith('attribute:')).map(([key,value])=>[key.slice(10),value]));
-      const id = await service.createListing({ ...form, attributes, ...certificate, media: finalMedia, price_cents: priceInCents(form.price), listing_type: listingType, auction_days: form.auction_days, signature_ai_label: signatureAi?.label, signature_ai_note: signatureAi?.note, needs_review: fit?.fit==='unrelated' || fit?.fit==='unsure', needs_review_reason: fit?.reason||null });
+      const signedBy = String(attributes.subject || '').trim();
+      if (signaturePhoto && !signedBy) throw new Error('Enter who signed it. A name is needed for every signed item.');
+      // The review was run with whatever name was typed at the time; if the name changed since, review again so the note is about the right person.
+      let opinion = signatureAi;
+      if (signaturePhoto && signedBy && reviewedSubject.current !== signedBy) { try { opinion = await service.analyzeSignature(signaturePhoto.path, signedBy); } catch { /* keep the earlier opinion */ } }
+      const id = await service.createListing({ ...form, attributes, ...certificate, media: finalMedia, price_cents: priceInCents(form.price), listing_type: listingType, auction_days: form.auction_days, signature_ai_label: opinion?.label, signature_ai_note: opinion?.note, needs_review: fit?.fit==='unrelated' || fit?.fit==='unsure', needs_review_reason: fit?.reason||null });
       clearListingDraft();
       // Tell Google Ads a seller listed something -- but not listings held for review, so junk can't teach it the wrong audience.
       if (!(fit?.fit==='unrelated' || fit?.fit==='unsure')) trackItemListed(id);
@@ -491,7 +502,7 @@ function CreateListing({ onClose, onCreated, relistFrom, bulkPhoto, bulkProgress
       <div className="bulk-form-wrap">
       {bulkPhoto && processingPhoto && <div className="bulk-scan-overlay" role="status" aria-label="King Credion is drafting this listing"><img src="/brand/screen-face-v1/scan.webp" alt=""/><p>Reading this photo…</p></div>}
       <label>Item title<input name="title" placeholder="What are you sharing?" minLength={4} maxLength={120} required autoFocus/></label>
-      <label>Signed by <span className="optional">optional</span><SignedByInput/></label>
+      <label>Signed by <span className="optional">{signaturePhoto?'required':'optional'}</span><SignedByInput required={!!signaturePhoto} onCommit={()=>setSubjectTick(t=>t+1)}/></label>
       <MediaPicker service={service} media={media} onChange={next=>{setMedia(next);setSuggestion(null);setConfirmed(false);setSignatureAi(null);}} busy={working} onBusy={setUploading} onError={setError}/>
       {signaturePhoto ? <div className="evidence-box"><h3 className="king-heading"><img className="king-icon" src="/brand/king-credion-signature-icon-v2.png" alt="" width="32" height="30"/>King Credion's signature opinion</h3>
         <p className="field-note-caution">If AI spotted this automatically and it isn't actually a signature, remove the photo above in the Signature close-up section.</p>
@@ -686,7 +697,7 @@ function EditListing({item:currentItem,onClose,onSaved}) {
   // If item.signature_ai_label was already set, signatureAi starts non-null (see useState above)
   // and this never fires, matching "no one else can trigger" once an opinion is permanent.
   useEffect(() => {
-    if(!signaturePhoto || signatureAi || reviewingSignature) return;
+    if(!signaturePhoto || signatureAi || reviewingSignature || !item.attributes?.subject) return; // the review needs the signer's name, which is saved with the listing
     reviewSignature();
   }, [signaturePhoto?.path, signatureAi, reviewingSignature]);
   const certificateChanged=certificate.certificate_issuer!==(item.certificate_issuer||'')||certificate.certificate_number!==(item.certificate_number||'')||certificate.certificate_company!==(item.certificate_company||'');
@@ -696,6 +707,7 @@ function EditListing({item:currentItem,onClose,onSaved}) {
     const attributes = Object.fromEntries(Object.entries(form).filter(([key])=>key.startsWith('attribute:')).map(([key,value])=>[key.slice(10),value]));
     setSaving(true);setError('');
     try{
+      if(signaturePhoto && !String(attributes.subject||'').trim()) throw new Error('Enter who signed it. A name is needed for every signed item.');
       if(certificate.certificate_issuer && certificateChanged && !confirmed) throw new Error('Confirm the certificate details before saving.');
       let finalMedia=media;
       if(mediaTouched) {
@@ -733,7 +745,7 @@ function EditListing({item:currentItem,onClose,onSaved}) {
     {reviewed && <p className="field-note">This listing has been audited. Changing anything other than price will archive the current reviews in the item's history and reset the score to neutral — nothing is deleted.</p>}
     <form className="form-stack" onSubmit={submit}>
       <label>Item title<input name="title" defaultValue={item.title} required minLength={4} maxLength={120}/></label>
-      <label>Signed by <span className="optional">optional</span><SignedByInput defaultValue={item.attributes?.subject||''}/></label>
+      <label>Signed by <span className="optional">{signaturePhoto?'required':'optional'}</span><SignedByInput defaultValue={item.attributes?.subject||''} required={!!signaturePhoto}/></label>
       <label>Category<select name="category" defaultValue={item.category}>{CATEGORIES.map(c=><option key={c}>{c}</option>)}</select></label>
       {(() => { const locked = item.listing_type === 'auction' && (item.bid_count > 0 || new Date(item.auction_ends_at) <= new Date());
         return <label>{item.listing_type === 'auction' ? 'Starting bid (USD)' : 'Price (USD)'}<input name="price" type="number" min="1" max="1000000" step="0.01" defaultValue={(item.price_cents/100).toFixed(2)} required readOnly={locked}/>{locked && <small className="field-note">This auction has bids, so its price and end time can no longer be changed.</small>}</label>; })()}
@@ -1728,12 +1740,15 @@ function AdminSignatureProfiles({ subjects, reload, setError }) {
   const [names, setNames] = useState({}), [mergeInto, setMergeInto] = useState({}), [busyId, setBusyId] = useState(null);
   async function run(id, action) { setBusyId(id); setError(''); try { await action(); setNames({}); setMergeInto({}); reload(); } catch (err) { setError(err.message); } finally { setBusyId(null); } }
   if (!subjects.length) return <p className="field-note">No profiles yet. They are created as signatures are approved.</p>;
-  return <div className="items-grid admin-library-grid">{subjects.map(profile => {
-    const busy = busyId === profile.id, target = subjects.find(other => other.id === mergeInto[profile.id]);
+  const ordered = [...subjects].sort((x, y) => ((y.merge_suggestions || []).length > 0) - ((x.merge_suggestions || []).length > 0));
+  return <div className="items-grid admin-library-grid">{ordered.map(profile => {
+    const busy = busyId === profile.id, suggestions = profile.merge_suggestions || [], target = subjects.find(other => other.id === mergeInto[profile.id]);
+    const mergeInto_ = other => { if (window.confirm(`Merge “${profile.name}” into “${other.name}”? Their signatures move to “${other.name}” and “${profile.name}” becomes another spelling.`)) run(profile.id, () => service.adminMergeSignatureSubjects(profile.id, other.id)); };
     return <div key={profile.id} className="item-card evidence-box">
       <label>Profile name<input type="text" value={names[profile.id] ?? profile.name} maxLength={120} disabled={busy} onChange={event => setNames(current => ({ ...current, [profile.id]: event.target.value }))}/></label>
       {names[profile.id] !== undefined && names[profile.id].trim() && names[profile.id].trim() !== profile.name && <button type="button" className="text-button" disabled={busy} onClick={() => run(profile.id, () => service.adminRenameSignatureSubject(profile.id, names[profile.id].trim()))}>Save name</button>}
       <p className="field-note">{profile.authenticated} certificate-backed · {profile.curated} approved · {profile.pending} awaiting review</p>
+      {!!suggestions.length && <div className="merge-suggestion" role="group" aria-label={`Possible duplicates of ${profile.name}`}><p className="field-note"><strong>Possible duplicate</strong> — might be the same person as:</p>{suggestions.map(other => <button key={other.id} type="button" className="text-button" disabled={busy} onClick={() => mergeInto_(other)}>Merge into {other.name} ({other.signatures} signature{other.signatures === 1 ? '' : 's'})</button>)}</div>}
       {!!profile.aliases?.length && <p className="field-note">Also filed here from: {profile.aliases.map(alias => <span key={alias}>“{alias}” <button type="button" className="text-button" aria-label={`Remove the spelling ${alias}`} disabled={busy} onClick={() => run(profile.id, () => service.adminRemoveSignatureAlias(profile.id, alias))}>×</button> </span>)}</p>}
       {subjects.length > 1 && <label>Same person as another profile?
         <select value={mergeInto[profile.id] || ''} disabled={busy} onChange={event => setMergeInto(current => ({ ...current, [profile.id]: event.target.value }))}>
@@ -1747,7 +1762,7 @@ function AdminSignatureProfiles({ subjects, reload, setError }) {
 }
 
 // "Signed by" box with suggestions from the existing signature profiles, so sellers pick an existing spelling instead of inventing a new one.
-function SignedByInput({ defaultValue = '' }) {
+function SignedByInput({ defaultValue = '', required = false, onCommit }) {
   const [options, setOptions] = useState([]), timer = useRef(null);
   useEffect(() => () => clearTimeout(timer.current), []);
   function onInput(event) {
@@ -1755,7 +1770,7 @@ function SignedByInput({ defaultValue = '' }) {
     clearTimeout(timer.current);
     timer.current = setTimeout(() => { service.searchSignatureSubjects(value).then(setOptions).catch(() => setOptions([])); }, 250);
   }
-  return <><input name="attribute:subject" list="signed-by-suggestions" defaultValue={defaultValue} onInput={onInput} placeholder="e.g. Mike Tyson" maxLength={120} autoComplete="off"/><datalist id="signed-by-suggestions">{options.map(name => <option key={name} value={name}/>)}</datalist></>;
+  return <><input name="attribute:subject" list="signed-by-suggestions" defaultValue={defaultValue} onInput={onInput} placeholder="e.g. Mike Tyson" maxLength={120} autoComplete="off" required={required} onBlur={onCommit}/><datalist id="signed-by-suggestions">{options.map(name => <option key={name} value={name}/>)}</datalist></>;
 }
 
 function AdminListingReview() {

@@ -251,3 +251,5 @@ body:has(.legal-page){overflow:visible}
 .admin-library-grid{grid-template-columns:repeat(auto-fill,minmax(min(100%,300px),1fr))}
 .admin-library-grid input,.admin-library-grid select{width:100%}
 .admin-library-grid .clamp-note{display:-webkit-box;-webkit-line-clamp:4;-webkit-box-orient:vertical;overflow:hidden}
+.merge-suggestion{display:flex;flex-direction:column;align-items:flex-start;gap:6px;padding:10px 12px;border-radius:10px;background:rgba(201,162,39,.14);border:1px solid rgba(201,162,39,.45)}
+.merge-suggestion p{margin:0}
