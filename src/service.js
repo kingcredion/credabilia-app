@@ -333,7 +333,8 @@ export function makeService() {
       const urls=new Map((data||[]).map(a=>[a.path,a.signedUrl]));
       return items.map(item=>({...item,url:urls.get(item.path)||null}));
     },
-    async adminPromoteSignatureReference(id) { return unwrap(await client.rpc('admin_promote_signature_reference', { p_id: id })); },
+    async adminPromoteSignatureReference(id, subjectName) { return unwrap(await client.rpc('admin_promote_signature_reference', { p_id: id, p_subject_name: subjectName || null })); },
+    async adminRenameSignatureReference(id, subjectName) { return unwrap(await client.rpc('admin_rename_signature_reference', { p_id: id, p_subject_name: subjectName })); },
     async adminDiscardSignatureReference(id) { return unwrap(await client.rpc('admin_discard_signature_reference', { p_id: id })); },
     async adminListNeedsReviewListings() { return signMedia(unwrap(await client.rpc('admin_list_needs_review_listings'))); },
     async adminApproveListing(id) { unwrap(await client.rpc('admin_approve_listing', { p_id: id })); },

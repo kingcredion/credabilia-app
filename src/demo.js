@@ -557,6 +557,7 @@ export function createDemoService(storage = window.localStorage) {
     async adminSetPayoutReview() { throw new Error('Needs the connected app.'); },
     async adminListSignatureReferences() { requireUser(); return []; },
     async adminPromoteSignatureReference() { throw new Error('The admin dashboard requires the connected app. Not available in this practice preview.'); },
+    async adminRenameSignatureReference() { throw new Error('The admin dashboard requires the connected app. Not available in this practice preview.'); },
     async adminDiscardSignatureReference() { throw new Error('The admin dashboard requires the connected app. Not available in this practice preview.'); },
     async adminListNeedsReviewListings() { requireUser(); return []; },
     async adminApproveListing() { throw new Error('The admin dashboard requires the connected app. Not available in this practice preview.'); },

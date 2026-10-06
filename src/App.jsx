@@ -1662,10 +1662,13 @@ function AdminUsers() {
 
 function AdminSignatureLibrary() {
   const [provenance, setProvenance] = useState('self_reported');
-  const [list, setList] = useState(undefined), [error, setError] = useState(''), [busyId, setBusyId] = useState(null);
-  function load() { service.adminListSignatureReferences(provenance).then(setList).catch(err => setError(err.message)); }
+  const [list, setList] = useState(undefined), [error, setError] = useState(''), [busyId, setBusyId] = useState(null), [names, setNames] = useState({});
+  function load() { service.adminListSignatureReferences(provenance).then(items => { setList(items); setNames({}); }).catch(err => setError(err.message)); }
   useEffect(() => { load(); }, [provenance]);
-  async function promote(id) { setBusyId(id); setError(''); try { await service.adminPromoteSignatureReference(id); load(); } catch (err) { setError(err.message); } finally { setBusyId(null); } }
+  // The name box starts with the AI's / seller's guess; whatever is in it when the operator approves (or saves) is the name the signature is filed under.
+  const nameOf = ref => names[ref.id] ?? ref.subject_name;
+  async function promote(ref) { setBusyId(ref.id); setError(''); try { await service.adminPromoteSignatureReference(ref.id, nameOf(ref)); load(); } catch (err) { setError(err.message); } finally { setBusyId(null); } }
+  async function rename(ref) { setBusyId(ref.id); setError(''); try { await service.adminRenameSignatureReference(ref.id, nameOf(ref)); load(); } catch (err) { setError(err.message); } finally { setBusyId(null); } }
   async function discard(id) { setBusyId(id); setError(''); try { await service.adminDiscardSignatureReference(id); load(); } catch (err) { setError(err.message); } finally { setBusyId(null); } }
   return <div className="form-stack">
     <p className="field-note">Every signature with a subject filled in is auto-captured here for review. Only promoted references are usable for future comparisons.</p>
@@ -1678,12 +1681,14 @@ function AdminSignatureLibrary() {
       : !list.length ? <p className="field-note">{provenance === 'self_reported' ? 'No signatures awaiting review.' : 'No curated references yet.'}</p>
       : <div className="items-grid">{list.map(ref => <div key={ref.id} className="item-card evidence-box">
           {ref.url ? <img src={ref.url} alt={`Signature for ${ref.subject_name}`} className="admin-signature-photo"/> : <p className="field-note">Photo unavailable</p>}
-          <p><strong>{ref.subject_name}</strong></p>
+          <label>Signature belongs to<input type="text" value={nameOf(ref)} maxLength={120} disabled={busyId === ref.id} onChange={event => setNames(current => ({ ...current, [ref.id]: event.target.value }))}/></label>
+          {names[ref.id] !== undefined && names[ref.id].trim() !== ref.subject_name && <p className="field-note">Was “{ref.subject_name}”. {provenance === 'self_reported' ? 'It will be filed under the new name when you approve it.' : 'Save to change it in the library.'}</p>}
           <p className="field-note">From "{ref.listing_title}"</p>
           {ref.description && <p className="field-note">{ref.description}</p>}
           <p className="field-note">{ref.has_embedding ? 'Indexed' : 'Not yet indexed'}</p>
           <div className="form-row">
-            {provenance === 'self_reported' && <button type="button" className="text-button" disabled={busyId === ref.id} onClick={() => promote(ref.id)}>{busyId === ref.id ? 'Promoting…' : 'Promote to library'}</button>}
+            {provenance === 'self_reported' && <button type="button" className="text-button" disabled={busyId === ref.id || !nameOf(ref).trim()} onClick={() => promote(ref)}>{busyId === ref.id ? 'Promoting…' : 'Promote to library'}</button>}
+            {provenance === 'operator_curated' && nameOf(ref).trim() !== ref.subject_name && <button type="button" className="text-button" disabled={busyId === ref.id || !nameOf(ref).trim()} onClick={() => rename(ref)}>{busyId === ref.id ? 'Saving…' : 'Save name'}</button>}
             <button type="button" className="text-button danger-button" disabled={busyId === ref.id} onClick={() => discard(ref.id)}>{busyId === ref.id ? 'Removing…' : 'Discard'}</button>
           </div>
         </div>)}</div>}
