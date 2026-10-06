@@ -20,6 +20,8 @@ export function createHandler({createClient,env}) {
       const session=await stripe.checkout.sessions.create({
         mode:'setup',
         payment_method_types:['card'],
+        // Shown on Stripe's page under the card form. The $0 line some banks show for a saved card is a card check, not a charge, and says so.
+        custom_text:{submit:{message:'Credabilia saves this card only to confirm you are a real bidder. Nothing is charged now. Your bank may show a $0 card check, which is not a charge. Every bid you place is a commitment to buy.'}},
         client_reference_id:identity.user.id,
         success_url:`${env('APP_URL')}/?bidcard=success`,
         cancel_url:`${env('APP_URL')}/?bidcard=cancel`,

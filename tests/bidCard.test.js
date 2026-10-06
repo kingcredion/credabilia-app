@@ -28,6 +28,7 @@ test('setup-bidding-card needs sign-in and opens a Stripe save-card page tagged 
   assert.deepEqual(created.payment_method_types,['card']);
   assert.equal(created.client_reference_id,'member-1');
   assert.equal(created.line_items,undefined,'nothing is charged');
+  assert.match(created.custom_text.submit.message,/Nothing is charged now/);
   assert.match(created.success_url,/bidcard=success/);
 });
 
