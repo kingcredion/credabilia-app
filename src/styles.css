@@ -254,7 +254,7 @@ body:has(.legal-page){overflow:visible}
 .merge-suggestion{display:flex;flex-direction:column;align-items:flex-start;gap:6px;padding:10px 12px;border-radius:10px;background:rgba(201,162,39,.14);border:1px solid rgba(201,162,39,.45)}
 .merge-suggestion p{margin:0}
 
-.apple-signin{display:flex;align-items:center;justify-content:center;gap:10px;min-height:44px;border:1px solid #000;border-radius:999px;background:#000;color:#fff;font:inherit;font-weight:600;cursor:pointer}
+.apple-signin{margin-top:10px;display:flex;align-items:center;justify-content:center;gap:10px;min-height:44px;border:1px solid #000;border-radius:999px;background:#000;color:#fff;font:inherit;font-weight:600;cursor:pointer}
 .apple-signin:disabled{opacity:.6;cursor:default}
 .apple-signin svg{flex:none}
 @media (prefers-color-scheme: dark){:root:not([data-theme="light"]) .apple-signin{background:#fff;color:#000;border-color:#fff}}
