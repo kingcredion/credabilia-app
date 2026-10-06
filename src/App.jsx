@@ -1187,7 +1187,8 @@ function ItemActions({ item, session, service, busy, request, onCheckout, onRequ
   const payReady = service.mode !== 'live' || item.seller_charges_enabled;
   const auction = item.listing_type === 'auction';
   let note = null, bidBox = null, primary = null;
-  if (item.king_collection) {
+  // King's Collection items are bought outright (no "seller confirms" step), but an auction is still won by bidding.
+  if (item.king_collection && !auction) {
     primary = <button className="primary" disabled={busy || !payReady} onClick={session ? onCheckout : onSignIn}>{busy ? 'Processing…' : 'Buy now'}<ArrowRight size={16}/></button>;
   } else if (request?.status === 'confirmed') {
     note = <p className="field-note">{auction ? 'You won this auction!' : 'The seller confirmed this is still available.'}</p>;
