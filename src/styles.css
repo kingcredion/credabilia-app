@@ -154,6 +154,10 @@
 @keyframes attention-pulse{0%,100%{box-shadow:0 0 0 0 rgba(201,162,39,.0),0 0 6px 1px rgba(201,162,39,.55)}50%{box-shadow:0 0 0 5px rgba(201,162,39,.22),0 0 18px 5px rgba(201,162,39,.85)}}
 .attention-glow{animation:attention-pulse 1.8s ease-in-out infinite;border-radius:10px;outline:2px solid rgba(201,162,39,.7);outline-offset:1px}
 @media (prefers-reduced-motion:reduce){.attention-glow{animation:none;box-shadow:0 0 0 3px rgba(201,162,39,.6)}}
+/* Blue variant: a refund request the seller has to answer (gold stays for "do this next" steps like Ship now). */
+@keyframes attention-pulse-blue{0%,100%{box-shadow:0 0 0 0 rgba(37,99,235,.0),0 0 6px 1px rgba(37,99,235,.5)}50%{box-shadow:0 0 0 5px rgba(37,99,235,.2),0 0 18px 5px rgba(37,99,235,.8)}}
+.attention-glow.attention-glow-blue{animation-name:attention-pulse-blue;outline-color:rgba(37,99,235,.7);border-radius:14px}
+@media (prefers-reduced-motion:reduce){.attention-glow.attention-glow-blue{box-shadow:0 0 0 3px rgba(37,99,235,.6)}}
 .notif-row-urgent{font-weight:700;background:rgba(201,162,39,.14)}
 
 .shipping-choice{display:flex;flex-direction:column;gap:8px;border:1px solid var(--border);border-radius:12px;padding:12px;margin:0}

@@ -1375,7 +1375,7 @@ function SoldItemCard({ sale, payout, session, onShipped, onRefundChanged, focus
     try { const shipped = await service.buyShippingLabel(sale.id, rateId); onShipped({ ...sale, ...shipped }); setShipping(false); }
     catch (err) { setRatesError(err.message); } finally { setBusy(false); }
   }
-  return <div className="item-card static">
+  return <div className={`item-card static${sale.refund_status === 'pending' ? ' attention-glow attention-glow-blue' : ''}`}>
     <ItemArt category={sale.category} photo={sale.media?.[0]?.url}/>
     <div className="item-card-content">
       <div className="card-meta"><span>{sale.category}</span><span>SOLD {new Date(sale.created_at).toLocaleDateString()}</span></div>
