@@ -1511,6 +1511,7 @@ function AdminDisputeRow({ request, onResolve }) {
     {evidence && <p className="field-note">{evidence.fulfillment_method === 'pickup'
       ? (evidence.handoff_verified_at ? `Pickup handoff code was verified ${new Date(evidence.handoff_verified_at).toLocaleString()}.` : 'Pickup handoff code was never entered.')
       : [evidence.shipped_at ? `Shipped ${new Date(evidence.shipped_at).toLocaleDateString()}` : 'Not shipped', evidence.tracking_status ? `tracking ${evidence.tracking_status}` : null, evidence.delivered_at ? `delivered ${new Date(evidence.delivered_at).toLocaleDateString()}` : null].filter(Boolean).join(' · ')}</p>}
+    {request.status === 'accepted' ? <p role="status" className="field-note">Refund approved — it is being issued to the buyer now.</p> : <>
     <label>Refund amount — leave blank to refund everything the buyer paid (item, shipping and tax). For a partial refund, enter an amount under the {money(request.price_cents)} item price; tax is refunded in proportion, shipping is not.<input type="number" min="0.01" step="0.01" value={amount} onChange={event => setAmount(event.target.value)} disabled={busy} placeholder="Everything the buyer paid"/></label>
     <label>Note (optional, kept on the record)<textarea value={note} onChange={event => setNote(event.target.value)} rows={2} maxLength={2000} disabled={busy}/></label>
     {error && <p role="alert" className="error">{error}</p>}
@@ -1518,6 +1519,7 @@ function AdminDisputeRow({ request, onResolve }) {
       <button type="button" className="primary" disabled={busy} onClick={() => act(amount ? 'partial' : 'approve')}>{busy ? 'Working…' : 'Approve refund'}</button>
       <button type="button" className="text-button danger-button" disabled={busy} onClick={() => act('deny')}>Deny</button>
     </div>
+    </>}
   </div>;
 }
 
@@ -1525,12 +1527,20 @@ function AdminDisputes() {
   const [list, setList] = useState(undefined), [error, setError] = useState('');
   function load() { service.adminListRefundRequests().then(setList).catch(err => setError(err.message)); }
   useEffect(() => { load(); }, []);
-  async function resolve(id, action, amountCents, note) { await service.adminResolveRefundRequest(id, action, amountCents, note); load(); }
+  const [notice, setNotice] = useState('');
+  // Approving queues the Stripe refund (it is issued a few seconds later), so say so and look again once it has had time to finish.
+  async function resolve(id, action, amountCents, note) {
+    await service.adminResolveRefundRequest(id, action, amountCents, note);
+    setNotice(action === 'deny' ? 'Denied. The buyer and the seller have both been emailed.' : 'Approved. The refund is being sent to the buyer’s card now, and the buyer and the seller are being emailed.');
+    load(); setTimeout(load, 5000); setTimeout(load, 12000);
+  }
   if (error) return <p role="alert" className="error">{error}</p>;
   if (list === undefined) return <p role="status">Loading disputes…</p>;
   const open = list.filter(r => !['refunded', 'denied'].includes(r.status));
-  if (!open.length) return <p className="field-note">No open disputes.</p>;
-  return <div className="admin-list">{open.map(r => <AdminDisputeRow key={r.id} request={r} onResolve={resolve}/>)}</div>;
+  return <>
+    {notice && <p role="status" className="field-note">{notice}</p>}
+    {!open.length ? <p className="field-note">No open disputes.</p> : <div className="admin-list">{open.map(r => <AdminDisputeRow key={r.id} request={r} onResolve={resolve}/>)}</div>}
+  </>;
 }
 
 function AdminReportRow({ report, onResolve }) {
