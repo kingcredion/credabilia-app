@@ -21,17 +21,11 @@ export function NearMePanel({ nearMe, onChange, onClose, matchCount, savedAddres
     return () => { live = false; clearTimeout(timer); };
   }, [typed]);
 
-  // The newest state, for the city lookup that finishes a moment after the position arrives (the member may have changed the distance by then).
-  const latest = useRef(nearMe);
-  latest.current = nearMe;
-
   // Start from the address saved in the member's profile: it is shown straight away, and its position is looked up once (kept for this visit only).
   const savedPlace = savedAddressPlace(savedAddress);
   const [profilePending, setProfilePending] = useState(false);
   const triedProfile = useRef(false);
-  useEffect(() => {
-    if (triedProfile.current || nearMe || !savedPlace) return;
-    triedProfile.current = true;
+  function applySavedAddress(replace) {
     setProfilePending(true);
     (async () => {
       let point = null;
@@ -41,8 +35,13 @@ export function NearMePanel({ nearMe, onChange, onClose, matchCount, savedAddres
         try { point = await geocodeSavedPlace(savedPlace, { apiKey: MAPS_KEY }); } catch { point = null; }
         if (point) try { sessionStorage.setItem(key, JSON.stringify(point)); } catch { /* storage unavailable */ }
       }
-      if (point && !latest.current) onChange({ onlyNear: false, origin: { ...point, label: savedPlace.label, source: 'profile', placed: true }, radius: DEFAULT_RADIUS });
+      if (point) onChange(current => (current && !replace ? current : { onlyNear: replace ? !!current?.onlyNear : false, origin: { ...point, label: savedPlace.label, source: 'profile', placed: true }, radius: replace ? (current?.radius || DEFAULT_RADIUS) : DEFAULT_RADIUS }));
     })().finally(() => setProfilePending(false));
+  }
+  useEffect(() => {
+    if (triedProfile.current || nearMe || !savedPlace) return;
+    triedProfile.current = true;
+    applySavedAddress(false);
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   function useMyLocation() {
@@ -56,8 +55,8 @@ export function NearMePanel({ nearMe, onChange, onClose, matchCount, savedAddres
         // Then name the place (city and ZIP) so it is clear it worked. If the lookup is unavailable the panel still says the location was found.
         setLookingUp(true);
         reverseGeocode(point, { apiKey: MAPS_KEY }).then(place => {
-          const current = latest.current;
-          if (place && current?.origin?.lat === point.lat && current.origin.lng === point.lng) onChange({ ...current, origin: { ...current.origin, label: place.label, placed: true } });
+          // functional update: always applied to the newest state, and only if the member has not picked somewhere else meanwhile
+          if (place) onChange(current => (current?.origin?.lat === point.lat && current.origin.lng === point.lng ? { ...current, origin: { ...current.origin, label: place.label, placed: true } } : current));
         }).catch(() => {}).finally(() => setLookingUp(false));
       },
       error => { setLocating(false); setMessage(error?.code === 1 ? 'Location is blocked for this site. Allow it in your browser settings, or type a ZIP or city instead.' : 'We could not get your location. Try again, or type a ZIP or city instead.'); },
@@ -81,6 +80,7 @@ export function NearMePanel({ nearMe, onChange, onClose, matchCount, savedAddres
     <p className="field-note">Shows items you can pick up in person at a police-station safe-exchange spot. Your location stays on your device: we never store it.</p>
     <div className="near-me-controls">
       <button type="button" className={`primary compact${fromDevice ? ' located' : ''}`} onClick={useMyLocation} disabled={locating}>{fromDevice && !locating ? <Check size={15}/> : <Navigation size={15}/>} {locating ? 'Finding you…' : fromDevice ? 'Location found' : 'Use my location'}</button>
+      {savedPlace && nearMe?.origin?.source !== 'profile' && <button type="button" className="text-button" onClick={() => applySavedAddress(true)} disabled={profilePending}>{profilePending ? 'Finding…' : `Use my saved address (${savedPlace.label})`}</button>}
       {MAPS_KEY && <div className="near-me-search">
         <input type="text" value={typed} onChange={event => setTyped(event.target.value)} placeholder="or type a ZIP or city" aria-label="Type a ZIP or city" autoComplete="off"/>
         {!!suggestions.length && <ul className="near-me-suggestions" role="listbox">{suggestions.map(s => <li key={s.placeId}><button type="button" role="option" onClick={() => choose(s)}>{s.text}</button></li>)}</ul>}
