@@ -1,3 +1,4 @@
+import { notificationKey, isLoud, pruneSeen, glowClass, notificationSignature } from './notifications.js';
 import { Brand } from './Brand.jsx';
 import { ListingDetailFields, ListingDetailSummary } from './ListingDetails.jsx';
 import { listingMatches } from './listingDetails.js';
@@ -50,7 +51,7 @@ function Modal({ title, children, onClose }) {
   </dialog>;
 }
 
-function NotificationBell({ notifications, onNavigate, variant, glow }) {
+function NotificationBell({ notifications, onNavigate, variant, glow = '', onOpen }) {
   const [open, setOpen] = useState(false);
   const wrap = useRef(null);
   useEffect(() => {
@@ -62,21 +63,21 @@ function NotificationBell({ notifications, onNavigate, variant, glow }) {
   const bottomBar = variant === 'bottombar';
   const label = `Notifications${notifications.length ? ` (${notifications.length} need attention)` : ''}`;
   return <div className={bottomBar ? 'bottom-nav-item-wrap' : 'notif-wrap header-bell'} ref={wrap}>
-    <button className={`${bottomBar ? 'bottom-nav-item' : 'icon-button'}${glow ? ' attention-glow' : ''}`} aria-label={label} title="Notifications" onClick={() => setOpen(o => !o)}>
+    <button className={`${bottomBar ? 'bottom-nav-item' : 'icon-button'}${glow}`} aria-label={label} title="Notifications" onClick={() => { if (!open) onOpen?.(notifications); setOpen(o => !o); }}>
       {bottomBar
         ? <><span className="bottom-nav-indicator"><Bell size={22}/>{notifications.length > 0 && <span className="notif-badge">{notifications.length}</span>}</span><span>Alerts</span></>
         : <>{<Bell size={18}/>}{notifications.length > 0 && <span className="notif-badge">{notifications.length}</span>}</>}
     </button>
     {open && <div className={bottomBar ? 'notif-panel bottom-nav-panel' : 'notif-panel'} role="menu">
       {!notifications.length ? <p className="notif-empty field-note">Nothing needs your attention.</p>
-        : notifications.map(n => <button key={`${n.purchase_id}-${n.conversation_id}-${n.listing_id}-${n.kind}`} type="button" className={n.kind === 'ship_pending' ? 'notif-row notif-row-urgent' : 'notif-row'} role="menuitem" onClick={() => { onNavigate(n); setOpen(false); }}>
+        : notifications.map(n => <button key={notificationKey(n)} type="button" className={n.kind === 'ship_pending' ? 'notif-row notif-row-urgent' : 'notif-row'} role="menuitem" onClick={() => { onNavigate(n); setOpen(false); }}>
             {n.kind === 'message' ? <MessageCircle size={16}/> : n.kind === 'ship_pending' ? <Package size={16}/> : <AlertCircle size={16}/>}<span>{n.message}</span>
           </button>)}
     </div>}
   </div>;
 }
 
-function BottomNav({ session, workspace, onSwitchWorkspace, profile, onProfile, onSignIn, authReady, sellGlow, messagesGlow }) {
+function BottomNav({ session, workspace, onSwitchWorkspace, profile, onProfile, onSignIn, authReady, sellGlow = '', messagesGlow = '' }) {
   const tabs = [
     { key: 'collector', label: 'Discover', Icon: Compass },
     { key: 'seller', label: 'Sell', Icon: Store },
@@ -85,7 +86,7 @@ function BottomNav({ session, workspace, onSwitchWorkspace, profile, onProfile, 
   ];
   return <nav className="bottom-nav" aria-label="Main navigation">
     {tabs.map(tab => { const active = workspace === tab.key; return (
-      <button key={tab.key} type="button" className={`${active ? 'bottom-nav-item active' : 'bottom-nav-item'}${(sellGlow && tab.key === 'seller' && !active) || (messagesGlow && tab.key === 'messages' && !active) ? ' attention-glow' : ''}`} aria-current={active ? 'page' : undefined} onClick={() => onSwitchWorkspace(tab.key)}>
+      <button key={tab.key} type="button" className={`${active ? 'bottom-nav-item active' : 'bottom-nav-item'}${tab.key === 'seller' && !active ? sellGlow : tab.key === 'messages' && !active ? messagesGlow : ''}`} aria-current={active ? 'page' : undefined} onClick={() => onSwitchWorkspace(tab.key)}>
         <span className="bottom-nav-indicator"><tab.Icon size={22}/></span><span>{tab.label}</span>
       </button>
     ); })}
@@ -2030,6 +2031,25 @@ export default function App() {
   const payoutByPurchase = Object.fromEntries(payoutStatus.map(entry => [entry.purchase_id, entry]));
   const [buyRequests, setBuyRequests] = useState([]), [sellerBuyRequests, setSellerBuyRequests] = useState([]);
   const [notifications, setNotifications] = useState([]);
+  // Which bell items the member has already looked at (per account, kept in this browser), and a clock that ticks so a deadline getting close can pulse again.
+  const [seen, setSeen] = useState({}), [clock, setClock] = useState(() => Date.now());
+  const seenStoreKey = session ? 'credabilia:seen:' + session.user.id : null;
+  useEffect(() => { try { setSeen(seenStoreKey ? JSON.parse(localStorage.getItem(seenStoreKey) || '{}') : {}); } catch { setSeen({}); } }, [seenStoreKey]);
+  useEffect(() => { const timer = setInterval(() => setClock(Date.now()), 60000); return () => clearInterval(timer); }, []);
+  function markSeen(list) {
+    if (!seenStoreKey || !list.length) return;
+    setSeen(previous => {
+      const next = { ...previous }; for (const n of list) next[notificationKey(n)] = { seenAt: Date.now() };
+      try { localStorage.setItem(seenStoreKey, JSON.stringify(next)); } catch {}
+      return next;
+    });
+  }
+  useEffect(() => { // finished items are forgotten, so the same thing happening again starts fresh
+    if (!seenStoreKey) return;
+    setSeen(previous => { const kept = pruneSeen(previous, notifications); if (Object.keys(kept).length === Object.keys(previous).length) return previous; try { localStorage.setItem(seenStoreKey, JSON.stringify(kept)); } catch {} return kept; });
+  }, [notifications]);
+  const notificationsSignature = useRef('');
+  useEffect(() => { notificationsSignature.current = notificationSignature(notifications); }, [notifications]);
   const [focusAuditItemId, setFocusAuditItemId] = useState(null);
   const [conversations, setConversations] = useState([]), [focusConversationId, setFocusConversationId] = useState(null), [selectedConversationId, setSelectedConversationId] = useState(null);
   const [itemsHasMore, setItemsHasMore] = useState(false), [loadingMore, setLoadingMore] = useState(false);
@@ -2059,6 +2079,30 @@ export default function App() {
       .catch(err => { if (alive) setError(err.message); }).finally(() => { if (alive) setLoading(false); });
     return () => { alive = false; };
   }, [session, revision, authReady]);
+  // Keep the bell live: look again every minute and whenever the tab comes back into view. When something new or finished shows up, the lists the
+  // bell points at are reloaded quietly (no loading screen), so clicking an item finds it there.
+  useEffect(() => {
+    if (service.mode !== 'live' || !session || storefrontSlug || legalPage) return;
+    let alive = true, running = false;
+    async function look() {
+      if (running || document.visibilityState !== 'visible') return;
+      running = true;
+      try {
+        const next = await service.myNotifications();
+        if (!alive || notificationSignature(next) === notificationsSignature.current) return;
+        const [myPurchases, mySales, myOpenBuyRequests, myBuyRequests, myConversations, myPayoutStatus, myEnded] = await Promise.all([
+          service.myPurchases(), service.mySales(), service.myOpenBuyRequests(), service.myBuyRequests(), service.listConversations(),
+          service.myPayoutStatus().catch(() => []), service.myEndedListings().catch(() => [])]);
+        if (!alive) return;
+        setNotifications(next); setPurchases(myPurchases); setSales(mySales); setBuyRequests(myOpenBuyRequests); setSellerBuyRequests(myBuyRequests);
+        setConversations(myConversations); setPayoutStatus(myPayoutStatus); setEndedListings(myEnded);
+      } catch { /* a missed check is fine; the next one tries again */ } finally { running = false; }
+    }
+    const timer = setInterval(look, 60000);
+    document.addEventListener('visibilitychange', look);
+    window.addEventListener('focus', look);
+    return () => { alive = false; clearInterval(timer); document.removeEventListener('visibilitychange', look); window.removeEventListener('focus', look); };
+  }, [session]);
   useEffect(() => {
     if (!authReady || service.mode !== 'live' || storefrontSlug || legalPage) return;
     const params = new URLSearchParams(window.location.search);
@@ -2215,21 +2259,30 @@ export default function App() {
   const filtered = eligible.filter(item => (category === 'All items' || item.category === category) && listingMatches(item, query));
   // A fully refunded order is not something the member owns any more (it went back to the seller); it stays in `purchases` for its messages and receipt.
   const collectionItems = workspace === 'collector' && collectionFilter === 'owned' ? purchases.filter(p => p.escrow_status !== 'refunded') : filtered;
-  // What needs the member right now. The bell glows for anything actionable; Sell glows (until you are there) for seller work;
-  // the Sold and Requests tabs glow for their own work, and opening Sell lands on the tab that has something waiting.
-  const soldAttention = notifications.some(n => ['ship_pending', 'pickup_awaiting_handoff', 'refund_pending'].includes(n.kind));
-  const requestsAttention = notifications.some(n => n.kind === 'buy_request_pending');
-  const bellGlow = notifications.some(n => n.kind !== 'message');
-  // A buyer's order needs them (inspect and accept, handoff code ready, package arrived): the order lives in its conversation, so Messages glows,
-  // and the item glows in Collect > Owned until they have done it.
+  // What needs the member right now. Nothing here ever hides an item: the badge count and the steady dot stay until it is done. Only the pulse is
+  // limited to what is new, newly active, a day old and still open, or close to its deadline (see notifications.js).
+  const SELLER_KINDS = ['ship_pending', 'pickup_awaiting_handoff', 'refund_pending', 'buy_request_pending', 'auction_relist', 'payout_setup'];
   const BUYER_ORDER_KINDS = ['pickup_inspect', 'pickup_code_ready', 'inspect_delivered'];
-  const ownedAttention = notifications.some(n => BUYER_ORDER_KINDS.includes(n.kind));
+  const MESSAGES_KINDS = ['message', 'pickup_awaiting_handoff', ...BUYER_ORDER_KINDS];
+  const loud = notifications.filter(n => isLoud(n, seen, clock));
+  const glow = kinds => glowClass(notifications.some(n => kinds(n)), loud.some(n => kinds(n)));
+  const isKind = list => n => list.includes(n.kind);
+  const soldAttention = notifications.some(isKind(['ship_pending', 'pickup_awaiting_handoff', 'refund_pending']));
+  const requestsAttention = notifications.some(isKind(['buy_request_pending']));
+  const endedAttention = notifications.some(isKind(['auction_relist']));
+  const bellGlow = glow(n => n.kind !== 'message');
+  const soldTabGlow = glow(isKind(['ship_pending', 'pickup_awaiting_handoff', 'refund_pending']));
+  const requestsTabGlow = glow(isKind(['buy_request_pending']));
+  const endedTabGlow = glow(isKind(['auction_relist']));
+  const sellGlow = glow(isKind(SELLER_KINDS));
+  const ownedGlow = glow(isKind(BUYER_ORDER_KINDS));
+  const messagesGlow = glow(isKind(MESSAGES_KINDS));
+  // A buyer's order needs them (inspect and accept, handoff code ready, package arrived): the order lives in its conversation, so Messages glows,
+  // and the item glows in Collect > Owned until they have done it. The card and the buttons at the place of action keep glowing for as long as it is open.
   const ownedNeedsAction = id => notifications.some(n => BUYER_ORDER_KINDS.includes(n.kind) && n.listing_id === id);
   const actionConversationIds = new Set(notifications.flatMap(n => BUYER_ORDER_KINDS.includes(n.kind) && n.conversation_id ? [n.conversation_id]
     : n.kind === 'pickup_awaiting_handoff' ? [sales.find(x => x.id === n.purchase_id)?.conversation_id].filter(Boolean) : []));
-  const messagesAttention = notifications.some(n => n.kind === 'message' || n.kind === 'pickup_awaiting_handoff' || BUYER_ORDER_KINDS.includes(n.kind));
-  const sellGlow = soldAttention || requestsAttention;
-  const switchWorkspace = value => { setWorkspace(value); setSelectedId(null); setSelectedConversationId(null); setCategory('All items'); setQuery(''); setError(''); setCollectionFilter('all'); setSellerTab(value === 'seller' ? (soldAttention ? 'sold' : requestsAttention ? 'requests' : 'active') : 'active'); window.scrollTo({ top: 0 }); };
+  const switchWorkspace = value => { if (value === 'seller') markSeen(notifications.filter(isKind(SELLER_KINDS))); if (value === 'messages') markSeen(notifications.filter(isKind(MESSAGES_KINDS))); setWorkspace(value); setSelectedId(null); setSelectedConversationId(null); setCategory('All items'); setQuery(''); setError(''); setCollectionFilter('all'); setSellerTab(value === 'seller' ? (soldAttention ? 'sold' : requestsAttention ? 'requests' : endedAttention ? 'ended' : 'active') : 'active'); window.scrollTo({ top: 0 }); };
   function auditItem(id) { setFocusAuditItemId(id); switchWorkspace('auditor'); }
   async function messageSeller(listingId) {
     if (!session) { setModal('login'); return; }
@@ -2261,12 +2314,16 @@ export default function App() {
     } catch (err) { setError(err.message); } finally { setLoadingMore(false); }
   }
   function focusNotification(n) {
+    markSeen([n]);
     setModal(null);
     if (n.kind === 'message') { setWorkspace('messages'); setSelectedId(null); setFocusConversationId(n.conversation_id); return; }
     if (BUYER_ORDER_KINDS.includes(n.kind) && n.conversation_id) { setWorkspace('messages'); setSelectedId(null); setFocusConversationId(n.conversation_id); return; }
     if (n.kind === 'pickup_awaiting_handoff') { const order = sales.find(x => x.id === n.purchase_id); if (order?.conversation_id) { setWorkspace('messages'); setSelectedId(null); setFocusConversationId(order.conversation_id); return; } }
     if (n.role === 'buyer') { setSelectedId(n.listing_id); }
     else if (n.kind === 'buy_request_pending') { setWorkspace('seller'); setSellerTab('requests'); setSelectedId(null); }
+    else if (n.kind === 'auction_relist') { setWorkspace('seller'); setSellerTab('ended'); setSelectedId(null); }
+    else if (n.kind === 'payout_setup') { setWorkspace('seller'); setSellerTab('active'); setSelectedId(null); }
+    else if (n.role === 'operator') { setModal('profile'); }
     else { setWorkspace('seller'); setSellerTab('sold'); setSelectedId(null); }
   }
   async function signIn(userId) { setBusy(true); setError(''); try { await service.signIn(userId); setModal(null); } catch (err) { setError(err.message); } finally { setBusy(false); } }
@@ -2309,12 +2366,12 @@ export default function App() {
     <header className="topbar">
       <button className="brand" onClick={() => switchWorkspace('collector')} aria-label="Credabilia home"><Brand/></button>
       <nav aria-label="Main navigation"><button className={workspace === 'collector' ? 'nav-current' : ''} onClick={() => switchWorkspace('collector')}>Discover</button><button className={workspace === 'auditor' ? 'nav-current' : ''} onClick={() => switchWorkspace('auditor')}>Community audits</button></nav>
-      <div className="account-actions"><ThemeToggle/>{session && <button className="icon-button king-credion-button" aria-label="Ask King Credion" title="Ask King Credion" onClick={() => setModal('support')}><img src="/brand/screen-face-v1/chat.webp" alt="" style={{objectFit:'contain'}}/></button>}{session && <NotificationBell notifications={notifications} onNavigate={focusNotification} glow={bellGlow}/>}{session ? <><button className="avatar" aria-label="Profile and settings" title={profile?.display_name} onClick={() => setModal('profile')}>{profile?.display_name?.slice(0,1) || 'C'}</button><button className="icon-button" aria-label="Sign out" title="Sign out" onClick={signOut}><LogOut size={18}/></button></> : <button className="primary compact" onClick={() => setModal('login')} disabled={!authReady}>Sign in <ArrowUpRight size={16}/></button>}</div>
+      <div className="account-actions"><ThemeToggle/>{session && <button className="icon-button king-credion-button" aria-label="Ask King Credion" title="Ask King Credion" onClick={() => setModal('support')}><img src="/brand/screen-face-v1/chat.webp" alt="" style={{objectFit:'contain'}}/></button>}{session && <NotificationBell notifications={notifications} onNavigate={focusNotification} glow={bellGlow} onOpen={markSeen}/>}{session ? <><button className="avatar" aria-label="Profile and settings" title={profile?.display_name} onClick={() => setModal('profile')}>{profile?.display_name?.slice(0,1) || 'C'}</button><button className="icon-button" aria-label="Sign out" title="Sign out" onClick={signOut}><LogOut size={18}/></button></> : <button className="primary compact" onClick={() => setModal('login')} disabled={!authReady}>Sign in <ArrowUpRight size={16}/></button>}</div>
     </header>
     <div className="page-layout">
       <aside className="sidebar">
         <p className="eyebrow">YOUR WORKSPACE</p>
-        <div className="workspace-list" role="group" aria-label="Choose workspace">{WORKSPACES.map((value, index) => { const Icon = [Compass, Store, ClipboardCheck, MessageCircle][index]; const label = { collector: 'Collect', seller: 'Sell', auditor: 'Audit', messages: 'Messages' }[value]; return <button key={value} aria-pressed={workspace === value} onClick={() => switchWorkspace(value)} className={`${workspace === value ? 'workspace selected' : 'workspace'}${(value === 'seller' && sellGlow && workspace !== 'seller') || (value === 'messages' && messagesAttention && workspace !== 'messages') ? ' attention-glow' : ''}`}><Icon size={19}/><span>{label}</span>{workspace === value && <span className="selected-dot"/>}</button>; })}</div>
+        <div className="workspace-list" role="group" aria-label="Choose workspace">{WORKSPACES.map((value, index) => { const Icon = [Compass, Store, ClipboardCheck, MessageCircle][index]; const label = { collector: 'Collect', seller: 'Sell', auditor: 'Audit', messages: 'Messages' }[value]; return <button key={value} aria-pressed={workspace === value} onClick={() => switchWorkspace(value)} className={`${workspace === value ? 'workspace selected' : 'workspace'}${value === 'seller' && workspace !== 'seller' ? sellGlow : value === 'messages' && workspace !== 'messages' ? messagesGlow : ''}`}><Icon size={19}/><span>{label}</span>{workspace === value && <span className="selected-dot"/>}</button>; })}</div>
         <p className="workspace-note">One account.<br/>Every side of collecting.</p>
         <div className="learning-card"><BookOpen size={23}/><h3>Build your eye.</h3><p>Look closely. Ask questions. Let the evidence guide you.</p><button onClick={() => setModal('learn')}>A guide to auditing <ArrowUpRight size={15}/></button></div>
         <div className="progress-card"><span>PARTICIPATION XP</span><strong>{profile?.xp ?? '—'} <Sparkles size={17}/></strong><p>Learning and participation.<br/>Not an expertise rating.</p></div>
@@ -2351,9 +2408,9 @@ export default function App() {
           <div className="values-strip"><span><Search size={16}/>Discover the details</span><span><ClipboardCheck size={16}/>Share your perspective</span><span><BookOpen size={16}/>Keep learning</span></div>
           <section id="listings" className="listings-section"><div className="section-heading"><div><p className="eyebrow">{workspace === 'auditor' ? 'A FRESH PERSPECTIVE' : 'THE COLLECTION'}</p><h2>{workspace === 'seller' ? (sellerTab === 'sold' ? 'Sold items' : sellerTab === 'requests' ? 'Buy requests' : 'Your listings') : workspace === 'auditor' ? 'Ready for a closer look' : collectionFilter === 'owned' ? 'Items you own' : collectionFilter === 'saved' ? 'Items you saved' : 'Discover something worth keeping'}</h2></div><span className="item-count">{workspace === 'seller' && sellerTab === 'sold' ? sales.length : workspace === 'seller' && sellerTab === 'requests' ? sellerBuyRequests.length : collectionItems.length} {(workspace === 'seller' && sellerTab === 'sold' ? sales.length : workspace === 'seller' && sellerTab === 'requests' ? sellerBuyRequests.length : collectionItems.length) === 1 ? 'item' : 'items'}</span></div>
             {workspace === 'seller' && session && service.mode === 'live' && profile && !profile.stripe_charges_enabled && <div className="evidence-box lock-banner" role="status"><h3><Lock size={16}/> Your listings are locked</h3><p className="field-note">Buyers can see them, but nobody can buy or bid until you connect payouts with Stripe. It takes a couple of minutes, and everything opens automatically when you're done.</p><button type="button" className="primary" onClick={() => setModal('profile')}>{profile.stripe_details_submitted ? 'Check payout status' : 'Set up payouts'}<ArrowRight size={16}/></button></div>}
-            {workspace === 'seller' && session && <div className="categories" aria-label="Your listings"><button aria-pressed={sellerTab === 'active'} className={sellerTab === 'active' ? 'active' : ''} onClick={() => setSellerTab('active')}>Active</button><button aria-pressed={sellerTab === 'requests'} className={`${sellerTab === 'requests' ? 'active' : ''}${requestsAttention && sellerTab !== 'requests' ? ' attention-glow' : ''}`} onClick={() => setSellerTab('requests')}>Requests {sellerBuyRequests.length ? `(${sellerBuyRequests.length})` : ''}</button><button aria-pressed={sellerTab === 'sold'} className={`${sellerTab === 'sold' ? 'active' : ''}${soldAttention && sellerTab !== 'sold' ? ' attention-glow' : ''}`} onClick={() => setSellerTab('sold')}>Sold {sales.length ? `(${sales.length})` : ''}</button>{(endedListings.length > 0 || sellerTab === 'ended') && <button aria-pressed={sellerTab === 'ended'} className={sellerTab === 'ended' ? 'active' : ''} onClick={() => setSellerTab('ended')}>Ended {endedListings.length ? `(${endedListings.length})` : ''}</button>}</div>}
+            {workspace === 'seller' && session && <div className="categories" aria-label="Your listings"><button aria-pressed={sellerTab === 'active'} className={sellerTab === 'active' ? 'active' : ''} onClick={() => setSellerTab('active')}>Active</button><button aria-pressed={sellerTab === 'requests'} className={`${sellerTab === 'requests' ? 'active' : ''}${sellerTab !== 'requests' ? requestsTabGlow : ''}`} onClick={() => { markSeen(notifications.filter(isKind(['buy_request_pending']))); setSellerTab('requests'); }}>Requests {sellerBuyRequests.length ? `(${sellerBuyRequests.length})` : ''}</button><button aria-pressed={sellerTab === 'sold'} className={`${sellerTab === 'sold' ? 'active' : ''}${sellerTab !== 'sold' ? soldTabGlow : ''}`} onClick={() => { markSeen(notifications.filter(isKind(['ship_pending', 'pickup_awaiting_handoff', 'refund_pending']))); setSellerTab('sold'); }}>Sold {sales.length ? `(${sales.length})` : ''}</button>{(endedListings.length > 0 || sellerTab === 'ended') && <button aria-pressed={sellerTab === 'ended'} className={`${sellerTab === 'ended' ? 'active' : ''}${sellerTab !== 'ended' ? endedTabGlow : ''}`} onClick={() => { markSeen(notifications.filter(isKind(['auction_relist']))); setSellerTab('ended'); }}>Ended {endedListings.length ? `(${endedListings.length})` : ''}</button>}</div>}
             {workspace === 'seller' && sellerTab === 'active' && session && <SellerStorefrontBanner slug={profile?.slug} onSetup={() => setModal('profile')}/>}
-            {workspace === 'collector' && session && <div className="categories" aria-label="My collection"><button aria-pressed={collectionFilter === 'all'} className={collectionFilter === 'all' ? 'active' : ''} onClick={() => setCollectionFilter('all')}>All items</button><button aria-pressed={collectionFilter === 'saved'} className={collectionFilter === 'saved' ? 'active' : ''} onClick={() => setCollectionFilter('saved')}><Heart size={14}/> Saved</button><button aria-pressed={collectionFilter === 'owned'} className={`${collectionFilter === 'owned' ? 'active' : ''}${ownedAttention && collectionFilter !== 'owned' ? ' attention-glow' : ''}`} onClick={() => setCollectionFilter('owned')}>Owned</button></div>}
+            {workspace === 'collector' && session && <div className="categories" aria-label="My collection"><button aria-pressed={collectionFilter === 'all'} className={collectionFilter === 'all' ? 'active' : ''} onClick={() => setCollectionFilter('all')}>All items</button><button aria-pressed={collectionFilter === 'saved'} className={collectionFilter === 'saved' ? 'active' : ''} onClick={() => setCollectionFilter('saved')}><Heart size={14}/> Saved</button><button aria-pressed={collectionFilter === 'owned'} className={`${collectionFilter === 'owned' ? 'active' : ''}${collectionFilter !== 'owned' ? ownedGlow : ''}`} onClick={() => { markSeen(notifications.filter(isKind(BUYER_ORDER_KINDS))); setCollectionFilter('owned'); }}>Owned</button></div>}
             {workspace === 'seller' && sellerTab === 'ended' ? <EndedListings items={endedListings} onChanged={() => { setSellerTab('active'); setNotice('Your item is listed again.'); refresh(); }}/>
               : workspace === 'seller' && sellerTab === 'sold' ? (!sales.length ? <div className="empty-state"><Layers size={34}/><h3>Nothing sold yet.</h3><p>Sales will show up here, ready to ship.</p></div>
               : <div className="items-grid">{sales.map(sale => <SoldItemCard key={sale.id} sale={sale} payout={payoutByPurchase[sale.id]} onOpenMessages={openOrderConversation} session={session} onShipped={shipped => setSales(list => list.map(s => s.id === shipped.id ? shipped : s))} onRefundChanged={refresh} focusConversationId={focusConversationId} onFocused={() => setFocusConversationId(null)}/>)}</div>)
@@ -2369,7 +2426,7 @@ export default function App() {
         <footer><span>© {new Date().getFullYear()} Credabilia LLC · 732 S 6th St, Ste 7531, Las Vegas, NV 89101</span><img className="footer-tagline" src="/brand/the-memorabilia-kingdom-gold-quill-v1-optimized.webp" alt="The Memorabilia Kingdom" width="2172" height="724"/><span className="footer-legal"><a href="tel:+18667500255">1 (866) 750-0255</a><a href="/help">Help</a><a href="/terms">Terms</a><a href="/privacy">Privacy</a></span></footer>
       </main>
     </div>
-    <BottomNav sellGlow={sellGlow} messagesGlow={messagesAttention} session={session} workspace={workspace} onSwitchWorkspace={switchWorkspace} profile={profile} authReady={authReady} onProfile={() => setModal('profile')} onSignIn={() => setModal('login')}/>
+    <BottomNav sellGlow={sellGlow} messagesGlow={messagesGlow} session={session} workspace={workspace} onSwitchWorkspace={switchWorkspace} profile={profile} authReady={authReady} onProfile={() => setModal('profile')} onSignIn={() => setModal('login')}/>
     {modal === 'login' && <Modal title="Welcome to Credabilia" onClose={() => setModal(null)}><p className="muted">One account to collect, sell, and share your perspective.</p>{service.mode === 'demo' ? <><div className="evidence-box"><h3>Try the local preview</h3><p>These two separate practice accounts stay in this browser. Each can switch between all three workspaces. Real sign-in is available when the Supabase project is connected.</p></div><div className="form-stack">{DEMO_ACCOUNTS.map(account => <button key={account.id} className="primary full-width" onClick={() => signIn(account.id)} disabled={busy}>{busy ? 'Opening…' : `Continue as ${account.display_name}`}<ArrowRight size={18}/></button>)}</div></> : <><button className="primary full-width" onClick={() => signIn()} disabled={busy}>{busy ? 'Opening…' : 'Continue with Google'}<ArrowRight size={18}/></button><p className="field-note">or</p><EmailLogin/><p className="field-note">By continuing, you agree to Credabilia's <a href="/terms" target="_blank" rel="noreferrer">Terms of Service</a> and <a href="/privacy" target="_blank" rel="noreferrer">Privacy Policy</a>.</p></>}<p className="field-note">Your sign-in method does not determine your workspace. You can switch between all three after signing in.</p></Modal>}
     {modal === 'checkout-address' && (selected || pendingBuy) && <CheckoutAddress item={selected || pendingBuy} profile={profile} busy={busy} onClose={() => setModal(null)} onConfirm={(address, applyCreditCents, wantInsurance, fulfillmentMethod, shippingChoice) => { const id = selected?.id || pendingBuy?.listing_id; setModal(null); buyNow(id, address, applyCreditCents, wantInsurance, fulfillmentMethod, shippingChoice); }}/>}
     {modal === 'create' && <CreateListing onClose={() => setModal(null)} onCreated={(id,fit) => { setModal(null); setNotice(fit ? `Your listing was saved, but it needs a quick review before buyers can see it — ${fit.reason || "it didn't clearly look like a collectible."}` : service.mode === 'live' && profile && !profile.stripe_charges_enabled ? 'Your listing is published, but it is locked until you connect payouts with Stripe. Buyers can see it, and it opens for sale automatically when you are done. Open Sell to set up payouts.' : 'Your listing is published.'); setSelectedId(id); refresh(); }}/>}

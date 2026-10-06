@@ -212,3 +212,7 @@ body:has(.legal-page){overflow:visible}
 .action-badge{position:absolute;top:10px;left:10px;z-index:3;padding:5px 10px;border-radius:99px;background:var(--green);color:var(--on-brand);font-size:11px;font-weight:700;letter-spacing:.2px;box-shadow:0 2px 8px rgba(0,0,0,.25)}
 .conversation-row.needs-action{position:relative}
 .sold-tag{font-weight:600;opacity:.7;font-size:.8em}
+
+/* Calm: needs attention, already seen. A small steady dot instead of the pulse; the badge count stays as well. */
+.attention-calm{position:relative}
+.attention-calm::after{content:"";position:absolute;top:5px;right:5px;width:9px;height:9px;border-radius:50%;background:rgba(201,162,39,.95);box-shadow:0 0 0 2px var(--surface,#fff);pointer-events:none}
