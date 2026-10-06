@@ -17,6 +17,8 @@ export function parseAuthRedirect(link) {
   return { code: code || null, error: error || null };
 }
 
-// The 8-digit code from the sign-in email, as typed (spaces and dashes are common when copying it).
+// The code from the sign-in email, as typed (spaces and dashes are common when copying it). It is 6 digits (Supabase Auth > Email OTP length). The app accepts
+// anything from 6 to 10 digits so a change to that setting never locks anyone out; Supabase itself rejects a wrong code.
 export function cleanEmailCode(value) { return String(value || '').replace(/[^0-9]/g, ''); }
-export const EMAIL_CODE_LENGTH = 8;
+export const EMAIL_CODE_LENGTH = 6;
+export const EMAIL_CODE_MIN = 6, EMAIL_CODE_MAX = 10;

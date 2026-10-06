@@ -17,10 +17,11 @@ test('a failed or cancelled sign-in carries its reason, from the query or the fr
   assert.deepEqual(parseAuthRedirect(NATIVE_REDIRECT), { code: null, error: null });
 });
 
-test('the emailed code is reduced to digits and is eight long', () => {
-  assert.equal(EMAIL_CODE_LENGTH, 8);
-  assert.equal(cleanEmailCode(' 1234 5678 '), '12345678');
-  assert.equal(cleanEmailCode('1234-5678'), '12345678');
+test('the emailed code is reduced to digits and is six long', () => {
+  assert.equal(EMAIL_CODE_LENGTH, 6);
+  assert.equal(cleanEmailCode(' 123 456 '), '123456');
+  assert.equal(cleanEmailCode('123-456'), '123456');
+  assert.equal(cleanEmailCode(' 1234 5678 '), '12345678', 'a longer code still survives, in case the setting changes');
   assert.equal(cleanEmailCode(null), '');
   assert.equal(cleanEmailCode('abc'), '');
 });

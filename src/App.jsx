@@ -15,7 +15,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { ArrowUpRight, ArrowRight, Search, ShieldCheck, Plus, Store, Compass, ClipboardCheck, LogOut, X, Check, BookOpen, Sparkles, Layers, ArrowLeft, AlertCircle, Heart, Settings, RefreshCw, Package, Bell, MessageCircle, Sun, Moon, Monitor, Star, Flag, User, Crown, Share2, Copy, Lock } from 'lucide-react';
 import { DEMO_ACCOUNTS } from './demo.js';
 import { makeService } from './service.js';
-import { isNativeApp, EMAIL_CODE_LENGTH } from './nativeAuth.js';
+import { isNativeApp, EMAIL_CODE_MAX } from './nativeAuth.js';
 const Storefront = React.lazy(() => import('./Storefront.jsx').then(module => ({ default: module.Storefront })));
 const TermsPage = React.lazy(() => import('./Legal.jsx').then(module => ({ default: module.TermsPage })));
 const PrivacyPage = React.lazy(() => import('./Legal.jsx').then(module => ({ default: module.PrivacyPage })));
@@ -2001,8 +2001,8 @@ function EmailLogin() {
   }
   async function resend() { setResent(false); if (await send(sentTo)) setResent(true); }
   return sentTo ? <form className="form-stack" onSubmit={verify}>
-    <div role="status" className="evidence-box"><h3>Check your inbox</h3><p>We emailed an {EMAIL_CODE_LENGTH}-digit code to {sentTo}. Enter it below to sign in. It also creates your account if you're new.</p>{!isNativeApp() && <p>You can also open the sign-in link in the email in this browser.</p>}</div>
-    <label>Sign-in code<input name="code" inputMode="numeric" autoComplete="one-time-code" pattern="[0-9 \-]*" maxLength={EMAIL_CODE_LENGTH + 2} required placeholder="12345678" autoFocus /></label>
+    <div role="status" className="evidence-box"><h3>Check your inbox</h3><p>We emailed a sign-in code to {sentTo}. Enter it below to sign in. It also creates your account if you're new.</p>{!isNativeApp() && <p>You can also open the sign-in link in the email in this browser.</p>}</div>
+    <label>Sign-in code<input name="code" inputMode="numeric" autoComplete="one-time-code" pattern="[0-9 \-]*" maxLength={EMAIL_CODE_MAX + 2} required placeholder="123456" autoFocus /></label>
     {error && <p className="error" role="alert">{error}</p>}
     {resent && !error && <p className="field-note" role="status">A new code is on its way. Only the newest one works.</p>}
     <button className="primary full-width" disabled={busy}>{busy ? 'Checking…' : 'Sign in'}<ArrowRight size={18}/></button>

@@ -4,7 +4,7 @@ import { readFileSync } from 'node:fs';
 
 const load = name => readFileSync(new URL(`../docs/auth-email-templates/${name}.html`, import.meta.url), 'utf8');
 
-test('the sign-in emails carry the 8-digit code the apps need, plus the one-tap link', () => {
+test('the sign-in emails carry the 6-digit code the apps need, plus the one-tap link', () => {
   for (const name of ['magic-link', 'confirm-signup']) {
     const html = load(name);
     assert.match(html, /\{\{ \.Token \}\}/, `${name} must show the code`);

@@ -4,7 +4,7 @@ import { createClient } from '@supabase/supabase-js';
 import { createDemoService } from './demo.js';
 import { listingInput, auditInput } from './domain.js';
 import { pushSupported, currentPushSubscription, enablePush, disablePush } from './push.js';
-import { NATIVE_REDIRECT, isNativeApp, parseAuthRedirect, cleanEmailCode, EMAIL_CODE_LENGTH } from './nativeAuth.js';
+import { NATIVE_REDIRECT, isNativeApp, parseAuthRedirect, cleanEmailCode, EMAIL_CODE_MIN, EMAIL_CODE_MAX } from './nativeAuth.js';
 
 const url = import.meta.env.VITE_SUPABASE_URL?.trim();
 const key = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY?.trim();
@@ -58,13 +58,13 @@ export function makeService() {
       const data = unwrap(await client.auth.signInWithOAuth({ provider: 'google', options: { redirectTo: NATIVE_REDIRECT, skipBrowserRedirect: true } }));
       await Browser.open({ url: data.url });
     },
-    // The email carries both a link and an 8-digit code. The code works everywhere, including the apps, where a link opens the browser instead.
+    // The email carries both a link and a 6-digit code. The code works everywhere, including the apps, where a link opens the browser instead.
     async signInWithEmail(email) {
       unwrap(await client.auth.signInWithOtp({ email: email.trim(), options: { emailRedirectTo: isNativeApp() ? NATIVE_REDIRECT : `${window.location.origin}/auth/callback` } }));
     },
     async verifyEmailCode(email, code) {
       const token = cleanEmailCode(code);
-      if (token.length !== EMAIL_CODE_LENGTH) throw new Error(`Enter the ${EMAIL_CODE_LENGTH}-digit code from your email.`);
+      if (token.length < EMAIL_CODE_MIN || token.length > EMAIL_CODE_MAX) throw new Error('Enter the 6-digit code from your email.');
       unwrap(await client.auth.verifyOtp({ email: email.trim(), token, type: 'email' }));
     },
     // Signing out here ends this browser's session only; the member's other devices stay signed in.
