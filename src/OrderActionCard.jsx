@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Package } from 'lucide-react';
+import { Package, Star } from 'lucide-react';
 
 export const payoutDate = value => new Date(value).toLocaleDateString(undefined, { month: 'long', day: 'numeric' });
 const spacedCode = code => code ? code.replace(/(\d{3})(\d{3})/, '$1 $2') : '';
@@ -17,10 +17,13 @@ function InspectionChecklist({ item, acceptLabel, onAccept, onProblem }) {
   ].filter(Boolean);
   const [ticked, setTicked] = useState({}), [busy, setBusy] = useState(false), [error, setError] = useState('');
   const [reporting, setReporting] = useState(false), [reason, setReason] = useState('');
+  // Optional: rate the seller right here, saved together with the acceptance. Skipping it is fine; it can still be done later from the purchase.
+  const canRate = !!onAccept && item.my_rating == null;
+  const [stars, setStars] = useState(0), [hover, setHover] = useState(0), [comment, setComment] = useState('');
   const allTicked = checks.every(check => ticked[check.key]);
   async function accept() {
     setBusy(true); setError('');
-    try { await onAccept(Object.fromEntries(checks.map(check => [check.key, true]))); }
+    try { await onAccept(Object.fromEntries(checks.map(check => [check.key, true])), canRate && stars ? { stars, comment: comment.trim() } : null); }
     catch (err) { setError(err.message); setBusy(false); }
   }
   async function report(event) {
@@ -34,6 +37,18 @@ function InspectionChecklist({ item, acceptLabel, onAccept, onProblem }) {
     <p className="field-note">Compare it with the listing photos and the signature opinion. Once you accept, we record it. If anything is wrong, tell us now instead.</p>
     {!reporting ? <>
       <div className="form-stack">{checks.map(check => <label key={check.key} className="check-row"><input type="checkbox" checked={!!ticked[check.key]} onChange={event => setTicked({ ...ticked, [check.key]: event.target.checked })}/><span>{check.label}</span></label>)}</div>
+      {canRate && <div className="rate-sale">
+        <h4><Star size={16}/> Rate the sale <span className="optional">optional</span></h4>
+        <p className="field-note">How was the seller: the item as described, packing, and communication?</p>
+        <div className="star-picker" role="radiogroup" aria-label="Rate the seller">
+          {[1, 2, 3, 4, 5].map(n => <button type="button" key={n} aria-label={`${n} star${n > 1 ? 's' : ''}`} aria-pressed={stars === n} disabled={busy}
+            onMouseEnter={() => setHover(n)} onMouseLeave={() => setHover(0)} onClick={() => setStars(stars === n ? 0 : n)}>
+            <Star size={26} fill={n <= (hover || stars) ? 'currentColor' : 'none'}/>
+          </button>)}
+        </div>
+        {stars > 0 && <label>Add a comment <span className="optional">optional</span><textarea value={comment} onChange={event => setComment(event.target.value)} rows={2} maxLength={500} disabled={busy} placeholder="What went well, or what could be better?"/></label>}
+        {stars > 0 && <p className="field-note">Your rating is saved when you accept.</p>}
+      </div>}
       {error && <p role="alert" className="error">{error}</p>}
       <div className="submit-row">
         <button type="button" className={`primary${allTicked && !busy ? ' attention-glow' : ''}`} disabled={busy || !allTicked} onClick={accept}>{busy ? 'Saving…' : acceptLabel}</button>
@@ -80,6 +95,8 @@ export function OrderActionCard({ role, order, payout, service, onChanged }) {
   const payoutLineBuyer = released || !payout ? null
     : open ? 'Your refund request is open, so the seller is not paid until it is resolved.'
     : payout.release_after ? `The seller is paid on ${payoutDate(payout.release_after)} unless you report a problem before then.` : null;
+  // The rating chosen on the accept card is saved right after the acceptance. If saving it fails the acceptance still stands (the rating can be left later from the purchase).
+  const saveRating = async rating => { if (rating?.stars && role === 'buyer') { try { await service.rateSeller(purchaseId, rating.stars, rating.comment || null); } catch { /* the buyer can rate from the purchase */ } } };
   const payoutLineSeller = released ? 'Payment released.'
     : open ? 'Payout paused while a refund request is open.'
     : payout?.under_review ? 'Your payout is being reviewed by our team.'
@@ -94,7 +111,7 @@ export function OrderActionCard({ role, order, payout, service, onChanged }) {
     return <div className="evidence-box order-card"><h3><Package size={18}/>This order</h3>
       {role === 'buyer' && accepted && <p className="field-note">You inspected and accepted this item on {new Date(accepted).toLocaleDateString()}.</p>}
       {inspecting && <InspectionChecklist item={order} acceptLabel="Looks good — accept"
-        onAccept={async checks => { await service.acceptDelivery(purchaseId, checks); onChanged(); }}
+        onAccept={async (checks, rating) => { await service.acceptDelivery(purchaseId, checks); await saveRating(rating); onChanged(); }}
         onProblem={async reason => { await service.requestRefund(purchaseId, reason); onChanged(); }}/>}
       {role === 'seller' && <p className="field-note">{delivered ? 'Delivered.' : 'Shipped — waiting for delivery.'}{accepted ? ' The buyer inspected and accepted it.' : ''}</p>}
       {(role === 'buyer' ? payoutLineBuyer : payoutLineSeller) && <p className="field-note">{role === 'buyer' ? payoutLineBuyer : payoutLineSeller}</p>}
@@ -111,7 +128,7 @@ export function OrderActionCard({ role, order, payout, service, onChanged }) {
           payout?.pickup_code ? <div className="handoff-code attention-glow"><span>Your handoff code</span><strong>{spacedCode(payout.pickup_code)}</strong><small>Read this to the seller now. They enter it to complete the handoff and release payment.</small></div>
           : open ? <p className="field-note">You reported a problem, so no handoff code is available. Our team and the seller will follow up on your refund request.</p>
           : payout?.escrow_status === 'held' ? <InspectionChecklist item={order} acceptLabel="I've inspected it and I accept"
-              onAccept={async checks => { await service.acceptPickupInspection(purchaseId, checks); onChanged(); }}
+              onAccept={async (checks, rating) => { await service.acceptPickupInspection(purchaseId, checks); await saveRating(rating); onChanged(); }}
               onProblem={async reason => { await service.rejectPickupInspection(purchaseId, reason); onChanged(); }}/>
           : null)
       : (

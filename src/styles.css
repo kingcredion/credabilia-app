@@ -253,3 +253,12 @@ body:has(.legal-page){overflow:visible}
 .admin-library-grid .clamp-note{display:-webkit-box;-webkit-line-clamp:4;-webkit-box-orient:vertical;overflow:hidden}
 .merge-suggestion{display:flex;flex-direction:column;align-items:flex-start;gap:6px;padding:10px 12px;border-radius:10px;background:rgba(201,162,39,.14);border:1px solid rgba(201,162,39,.45)}
 .merge-suggestion p{margin:0}
+
+.apple-signin{display:flex;align-items:center;justify-content:center;gap:10px;min-height:44px;border:1px solid #000;border-radius:999px;background:#000;color:#fff;font:inherit;font-weight:600;cursor:pointer}
+.apple-signin:disabled{opacity:.6;cursor:default}
+.apple-signin svg{flex:none}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]) .apple-signin{background:#fff;color:#000;border-color:#fff}}
+.rate-sale{display:flex;flex-direction:column;gap:6px;padding:12px;border-radius:12px;background:rgba(201,162,39,.12);border:1px solid rgba(201,162,39,.4)}
+.rate-sale h4{margin:0;display:flex;align-items:center;gap:6px}
+.rate-sale p{margin:0}
+.rate-sale textarea{width:100%}
