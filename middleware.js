@@ -24,17 +24,25 @@ function money(cents) {
   return typeof cents === 'number' ? '$' + (cents / 100).toFixed(2) : '';
 }
 
-async function callRpc(name, body) {
+// { ok, data }: ok is false when the call itself failed (so "no such page" can be told apart from "Supabase is having a moment").
+async function callRpcChecked(name, body) {
   try {
     const res = await fetch(`${SUPABASE_URL}/rest/v1/rpc/${name}`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', apikey: SUPABASE_KEY, Authorization: `Bearer ${SUPABASE_KEY}` },
       body: JSON.stringify(body),
     });
-    if (!res.ok) return null;
-    return await res.json();
-  } catch { return null; }
+    if (!res.ok) return { ok: false, data: null };
+    return { ok: true, data: await res.json() };
+  } catch { return { ok: false, data: null }; }
 }
+
+async function callRpc(name, body) {
+  return (await callRpcChecked(name, body)).data;
+}
+
+// Returned by buildMeta when the lookup worked and there is simply no such item or storefront.
+export const NOT_FOUND = Symbol('not found');
 
 // RLS lets anon sign a path only when it belongs to an active listing's media (see
 // read_listing_media's storage.objects policy), which is exactly the set of photos this
@@ -56,16 +64,18 @@ async function signedImageUrl(path, expiresIn = 604800) {
 async function buildMeta(pathname) {
   const segments = pathname.split('/').filter(Boolean);
   if (segments.length === 2 && segments[0] === 'item') {
-    const item = await callRpc('get_listing_preview', { p_id: segments[1] });
-    if (!item) return null;
+    const { ok, data: item } = await callRpcChecked('get_listing_preview', { p_id: segments[1] });
+    if (!ok) return null;
+    if (!item) return NOT_FOUND;
     // The resized ~640px JPEG at a stable address (api/email-image.js), not the multi-megabyte original on a temporary link: chat apps drop big images.
     const image = item.photo_path ? `https://credabilia.com/img/item/${segments[1]}` : DEFAULT_IMAGE;
     const description = [money(item.price_cents), item.category, (item.description || '').slice(0, 150)].filter(Boolean).join(' · ');
     return { title: `${item.title} | Credabilia`, description, image };
   }
   if (segments.length === 1 && !RESERVED_SLUGS.has(segments[0])) {
-    const store = await callRpc('get_storefront', { p_slug: segments[0] });
-    if (!store) return null;
+    const { ok, data: store } = await callRpcChecked('get_storefront', { p_slug: segments[0] });
+    if (!ok) return null;
+    if (!store) return NOT_FOUND;
     const firstListing = store.listings?.[0];
     const image = firstListing?.media?.[0]?.path ? `https://credabilia.com/img/item/${firstListing.id}` : DEFAULT_IMAGE;
     const description = `Browse ${store.display_name}'s collection on Credabilia${store.sales_count ? ` — ${store.sales_count} sale${store.sales_count === 1 ? '' : 's'}` : ''}.`;
@@ -157,6 +167,11 @@ export default async function middleware(request) {
 
   const origin = await fetch(new URL('/', url));
   if (!origin.ok) return next();
+  // The single-page app answers every address with 200, so search engines took made-up addresses (the old Credabilia app's pages) for real ones and
+  // kept them listed. For crawlers, an item or storefront that does not exist now says 404 and "do not index"; people still get the app as before.
+  if (meta === NOT_FOUND) {
+    return new Response(await origin.text(), { status: 404, headers: { 'content-type': 'text/html; charset=utf-8', 'x-robots-tag': 'noindex', 'cache-control': 'public, max-age=0, s-maxage=60' } });
+  }
   const html = injectMeta(await origin.text(), meta, url.toString());
   return new Response(html, { status: 200, headers: { 'content-type': 'text/html; charset=utf-8' } });
 }
