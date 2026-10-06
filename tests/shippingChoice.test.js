@@ -171,7 +171,7 @@ test('create-checkout-session charges the service the buyer picked, records it, 
 
 // --- seller side ------------------------------------------------------------------------------------------------------------
 function chain(result) {
-  const builder={select:()=>builder,eq:()=>builder,maybeSingle:async()=>({data:result,error:null}),single:async()=>({data:result,error:null})};
+  const builder={select:()=>builder,eq:()=>builder,in:()=>builder,limit:async()=>({data:Array.isArray(result)?result:[],error:null}),maybeSingle:async()=>({data:result,error:null}),single:async()=>({data:result,error:null})};
   return builder;
 }
 // the seller-scoped and service-role clients are two different createClient calls; tell them apart by the key they are given
@@ -179,7 +179,7 @@ function sellerEnv() {
   const calls=[];
   return {calls,env:key=>({SUPABASE_URL:'u',SUPABASE_ANON_KEY:'a',SUPABASE_SERVICE_ROLE_KEY:'s',SHIPPO_API_KEY:'shippo'}[key])};
 }
-function labelClients({order}) {
+function labelClients({order,openRefund=false}) {
   const rpcCalls=[];
   const sale={id:PURCHASE,shipped_at:null,label_url:null,tracking_number:null,tracking_url:null,shipping_address:BUYER_ADDRESS,listing_id:LISTING,insured:false,insured_value_cents:0,listings:PARCEL};
   const createClient=(url,key,options)=>{
@@ -190,6 +190,7 @@ function labelClients({order}) {
       from:table=>{
         if(table==='profiles') return chain({shipping_address:SELLER_ADDRESS});
         if(table==='purchases') return chain(asService ? {...order,shipping_address:BUYER_ADDRESS} : sale);
+        if(table==='refund_requests') return chain(openRefund ? [{id:'refund-1'}] : []);
         throw new Error('unexpected table '+table);
       },
     };
@@ -349,4 +350,17 @@ test('a package smaller than the carriers accept is refused by the listing form 
     await db.exec('insert into public.listings(length_in,width_in,height_in) values(3,6,0.25),(8,6,4)');
     await db.exec('insert into public.listings(title) values(\'no package size yet\')');
   } finally { await db.close(); }
+});
+
+test('shipping is held while a refund request is open: no rates and, above all, no label is bought', async () => {
+  const order={shipping_provider:'USPS',shipping_service:'usps_priority',shipping_quote_cents:980};
+  for (const fn of ['shippo-get-rates','shippo-buy-label']) {
+    const {createHandler}=await import(new URL('handler.js',FN(fn)));
+    const shippo=fakeShippo({});
+    const clients=labelClients({order,openRefund:true});
+    const res=await createHandler({createClient:clients.createClient,env:clients.env,fetchImpl:shippo.fetchImpl})(req({purchase_id:PURCHASE,rate_id:'rate_1'}));
+    assert.equal(res.status,409,fn);
+    assert.match((await res.json()).error,/open refund request/);
+    assert.equal(clients.rpcCalls.filter(c=>c[0]==='record_shipment').length,0);
+  }
 });

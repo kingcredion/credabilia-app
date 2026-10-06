@@ -30,6 +30,9 @@ export function createHandler({createClient,env,fetchImpl=fetch}) {
       // no recorded choice, from before choices existed, is limited to the cheapest service). The rate is looked up on Shippo's side, so
       // nothing the browser says about it is trusted.
       const service=createClient(env('SUPABASE_URL'),env('SUPABASE_SERVICE_ROLE_KEY'),{auth:{persistSession:false,autoRefreshToken:false}});
+      // Shipping is held while a refund request is open on the order: a label bought now would be spent on a package the buyer may be sending back.
+      const {data:openRefund}=await service.from('refund_requests').select('id').eq('purchase_id',purchaseId).in('status',['pending','contested','partial_offered','return_required','accepted']).limit(1);
+      if(openRefund?.length) return reply({error:'There is an open refund request on this order. Wait until it is resolved before shipping.'},409);
       const {data:order}=await service.from('purchases').select('shipping_address,shipping_provider,shipping_service,shipping_quote_cents,seller_pays_shipping,price_cents,platform_fee_cents').eq('id',purchaseId).maybeSingle();
       const shippoHeaders={Authorization:`ShippoToken ${env('SHIPPO_API_KEY')}`};
       const rateInfo=await fetchImpl(`https://api.goshippo.com/rates/${encodeURIComponent(rateId)}`,{headers:shippoHeaders}).then(r=>r.json());

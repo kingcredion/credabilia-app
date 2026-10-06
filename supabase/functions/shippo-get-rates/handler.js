@@ -50,6 +50,9 @@ export function createHandler({createClient,env,fetchImpl=fetch}) {
       // no recorded choice (older orders) is limited to the cheapest service. Whatever the seller buys is paid for by the platform, so
       // it must never be a more expensive service than the buyer paid for.
       const service=createClient(env('SUPABASE_URL'),env('SUPABASE_SERVICE_ROLE_KEY'),{auth:{persistSession:false,autoRefreshToken:false}});
+      // Shipping is held while a refund request is open on the order: a label bought now would be spent on a package the buyer may be sending back.
+      const {data:openRefund}=await service.from('refund_requests').select('id').eq('purchase_id',purchaseId).in('status',['pending','contested','partial_offered','return_required','accepted']).limit(1);
+      if(openRefund?.length) return reply({error:'There is an open refund request on this order. Wait until it is resolved before shipping.'},409);
       const {data:order}=await service.from('purchases').select('shipping_provider,shipping_service,shipping_quote_cents,seller_pays_shipping,price_cents,platform_fee_cents').eq('id',purchaseId).maybeSingle();
       // The seller offered free shipping, so the seller picks the service and the real label price comes out of their payout (like eBay).
       // Every service is offered with what it will cost them; ones that would cost more than the payout from this sale are flagged.
