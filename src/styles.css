@@ -262,3 +262,4 @@ body:has(.legal-page){overflow:visible}
 .rate-sale h4{margin:0;display:flex;align-items:center;gap:6px}
 .rate-sale p{margin:0}
 .rate-sale textarea{width:100%}
+.rate-sale .star-picker{gap:6px}.rate-sale .star-picker button{padding:8px;min-width:44px;min-height:44px;display:inline-flex;align-items:center;justify-content:center}
