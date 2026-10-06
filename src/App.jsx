@@ -1421,7 +1421,7 @@ function SoldItemCard({ sale, payout, session, onShipped, onRefundChanged, focus
   </div>;
 }
 
-function MessagesInbox({ conversations, session, service, focusConversationId, onFocused, selectedConversationId, onSelect, onOpenListing, onRead, onClear, purchases = [], sales = [], payoutByPurchase = {}, onOrderChanged }) {
+function MessagesInbox({ conversations, session, service, focusConversationId, onFocused, selectedConversationId, onSelect, onOpenListing, onRead, onClear, purchases = [], sales = [], payoutByPurchase = {}, actionConversationIds = new Set(), onOrderChanged }) {
   useEffect(() => { if (focusConversationId) { onSelect(focusConversationId); onFocused?.(); } }, [focusConversationId]);
   if (!session) return <div className="empty-state"><MessageCircle size={34}/><h3>Sign in to see your messages.</h3><p>Conversations with buyers and sellers live here.</p></div>;
   const selected = conversations.find(c => c.id === selectedConversationId);
@@ -1435,12 +1435,12 @@ function MessagesInbox({ conversations, session, service, focusConversationId, o
     <MessageThread key={selected.id} conversationId={selected.id} service={service} session={session} counterpartyLabel={selected.role === 'buyer' ? 'seller' : 'buyer'} forceOpen pinnedListing={selected} onOpenListing={onOpenListing} onRead={onRead} pickupStation={selected.pickup_enabled ? selected.pickup_station : null}/>
   </>;
   if (!conversations.length) return <div className="empty-state"><MessageCircle size={34}/><h3>No conversations yet.</h3><p>Message a seller from any listing to start one.</p></div>;
-  return <div className="items-grid">{conversations.map(c => <button key={c.id} className="item-card conversation-row" onClick={() => onSelect(c.id)}>
+  return <div className="items-grid">{conversations.map(c => <button key={c.id} className={`item-card conversation-row${actionConversationIds.has(c.id) ? ' needs-action attention-glow' : ''}`} onClick={() => onSelect(c.id)}>{actionConversationIds.has(c.id) && <span className="action-badge">Action needed: open this order</span>}
     <span role="button" tabIndex={0} className="icon-button conversation-clear" aria-label="Clear conversation" onClick={event => { event.stopPropagation(); onClear(c.id); }}><X size={14}/></span>
     <ItemArt photo={c.media?.[0]?.url}/>
     <div className="item-card-content">
       <div className="card-meta"><span>{c.role === 'buyer' ? 'Seller' : 'Buyer'}: {c.counterparty_name}</span>{c.unread && <span className="unread-dot" aria-label="Unread"/>}</div>
-      <h3>{c.listing_status && c.listing_status !== 'active' ? 'No longer available' : c.listing_title}</h3>
+      <h3>{c.listing_status === 'sold' ? c.listing_title : c.listing_status && c.listing_status !== 'active' ? 'No longer available' : c.listing_title}{c.listing_status === 'sold' && <span className="sold-tag"> · Sold</span>}</h3>
       <p>{c.last_message_body || 'No messages yet — say hello.'}</p>
     </div>
   </button>)}</div>;
@@ -2211,6 +2211,8 @@ export default function App() {
   const BUYER_ORDER_KINDS = ['pickup_inspect', 'pickup_code_ready', 'inspect_delivered'];
   const ownedAttention = notifications.some(n => BUYER_ORDER_KINDS.includes(n.kind));
   const ownedNeedsAction = id => notifications.some(n => BUYER_ORDER_KINDS.includes(n.kind) && n.listing_id === id);
+  const actionConversationIds = new Set(notifications.flatMap(n => BUYER_ORDER_KINDS.includes(n.kind) && n.conversation_id ? [n.conversation_id]
+    : n.kind === 'pickup_awaiting_handoff' ? [sales.find(x => x.id === n.purchase_id)?.conversation_id].filter(Boolean) : []));
   const messagesAttention = notifications.some(n => n.kind === 'message' || n.kind === 'pickup_awaiting_handoff' || BUYER_ORDER_KINDS.includes(n.kind));
   const sellGlow = soldAttention || requestsAttention;
   const switchWorkspace = value => { setWorkspace(value); setSelectedId(null); setSelectedConversationId(null); setCategory('All items'); setQuery(''); setError(''); setCollectionFilter('all'); setSellerTab(value === 'seller' ? (soldAttention ? 'sold' : requestsAttention ? 'requests' : 'active') : 'active'); window.scrollTo({ top: 0 }); };
@@ -2314,7 +2316,7 @@ export default function App() {
           <AuditQueue key={session?.user?.id || 'anon'} items={filtered} session={session} profile={profile} onNeedLogin={() => setModal('login')} onAudited={result => { setNotice(result.xp_earned ? 'Audit recorded. +5 participation XP.' : 'Your audit is already recorded.'); refresh(); }} focusItemId={focusAuditItemId} onFocused={() => setFocusAuditItemId(null)}/>
         </> : workspace === 'messages' ? <>
           {!selectedConversationId && <section className="hero messages-hero"><div className="hero-copy"><p className="eyebrow"><span className="small-line"/>YOUR CONVERSATIONS</p><h1>Every chat.<br/><em>In one place.</em></h1><p>Message a seller from any listing to ask a question or arrange a meetup — every conversation stays tied to the item it's about.</p></div><div className="hero-mascot"><img src="/brand/screen-face-v1/messages.webp" width="800" height="800" alt="King Credion with a royal messenger pigeon carrying a sealed scroll" decoding="async"/></div></section>}
-          <div className="clarity-contents" data-clarity-mask="True"><MessagesInbox conversations={conversations} session={session} service={service} focusConversationId={focusConversationId} onFocused={() => setFocusConversationId(null)} selectedConversationId={selectedConversationId} onSelect={setSelectedConversationId} onOpenListing={openListingFromThread} onRead={refresh} onClear={clearConversation} purchases={purchases} sales={sales} payoutByPurchase={payoutByPurchase} onOrderChanged={refresh}/></div>
+          <div className="clarity-contents" data-clarity-mask="True"><MessagesInbox conversations={conversations} session={session} service={service} focusConversationId={focusConversationId} onFocused={() => setFocusConversationId(null)} selectedConversationId={selectedConversationId} onSelect={setSelectedConversationId} onOpenListing={openListingFromThread} onRead={refresh} onClear={clearConversation} purchases={purchases} sales={sales} payoutByPurchase={payoutByPurchase} actionConversationIds={actionConversationIds} onOrderChanged={refresh}/></div>
         </> : selected ? <>
           <button className="back-button" onClick={() => setSelectedId(null)}><ArrowLeft size={17}/>Back to listings</button>
           {own && selected.status==='needs_review' && <p className="field-note">Only visible to you right now — this needs a quick review before buyers can see it. {selected.needs_review_reason || "It didn't clearly look like a collectible."} Edit it to add more detail and resubmit.</p>}

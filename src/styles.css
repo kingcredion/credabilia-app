@@ -206,3 +206,5 @@ body:has(.legal-page){overflow:visible}
 /* A buyer's order that needs them: the owned card glows and carries a badge. */
 .item-card.needs-action{position:relative}
 .action-badge{position:absolute;top:10px;left:10px;z-index:3;padding:5px 10px;border-radius:99px;background:var(--green);color:var(--on-brand);font-size:11px;font-weight:700;letter-spacing:.2px;box-shadow:0 2px 8px rgba(0,0,0,.25)}
+.conversation-row.needs-action{position:relative}
+.sold-tag{font-weight:600;opacity:.7;font-size:.8em}

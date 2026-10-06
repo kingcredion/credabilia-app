@@ -29,7 +29,7 @@ function InspectionChecklist({ item, acceptLabel, onAccept, onProblem }) {
     try { await onProblem(reason); }
     catch (err) { setError(err.message); setBusy(false); }
   }
-  return <div className="inspection-box">
+  return <div className="inspection-box attention-glow">
     <h4>Check the item before you accept</h4>
     <p className="field-note">Compare it with the listing photos and the signature opinion. Once you accept, we record it. If anything is wrong, tell us now instead.</p>
     {!reporting ? <>
@@ -102,11 +102,13 @@ export function OrderActionCard({ role, order, payout, service, onChanged }) {
   }
 
   const handoffDone = payout?.handoff_verified_at;
-  return <div className="evidence-box order-card"><h3><Package size={18}/>Pickup handoff</h3>
+  // The pickup card glows while it is waiting on this person: the buyer to inspect or read out the code, the seller to enter it.
+  const pickupNeedsYou = !handoffDone && !open && (role === 'buyer' ? payout?.escrow_status === 'held' : accepted && !released);
+  return <div className={`evidence-box order-card${pickupNeedsYou ? ' attention-glow' : ''}`}><h3><Package size={18}/>Pickup handoff</h3>
     <p className="field-note">Meet at {stationLine(order.pickup_station)}. Meet only at the safe-exchange spot.</p>
     {handoffDone ? <p className="field-note">Handoff completed {new Date(handoffDone).toLocaleDateString()}.{role === 'buyer' && accepted ? ` You accepted the item on ${new Date(accepted).toLocaleDateString()}.` : ''}</p>
       : role === 'buyer' ? (
-          payout?.pickup_code ? <div className="handoff-code"><span>Your handoff code</span><strong>{spacedCode(payout.pickup_code)}</strong><small>Read this to the seller now. They enter it to complete the handoff and release payment.</small></div>
+          payout?.pickup_code ? <div className="handoff-code attention-glow"><span>Your handoff code</span><strong>{spacedCode(payout.pickup_code)}</strong><small>Read this to the seller now. They enter it to complete the handoff and release payment.</small></div>
           : open ? <p className="field-note">You reported a problem, so no handoff code is available. Our team and the seller will follow up on your refund request.</p>
           : payout?.escrow_status === 'held' ? <InspectionChecklist item={order} acceptLabel="I've inspected it and I accept"
               onAccept={async checks => { await service.acceptPickupInspection(purchaseId, checks); onChanged(); }}
