@@ -1,6 +1,6 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
-import {haversineMiles, nearMeListings, stationPoint, formatDistance, suggestPlaces, placeLocation, directionsUrl, mapEmbedUrl, validPoint, RADIUS_CHOICES, loadStationLocations} from '../src/nearMe.js';
+import {placeFromGeocode, reverseGeocode, haversineMiles, nearMeListings, stationPoint, formatDistance, suggestPlaces, placeLocation, directionsUrl, mapEmbedUrl, validPoint, RADIUS_CHOICES, loadStationLocations} from '../src/nearMe.js';
 
 const LAS_VEGAS = {lat: 36.1699, lng: -115.1398}, HENDERSON = {lat: 36.0395, lng: -114.9817}, LA = {lat: 34.0522, lng: -118.2437};
 // positions live in the shipped file, keyed by station id; here a station's id is its listing's id and its position is passed alongside
@@ -96,4 +96,23 @@ test('the shipped station positions file is well-formed: real ids, real coordina
   // a real check on the data: stations in Nevada really are near Las Vegas (the matching ids are looked up from the public stations list below if present)
   const nearVegas = entries.filter(([, [lat, lng]]) => haversineMiles({lat, lng}, LAS_VEGAS) < 30).length;
   assert.ok(nearVegas >= 2, 'there are safe-exchange stations around Las Vegas');
+});
+
+test('the member\'s position is turned into a readable city and ZIP, and a failed lookup just means no name', async () => {
+  const vegas = [{address_components: [{long_name: '89101', types: ['postal_code']}, {long_name: 'Las Vegas', short_name: 'Las Vegas', types: ['locality', 'political']}, {long_name: 'Nevada', short_name: 'NV', types: ['administrative_area_level_1']}]}];
+  assert.deepEqual(placeFromGeocode(vegas), {city: 'Las Vegas', state: 'NV', zip: '89101', label: 'Las Vegas, NV 89101'});
+  // the first result may be a street with no ZIP: a later one with city and ZIP wins
+  const streetFirst = [{address_components: [{long_name: 'Fremont St', types: ['route']}, {long_name: 'Las Vegas', short_name: 'Las Vegas', types: ['locality']}]}, ...vegas];
+  assert.equal(placeFromGeocode(streetFirst).label, 'Las Vegas, NV 89101');
+  // only a city, no ZIP anywhere: the city alone
+  assert.equal(placeFromGeocode([{address_components: [{long_name: 'Boulder City', short_name: 'Boulder City', types: ['locality']}, {long_name: 'Nevada', short_name: 'NV', types: ['administrative_area_level_1']}]}]).label, 'Boulder City, NV');
+  assert.equal(placeFromGeocode([]), null);
+  assert.equal(placeFromGeocode([{address_components: [{long_name: 'USA', types: ['country']}]}]), null);
+
+  let asked = null;
+  const loader = async () => ({importLibrary: async () => ({Geocoder: class { async geocode(request) { asked = request; return {results: vegas}; } }})});
+  assert.equal((await reverseGeocode({lat: 36.17, lng: -115.14}, {apiKey: 'K', loader})).label, 'Las Vegas, NV 89101');
+  assert.deepEqual(asked, {location: {lat: 36.17, lng: -115.14}});
+  assert.equal(await reverseGeocode({lat: 'x', lng: 1}, {apiKey: 'K', loader}), null, 'a bad position is never sent anywhere');
+  await assert.rejects(reverseGeocode({lat: 36, lng: -115}, {apiKey: 'K', loader: async () => { throw new Error('no key'); }}), /no key/);
 });

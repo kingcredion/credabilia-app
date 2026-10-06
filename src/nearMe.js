@@ -83,6 +83,49 @@ export async function placeLocation(placeId, { apiKey, sessionToken, fetchImpl =
   return validPoint(point) ? { ...point, label: data.formattedAddress || '' } : null;
 }
 
+// ---- "Where am I?": turn the phone/browser's position into a city and ZIP so the member can see it worked. Uses the Maps JavaScript API's Geocoder (a
+// referrer-restricted key cannot call the Geocoding web service directly); the script is only loaded the first time someone taps "Use my location".
+let mapsLoading = null;
+export function loadMapsApi(apiKey, doc = globalThis.document) {
+  if (globalThis.google?.maps?.importLibrary) return Promise.resolve(globalThis.google.maps);
+  if (!apiKey || !doc) return Promise.reject(new Error('no key'));
+  if (!mapsLoading) {
+    mapsLoading = new Promise((resolve, reject) => {
+      const script = doc.createElement('script');
+      script.src = `https://maps.googleapis.com/maps/api/js?key=${encodeURIComponent(apiKey)}&loading=async&v=weekly`;
+      script.async = true;
+      script.onload = () => (globalThis.google?.maps?.importLibrary ? resolve(globalThis.google.maps) : reject(new Error('maps did not load')));
+      script.onerror = () => reject(new Error('maps failed to load'));
+      doc.head.appendChild(script);
+    }).catch(error => { mapsLoading = null; throw error; });
+  }
+  return mapsLoading;
+}
+
+// "Las Vegas, NV 89101" from Geocoder results (the first result that has a ZIP wins; otherwise the first with a city), or null.
+export function placeFromGeocode(results) {
+  const pick = (list, type) => list?.find(component => component.types?.includes(type));
+  let best = null;
+  for (const result of results || []) {
+    const components = result.address_components || [];
+    const city = (pick(components, 'locality') || pick(components, 'postal_town') || pick(components, 'sublocality') || pick(components, 'administrative_area_level_3') || pick(components, 'administrative_area_level_2'))?.long_name;
+    const state = pick(components, 'administrative_area_level_1')?.short_name;
+    const zip = pick(components, 'postal_code')?.long_name;
+    const entry = { city, state, zip };
+    if (city && zip) return { ...entry, label: `${city}${state ? ', ' + state : ''} ${zip}` };
+    if (!best && (city || zip)) best = { ...entry, label: [city && state ? `${city}, ${state}` : city || state, zip].filter(Boolean).join(' ') };
+  }
+  return best;
+}
+
+export async function reverseGeocode(point, { apiKey, loader = loadMapsApi } = {}) {
+  if (!validPoint(point)) return null;
+  const maps = await loader(apiKey);
+  const { Geocoder } = await maps.importLibrary('geocoding');
+  const { results } = await new Geocoder().geocode({ location: { lat: point.lat, lng: point.lng } });
+  return placeFromGeocode(results);
+}
+
 // ---- Links for the item page. Searching by the station's name finds the real police station in Google Maps, even when we only know its city.
 export const stationQuery = station => [station?.jurisdiction, station?.city, station?.state, station?.country].filter(Boolean).join(', ');
 export const directionsUrl = station => `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(stationQuery(station))}`;

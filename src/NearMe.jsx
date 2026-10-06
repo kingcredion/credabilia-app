@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { MapPin, Navigation, X } from 'lucide-react';
-import { RADIUS_CHOICES, DEFAULT_RADIUS, suggestPlaces, placeLocation, newSessionToken, directionsUrl, mapEmbedUrl } from './nearMe.js';
+import { Check, MapPin, Navigation, X } from 'lucide-react';
+import { RADIUS_CHOICES, DEFAULT_RADIUS, suggestPlaces, placeLocation, reverseGeocode, newSessionToken, directionsUrl, mapEmbedUrl } from './nearMe.js';
 
 // Public by design (it ships in the page), protected by Google's own restrictions: only credabilia.com may use it, and only for Places and Maps Embed.
 export const MAPS_KEY = import.meta.env?.VITE_GOOGLE_MAPS_API_KEY || '';
@@ -8,7 +8,7 @@ export const MAPS_KEY = import.meta.env?.VITE_GOOGLE_MAPS_API_KEY || '';
 // The "Near me" panel on Discover. The member either shares their location (from the browser or phone) or types a ZIP or city; the position stays in
 // this page only, it is never sent to or stored by Credabilia.
 export function NearMePanel({ nearMe, onChange, onClose, matchCount }) {
-  const [typed, setTyped] = useState(''), [suggestions, setSuggestions] = useState([]), [message, setMessage] = useState(''), [locating, setLocating] = useState(false);
+  const [typed, setTyped] = useState(''), [suggestions, setSuggestions] = useState([]), [message, setMessage] = useState(''), [locating, setLocating] = useState(false), [lookingUp, setLookingUp] = useState(false);
   const session = useRef(newSessionToken());
   const radius = nearMe?.radius || DEFAULT_RADIUS;
 
@@ -21,14 +21,30 @@ export function NearMePanel({ nearMe, onChange, onClose, matchCount }) {
     return () => { live = false; clearTimeout(timer); };
   }, [typed]);
 
+  // The newest state, for the city lookup that finishes a moment after the position arrives (the member may have changed the distance by then).
+  const latest = useRef(nearMe);
+  latest.current = nearMe;
+
   function useMyLocation() {
     if (!navigator.geolocation) { setMessage('This browser cannot share your location. Type a ZIP or city instead.'); return; }
     setMessage(''); setLocating(true);
     navigator.geolocation.getCurrentPosition(
-      position => { setLocating(false); onChange({ onlyNear: nearMe?.onlyNear, origin: { lat: position.coords.latitude, lng: position.coords.longitude, label: 'your location' }, radius }); },
-      () => { setLocating(false); setMessage('We could not get your location. Allow it in your browser, or type a ZIP or city instead.'); },
+      position => {
+        setLocating(false);
+        const point = { lat: position.coords.latitude, lng: position.coords.longitude };
+        onChange({ onlyNear: nearMe?.onlyNear, origin: { ...point, label: 'your location', source: 'device' }, radius });
+        // Then name the place (city and ZIP) so it is clear it worked. If the lookup is unavailable the panel still says the location was found.
+        setLookingUp(true);
+        reverseGeocode(point, { apiKey: MAPS_KEY }).then(place => {
+          const current = latest.current;
+          if (place && current?.origin?.lat === point.lat && current.origin.lng === point.lng) onChange({ ...current, origin: { ...current.origin, label: place.label, placed: true } });
+        }).catch(() => {}).finally(() => setLookingUp(false));
+      },
+      error => { setLocating(false); setMessage(error?.code === 1 ? 'Location is blocked for this site. Allow it in your browser settings, or type a ZIP or city instead.' : 'We could not get your location. Try again, or type a ZIP or city instead.'); },
       { enableHighAccuracy: false, timeout: 10000, maximumAge: 300000 });
   }
+
+  const fromDevice = nearMe?.origin?.source === 'device';
 
   async function choose(suggestion) {
     setMessage(''); setSuggestions([]);
@@ -44,7 +60,7 @@ export function NearMePanel({ nearMe, onChange, onClose, matchCount }) {
     <div className="near-me-head"><h3><MapPin size={18}/> Items near me</h3><button type="button" className="icon-button" aria-label="Close near me" onClick={onClose}><X size={16}/></button></div>
     <p className="field-note">Shows items you can pick up in person at a police-station safe-exchange spot. Your location stays on your device: we never store it.</p>
     <div className="near-me-controls">
-      <button type="button" className="primary compact" onClick={useMyLocation} disabled={locating}><Navigation size={15}/> {locating ? 'Finding you…' : 'Use my location'}</button>
+      <button type="button" className={`primary compact${fromDevice ? ' located' : ''}`} onClick={useMyLocation} disabled={locating}>{fromDevice && !locating ? <Check size={15}/> : <Navigation size={15}/>} {locating ? 'Finding you…' : fromDevice ? 'Location found' : 'Use my location'}</button>
       {MAPS_KEY && <div className="near-me-search">
         <input type="text" value={typed} onChange={event => setTyped(event.target.value)} placeholder="or type a ZIP or city" aria-label="Type a ZIP or city" autoComplete="off"/>
         {!!suggestions.length && <ul className="near-me-suggestions" role="listbox">{suggestions.map(s => <li key={s.placeId}><button type="button" role="option" onClick={() => choose(s)}>{s.text}</button></li>)}</ul>}
@@ -55,7 +71,8 @@ export function NearMePanel({ nearMe, onChange, onClose, matchCount }) {
     </div>
     {nearMe && <label className="certificate-confirm"><input type="checkbox" checked={!!nearMe.onlyNear} onChange={event => onChange({ ...nearMe, onlyNear: event.target.checked })}/>Only show pickup items near me (hide everything that ships)</label>}
     {message && <p role="alert" className="error">{message}</p>}
-    {nearMe && <p role="status" className="field-note">{matchCount === 0 ? `No pickup items within ${radius} miles of ${nearMe.origin.label}. Try a bigger distance. Everything else below still ships to you.` : `${matchCount} pickup item${matchCount === 1 ? '' : 's'} within ${radius} miles of ${nearMe.origin.label}, nearest first${nearMe.onlyNear ? '.' : ', then everything else, which ships to you.'}`} <button type="button" className="text-button" onClick={() => { onChange(null); setTyped(''); }}>Clear</button></p>}
+    {nearMe && <p role="status" className="near-me-found"><Check size={16}/> <span>{fromDevice ? (nearMe.origin.placed ? <>Your location is set: <strong>{nearMe.origin.label}</strong></> : <>Your location is set{lookingUp ? <span className="field-note"> (finding your city…)</span> : null}</>) : <>Location set: <strong>{nearMe.origin.label}</strong></>}</span> <button type="button" className="text-button" onClick={() => { onChange(null); setTyped(''); }}>Clear</button></p>}
+    {nearMe && <p role="status" className="field-note">{matchCount === 0 ? `No pickup items within ${radius} miles yet. Try a bigger distance. Everything else below still ships to you.` : `${matchCount} pickup item${matchCount === 1 ? '' : 's'} within ${radius} miles, nearest first${nearMe.onlyNear ? '.' : ', then everything else, which ships to you.'}`}</p>}
   </section>;
 }
 
