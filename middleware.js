@@ -58,15 +58,16 @@ async function buildMeta(pathname) {
   if (segments.length === 2 && segments[0] === 'item') {
     const item = await callRpc('get_listing_preview', { p_id: segments[1] });
     if (!item) return null;
-    const image = (await signedImageUrl(item.photo_path)) || DEFAULT_IMAGE;
+    // The resized ~640px JPEG at a stable address (api/email-image.js), not the multi-megabyte original on a temporary link: chat apps drop big images.
+    const image = item.photo_path ? `https://credabilia.com/img/item/${segments[1]}` : DEFAULT_IMAGE;
     const description = [money(item.price_cents), item.category, (item.description || '').slice(0, 150)].filter(Boolean).join(' · ');
     return { title: `${item.title} | Credabilia`, description, image };
   }
   if (segments.length === 1 && !RESERVED_SLUGS.has(segments[0])) {
     const store = await callRpc('get_storefront', { p_slug: segments[0] });
     if (!store) return null;
-    const photoPath = store.listings?.[0]?.media?.[0]?.path;
-    const image = (await signedImageUrl(photoPath)) || DEFAULT_IMAGE;
+    const firstListing = store.listings?.[0];
+    const image = firstListing?.media?.[0]?.path ? `https://credabilia.com/img/item/${firstListing.id}` : DEFAULT_IMAGE;
     const description = `Browse ${store.display_name}'s collection on Credabilia${store.sales_count ? ` — ${store.sales_count} sale${store.sales_count === 1 ? '' : 's'}` : ''}.`;
     return { title: `${store.display_name} | Credabilia Storefront`, description, image };
   }
