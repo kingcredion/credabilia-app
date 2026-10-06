@@ -196,3 +196,9 @@ body:has(.legal-page){overflow:visible}
 .verify-callout.ready{border:1px solid var(--green);font-weight:600}
 @keyframes verify-glow{0%,100%{box-shadow:0 0 0 0 color-mix(in srgb,var(--brand-teal) 55%,transparent),0 0 10px 1px color-mix(in srgb,var(--brand-teal) 35%,transparent)}50%{box-shadow:0 0 0 7px color-mix(in srgb,var(--brand-teal) 0%,transparent),0 0 22px 5px color-mix(in srgb,var(--brand-teal) 55%,transparent)}}
 @media (prefers-reduced-motion:reduce){.verify-address-button.needs-attention{animation:none;box-shadow:0 0 0 4px color-mix(in srgb,var(--brand-teal) 50%,transparent)}}
+
+/* An auction that ended with no bids: greyscale photo and the No Bids stamp, in the seller's Ended tab. */
+.ended-photo{position:relative}
+.ended-photo.no-bids .listing-cover,.ended-photo.no-bids .item-art{filter:grayscale(1) brightness(.82)}
+.lock-overlay.ended-stamp{height:100%;padding:0}
+.lock-overlay.ended-stamp img{width:min(170px,62%);height:auto;transform:rotate(-8deg);filter:drop-shadow(0 6px 10px rgba(0,0,0,.5))}

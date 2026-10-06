@@ -1737,7 +1737,9 @@ function EndedListingCard({ item, onChanged }) {
     try { await service.relistEndedListing(item.id, type, priceInCents(price), type === 'auction' ? Number(days) : null); onChanged(); }
     catch (err) { setError(err.message); } finally { setBusy(false); }
   }
-  return <div className="item-card static"><ItemArt category={item.category} photo={item.media?.find(asset => asset.kind === 'item')?.url}/><div className="item-card-content">
+  const noBids = item.reason === 'auction_no_bids';
+  // An auction that closed with no bids gets the same treatment as a locked listing: greyscale photo with the stamp on top.
+  return <div className="item-card static"><div className={`ended-photo${noBids ? ' no-bids' : ''}`}><ItemArt category={item.category} photo={item.media?.find(asset => asset.kind === 'item')?.url}/>{noBids && <span className="lock-overlay ended-stamp"><img src="/brand/auction-ended-no-bids-stamp-v1.webp" alt="Auction ended, no bids" width="170" height="168"/></span>}</div><div className="item-card-content">
     <div className="card-meta"><span>{item.category}</span><span>ENDED</span></div><h3>{item.title}</h3>
     <p className="field-note">{item.reason === 'auction_unpaid' ? 'The winner did not pay and no other bidder took it.' : 'This auction ended with no bids.'}</p>
     <form className="form-stack" onSubmit={submit}>
