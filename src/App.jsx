@@ -1693,7 +1693,7 @@ function AdminSignatureLibrary() {
     {view === 'profiles' ? <AdminSignatureProfiles subjects={subjects} reload={load} setError={setError}/>
       : list === undefined ? <p role="status">Loading…</p>
       : !list.length ? <p className="field-note">{view === 'awaiting' ? 'No signatures awaiting review.' : 'No approved signatures yet.'}</p>
-      : <div className="items-grid">{list.map(ref => {
+      : <div className="items-grid admin-library-grid">{list.map(ref => {
           const busy = busyId === ref.id, suggested = ref.subject_id ? [] : (ref.suggestions || []);
           return <div key={ref.id} className="item-card evidence-box">
             {ref.url ? <img src={ref.url} alt={`Signature for ${ref.subject_name}`} className="admin-signature-photo"/> : <p className="field-note">Photo unavailable</p>}
@@ -1711,7 +1711,7 @@ function AdminSignatureLibrary() {
             {choiceOf(ref) !== 'new' && view === 'awaiting' && choiceOf(ref) !== ref.subject_id && <p className="field-note">“{ref.submitted_name}” will be remembered as another name for that profile.</p>}
             <p className="field-note">From "{ref.listing_title}"</p>
             {ref.certificate && <p className="field-note">Listing's certificate: {[ref.certificate.company || ref.certificate.issuer, ref.certificate.number && '#' + ref.certificate.number].filter(Boolean).join(' ')} (self-reported)</p>}
-            {ref.description && <p className="field-note">{ref.description}</p>}
+            {ref.description && <p className="field-note clamp-note" title={ref.description}>{ref.description}</p>}
             <div className="form-row">
               {view === 'awaiting' && <button type="button" className="text-button" disabled={busy || (choiceOf(ref) === 'new' && !newNameOf(ref).trim())} onClick={() => approve(ref, false)}>{busy ? 'Saving…' : 'Approve'}</button>}
               {view === 'awaiting' && ref.certificate && <button type="button" className="text-button" disabled={busy || (choiceOf(ref) === 'new' && !newNameOf(ref).trim())} onClick={() => approve(ref, true)}>Approve as certificate-backed</button>}
@@ -1728,7 +1728,7 @@ function AdminSignatureProfiles({ subjects, reload, setError }) {
   const [names, setNames] = useState({}), [mergeInto, setMergeInto] = useState({}), [busyId, setBusyId] = useState(null);
   async function run(id, action) { setBusyId(id); setError(''); try { await action(); setNames({}); setMergeInto({}); reload(); } catch (err) { setError(err.message); } finally { setBusyId(null); } }
   if (!subjects.length) return <p className="field-note">No profiles yet. They are created as signatures are approved.</p>;
-  return <div className="items-grid">{subjects.map(profile => {
+  return <div className="items-grid admin-library-grid">{subjects.map(profile => {
     const busy = busyId === profile.id, target = subjects.find(other => other.id === mergeInto[profile.id]);
     return <div key={profile.id} className="item-card evidence-box">
       <label>Profile name<input type="text" value={names[profile.id] ?? profile.name} maxLength={120} disabled={busy} onChange={event => setNames(current => ({ ...current, [profile.id]: event.target.value }))}/></label>
