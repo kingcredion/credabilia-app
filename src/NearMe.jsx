@@ -1,0 +1,74 @@
+import React, { useEffect, useRef, useState } from 'react';
+import { MapPin, Navigation, X } from 'lucide-react';
+import { RADIUS_CHOICES, DEFAULT_RADIUS, suggestPlaces, placeLocation, newSessionToken, directionsUrl, mapEmbedUrl } from './nearMe.js';
+
+// Public by design (it ships in the page), protected by Google's own restrictions: only credabilia.com may use it, and only for Places and Maps Embed.
+export const MAPS_KEY = import.meta.env?.VITE_GOOGLE_MAPS_API_KEY || '';
+
+// The "Near me" panel on Discover. The member either shares their location (from the browser or phone) or types a ZIP or city; the position stays in
+// this page only, it is never sent to or stored by Credabilia.
+export function NearMePanel({ nearMe, onChange, onClose, matchCount }) {
+  const [typed, setTyped] = useState(''), [suggestions, setSuggestions] = useState([]), [message, setMessage] = useState(''), [locating, setLocating] = useState(false);
+  const session = useRef(newSessionToken());
+  const radius = nearMe?.radius || DEFAULT_RADIUS;
+
+  useEffect(() => {
+    if (!MAPS_KEY || typed.trim().length < 3) { setSuggestions([]); return; }
+    let live = true;
+    const timer = setTimeout(async () => {
+      try { const found = await suggestPlaces(typed, { apiKey: MAPS_KEY, sessionToken: session.current }); if (live) setSuggestions(found); } catch { if (live) setSuggestions([]); }
+    }, 300);
+    return () => { live = false; clearTimeout(timer); };
+  }, [typed]);
+
+  function useMyLocation() {
+    if (!navigator.geolocation) { setMessage('This browser cannot share your location. Type a ZIP or city instead.'); return; }
+    setMessage(''); setLocating(true);
+    navigator.geolocation.getCurrentPosition(
+      position => { setLocating(false); onChange({ onlyNear: nearMe?.onlyNear, origin: { lat: position.coords.latitude, lng: position.coords.longitude, label: 'your location' }, radius }); },
+      () => { setLocating(false); setMessage('We could not get your location. Allow it in your browser, or type a ZIP or city instead.'); },
+      { enableHighAccuracy: false, timeout: 10000, maximumAge: 300000 });
+  }
+
+  async function choose(suggestion) {
+    setMessage(''); setSuggestions([]);
+    try {
+      const place = await placeLocation(suggestion.placeId, { apiKey: MAPS_KEY, sessionToken: session.current });
+      session.current = newSessionToken(); // a finished search starts a new billed session
+      if (!place) { setMessage('We could not find that place. Try another.'); return; }
+      setTyped(suggestion.text); onChange({ onlyNear: nearMe?.onlyNear, origin: { lat: place.lat, lng: place.lng, label: suggestion.text }, radius });
+    } catch { setMessage('We could not look that up right now. Try your location instead.'); }
+  }
+
+  return <section className="near-me-panel" aria-label="Items near me">
+    <div className="near-me-head"><h3><MapPin size={18}/> Items near me</h3><button type="button" className="icon-button" aria-label="Close near me" onClick={onClose}><X size={16}/></button></div>
+    <p className="field-note">Shows items you can pick up in person at a police-station safe-exchange spot. Your location stays on your device: we never store it.</p>
+    <div className="near-me-controls">
+      <button type="button" className="primary compact" onClick={useMyLocation} disabled={locating}><Navigation size={15}/> {locating ? 'Finding you…' : 'Use my location'}</button>
+      {MAPS_KEY && <div className="near-me-search">
+        <input type="text" value={typed} onChange={event => setTyped(event.target.value)} placeholder="or type a ZIP or city" aria-label="Type a ZIP or city" autoComplete="off"/>
+        {!!suggestions.length && <ul className="near-me-suggestions" role="listbox">{suggestions.map(s => <li key={s.placeId}><button type="button" role="option" onClick={() => choose(s)}>{s.text}</button></li>)}</ul>}
+      </div>}
+    </div>
+    <div className="categories" role="group" aria-label="How far">
+      {RADIUS_CHOICES.map(miles => <button key={miles} type="button" aria-pressed={radius === miles} className={radius === miles ? 'active' : ''} onClick={() => nearMe && onChange({ ...nearMe, radius: miles })} disabled={!nearMe}>{miles} mi</button>)}
+    </div>
+    {nearMe && <label className="certificate-confirm"><input type="checkbox" checked={!!nearMe.onlyNear} onChange={event => onChange({ ...nearMe, onlyNear: event.target.checked })}/>Only show pickup items near me (hide everything that ships)</label>}
+    {message && <p role="alert" className="error">{message}</p>}
+    {nearMe && <p role="status" className="field-note">{matchCount === 0 ? `No pickup items within ${radius} miles of ${nearMe.origin.label}. Try a bigger distance. Everything else below still ships to you.` : `${matchCount} pickup item${matchCount === 1 ? '' : 's'} within ${radius} miles of ${nearMe.origin.label}, nearest first${nearMe.onlyNear ? '.' : ', then everything else, which ships to you.'}`} <button type="button" className="text-button" onClick={() => { onChange(null); setTyped(''); }}>Clear</button></p>}
+  </section>;
+}
+
+// On an item that can be picked up: where the safe-exchange spot is, a map, and a one-tap "Get directions".
+export function PickupMeetup({ station }) {
+  if (!station) return null;
+  const embed = mapEmbedUrl(station, MAPS_KEY);
+  return <section className="evidence-box pickup-meetup" aria-label="Local pickup">
+    <h3><MapPin size={16}/> Local pickup available</h3>
+    <p>Meet at <strong>{station.jurisdiction}</strong>{station.city ? `, ${station.city}` : ''}{station.state ? `, ${station.state}` : ''}</p>
+    {station.notes && <p className="field-note">{station.notes}</p>}
+    {embed && <iframe title={`Map: ${station.jurisdiction}`} className="pickup-map" src={embed} loading="lazy" referrerPolicy="strict-origin-when-cross-origin" allowFullScreen/>}
+    <a className="text-button" href={directionsUrl(station)} target="_blank" rel="noopener noreferrer"><Navigation size={15}/> Get directions</a>
+    <p className="field-note">Pick-up is arranged in messages after you buy. You can also agree on another public place.</p>
+  </section>;
+}

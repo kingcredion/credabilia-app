@@ -228,3 +228,18 @@ body:has(.legal-page){overflow:visible}
 .item-art.no-photo img{width:100%;height:100%;object-fit:contain;display:block}
 /* A listing held for a buyer: a Reserved stamp over its photo. */
 .reserved-photo{position:relative}
+
+/* Items near me: the filter panel, the pickup badge on cards, and the meeting-spot block on the item page. */
+.near-me-panel{border:1px solid var(--border);border-radius:14px;padding:14px 16px;margin:0 0 16px;background:var(--surface,#fff);display:flex;flex-direction:column;gap:10px}
+.near-me-head{display:flex;align-items:center;justify-content:space-between}
+.near-me-head h3{margin:0;display:flex;align-items:center;gap:8px;font-size:1rem}
+.near-me-controls{display:flex;gap:10px;flex-wrap:wrap;align-items:flex-start}
+.near-me-search{position:relative;flex:1 1 220px;min-width:200px}
+.near-me-search input{width:100%}
+.near-me-suggestions{position:absolute;z-index:20;left:0;right:0;top:100%;margin:4px 0 0;padding:4px;list-style:none;background:var(--surface,#fff);border:1px solid var(--border);border-radius:10px;box-shadow:0 8px 24px rgba(0,0,0,.14)}
+.near-me-suggestions button{width:100%;text-align:left;background:none;border:0;padding:8px 10px;border-radius:8px;cursor:pointer}
+.near-me-suggestions button:hover,.near-me-suggestions button:focus-visible{background:rgba(201,162,39,.16)}
+.pickup-badge{display:flex;align-items:center;gap:5px;margin:2px 0 4px;font-size:.78rem;font-weight:600;color:#1d4d3e}
+.pickup-meetup{display:flex;flex-direction:column;gap:8px}
+.pickup-meetup h3{display:flex;align-items:center;gap:6px;margin:0}
+.pickup-map{width:100%;height:220px;border:0;border-radius:12px}
