@@ -126,6 +126,33 @@ export async function reverseGeocode(point, { apiKey, loader = loadMapsApi } = {
   return placeFromGeocode(results);
 }
 
+// ---- The member's saved address (Profile > shipping address) as the starting point, so Near me can already be set when it opens. Only the city, state and
+// ZIP are ever looked up, never the street.
+export function savedAddressPlace(address) {
+  if (!address || typeof address !== 'object') return null;
+  const clean = value => String(value ?? '').trim();
+  const city = clean(address.city), state = clean(address.state);
+  const country = /^[A-Za-z]{2}$/.test(clean(address.country)) ? clean(address.country).toUpperCase() : (clean(address.country) ? undefined : 'US');
+  const zipRaw = clean(address.zip || address.postal_code);
+  const zip = country === 'US' && /^\d{5}/.test(zipRaw) ? zipRaw.slice(0, 5) : zipRaw;
+  if (!zip && !(city && state)) return null;
+  const label = [city && state ? `${city}, ${state}` : city || state, zip].filter(Boolean).join(' ');
+  return { label, query: zip || `${city}, ${state}`, country };
+}
+
+export async function geocodeSavedPlace(place, { apiKey, loader = loadMapsApi } = {}) {
+  if (!place?.query) return null;
+  const maps = await loader(apiKey);
+  const { Geocoder } = await maps.importLibrary('geocoding');
+  const request = { address: place.query };
+  if (place.country) request.componentRestrictions = { country: place.country };
+  const { results } = await new Geocoder().geocode(request);
+  const location = results?.[0]?.geometry?.location;
+  const read = value => Number(typeof value === 'function' ? value.call(location) : value);
+  const point = location && { lat: read(location.lat), lng: read(location.lng) };
+  return validPoint(point) ? point : null;
+}
+
 // ---- Links for the item page. Searching by the station's name finds the real police station in Google Maps, even when we only know its city.
 export const stationQuery = station => [station?.jurisdiction, station?.city, station?.state, station?.country].filter(Boolean).join(', ');
 export const directionsUrl = station => `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(stationQuery(station))}`;

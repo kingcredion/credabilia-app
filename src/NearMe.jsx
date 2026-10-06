@@ -1,13 +1,13 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { Check, MapPin, Navigation, X } from 'lucide-react';
-import { RADIUS_CHOICES, DEFAULT_RADIUS, suggestPlaces, placeLocation, reverseGeocode, newSessionToken, directionsUrl, mapEmbedUrl } from './nearMe.js';
+import { RADIUS_CHOICES, DEFAULT_RADIUS, suggestPlaces, placeLocation, reverseGeocode, savedAddressPlace, geocodeSavedPlace, newSessionToken, directionsUrl, mapEmbedUrl } from './nearMe.js';
 
 // Public by design (it ships in the page), protected by Google's own restrictions: only credabilia.com may use it, and only for Places and Maps Embed.
 export const MAPS_KEY = import.meta.env?.VITE_GOOGLE_MAPS_API_KEY || '';
 
 // The "Near me" panel on Discover. The member either shares their location (from the browser or phone) or types a ZIP or city; the position stays in
 // this page only, it is never sent to or stored by Credabilia.
-export function NearMePanel({ nearMe, onChange, onClose, matchCount }) {
+export function NearMePanel({ nearMe, onChange, onClose, matchCount, savedAddress }) {
   const [typed, setTyped] = useState(''), [suggestions, setSuggestions] = useState([]), [message, setMessage] = useState(''), [locating, setLocating] = useState(false), [lookingUp, setLookingUp] = useState(false);
   const session = useRef(newSessionToken());
   const radius = nearMe?.radius || DEFAULT_RADIUS;
@@ -24,6 +24,26 @@ export function NearMePanel({ nearMe, onChange, onClose, matchCount }) {
   // The newest state, for the city lookup that finishes a moment after the position arrives (the member may have changed the distance by then).
   const latest = useRef(nearMe);
   latest.current = nearMe;
+
+  // Start from the address saved in the member's profile: it is shown straight away, and its position is looked up once (kept for this visit only).
+  const savedPlace = savedAddressPlace(savedAddress);
+  const [profilePending, setProfilePending] = useState(false);
+  const triedProfile = useRef(false);
+  useEffect(() => {
+    if (triedProfile.current || nearMe || !savedPlace) return;
+    triedProfile.current = true;
+    setProfilePending(true);
+    (async () => {
+      let point = null;
+      const key = 'credabilia-near-me-' + savedPlace.query + '|' + (savedPlace.country || '');
+      try { point = JSON.parse(sessionStorage.getItem(key) || 'null'); } catch { /* storage unavailable */ }
+      if (!point) {
+        try { point = await geocodeSavedPlace(savedPlace, { apiKey: MAPS_KEY }); } catch { point = null; }
+        if (point) try { sessionStorage.setItem(key, JSON.stringify(point)); } catch { /* storage unavailable */ }
+      }
+      if (point && !latest.current) onChange({ onlyNear: false, origin: { ...point, label: savedPlace.label, source: 'profile', placed: true }, radius: DEFAULT_RADIUS });
+    })().finally(() => setProfilePending(false));
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   function useMyLocation() {
     if (!navigator.geolocation) { setMessage('This browser cannot share your location. Type a ZIP or city instead.'); return; }
@@ -71,7 +91,8 @@ export function NearMePanel({ nearMe, onChange, onClose, matchCount }) {
     </div>
     {nearMe && <label className="certificate-confirm"><input type="checkbox" checked={!!nearMe.onlyNear} onChange={event => onChange({ ...nearMe, onlyNear: event.target.checked })}/>Only show pickup items near me (hide everything that ships)</label>}
     {message && <p role="alert" className="error">{message}</p>}
-    {nearMe && <p role="status" className="near-me-found"><Check size={16}/> <span>{fromDevice ? (nearMe.origin.placed ? <>Your location is set: <strong>{nearMe.origin.label}</strong></> : <>Your location is set{lookingUp ? <span className="field-note"> (finding your city…)</span> : null}</>) : <>Location set: <strong>{nearMe.origin.label}</strong></>}</span> <button type="button" className="text-button" onClick={() => { onChange(null); setTyped(''); }}>Clear</button></p>}
+    {!nearMe && profilePending && savedPlace && <p role="status" className="near-me-found"><Check size={16}/> <span>Using your saved address: <strong>{savedPlace.label}</strong><span className="field-note"> (finding pickup items near it…)</span></span></p>}
+    {nearMe && <p role="status" className="near-me-found"><Check size={16}/> <span>{nearMe.origin.source === 'profile' ? <>Using your saved address: <strong>{nearMe.origin.label}</strong></> : fromDevice ? (nearMe.origin.placed ? <>Your location is set: <strong>{nearMe.origin.label}</strong></> : <>Your location is set{lookingUp ? <span className="field-note"> (finding your city…)</span> : null}</>) : <>Location set: <strong>{nearMe.origin.label}</strong></>}</span> <button type="button" className="text-button" onClick={() => { onChange(null); setTyped(''); }}>Clear</button></p>}
     {nearMe && <p role="status" className="field-note">{matchCount === 0 ? `No pickup items within ${radius} miles yet. Try a bigger distance. Everything else below still ships to you.` : `${matchCount} pickup item${matchCount === 1 ? '' : 's'} within ${radius} miles, nearest first${nearMe.onlyNear ? '.' : ', then everything else, which ships to you.'}`}</p>}
   </section>;
 }

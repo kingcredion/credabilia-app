@@ -1,6 +1,6 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
-import {placeFromGeocode, reverseGeocode, haversineMiles, nearMeListings, stationPoint, formatDistance, suggestPlaces, placeLocation, directionsUrl, mapEmbedUrl, validPoint, RADIUS_CHOICES, loadStationLocations} from '../src/nearMe.js';
+import {savedAddressPlace, geocodeSavedPlace, placeFromGeocode, reverseGeocode, haversineMiles, nearMeListings, stationPoint, formatDistance, suggestPlaces, placeLocation, directionsUrl, mapEmbedUrl, validPoint, RADIUS_CHOICES, loadStationLocations} from '../src/nearMe.js';
 
 const LAS_VEGAS = {lat: 36.1699, lng: -115.1398}, HENDERSON = {lat: 36.0395, lng: -114.9817}, LA = {lat: 34.0522, lng: -118.2437};
 // positions live in the shipped file, keyed by station id; here a station's id is its listing's id and its position is passed alongside
@@ -115,4 +115,26 @@ test('the member\'s position is turned into a readable city and ZIP, and a faile
   assert.deepEqual(asked, {location: {lat: 36.17, lng: -115.14}});
   assert.equal(await reverseGeocode({lat: 'x', lng: 1}, {apiKey: 'K', loader}), null, 'a bad position is never sent anywhere');
   await assert.rejects(reverseGeocode({lat: 36, lng: -115}, {apiKey: 'K', loader: async () => { throw new Error('no key'); }}), /no key/);
+});
+
+test('the saved profile address becomes a place to start from, and only its city, state and ZIP are ever looked up', async () => {
+  const address = {name: 'Jamie Buyer', street1: '123 Secret Ave', street2: 'Apt 4', city: 'Las Vegas', state: 'NV', zip: '89101-1234', country: 'US'};
+  const place = savedAddressPlace(address);
+  assert.deepEqual(place, {label: 'Las Vegas, NV 89101', query: '89101', country: 'US'});
+  assert.ok(!JSON.stringify(place).includes('Secret'), 'the street never leaves the profile');
+  assert.deepEqual(savedAddressPlace({city: 'Boulder City', state: 'NV', country: 'US'}), {label: 'Boulder City, NV', query: 'Boulder City, NV', country: 'US'});
+  assert.deepEqual(savedAddressPlace({city: 'Toronto', state: 'ON', zip: 'M5V 2T6', country: 'ca'}), {label: 'Toronto, ON M5V 2T6', query: 'M5V 2T6', country: 'CA'});
+  assert.equal(savedAddressPlace({street1: '1 Main St'}), null, 'a street alone cannot be placed');
+  assert.equal(savedAddressPlace(null), null);
+  assert.equal(savedAddressPlace('nope'), null);
+
+  let asked = null;
+  const loader = async () => ({importLibrary: async () => ({Geocoder: class { async geocode(request) { asked = request; return {results: [{geometry: {location: {lat: () => 36.17, lng: () => -115.14}}}]}; } }})});
+  assert.deepEqual(await geocodeSavedPlace(place, {apiKey: 'K', loader}), {lat: 36.17, lng: -115.14});
+  assert.deepEqual(asked, {address: '89101', componentRestrictions: {country: 'US'}});
+  const plainNumbers = async () => ({importLibrary: async () => ({Geocoder: class { async geocode() { return {results: [{geometry: {location: {lat: 36, lng: -115}}}]}; } }})});
+  assert.deepEqual(await geocodeSavedPlace(place, {apiKey: 'K', loader: plainNumbers}), {lat: 36, lng: -115});
+  const none = async () => ({importLibrary: async () => ({Geocoder: class { async geocode() { return {results: []}; } }})});
+  assert.equal(await geocodeSavedPlace(place, {apiKey: 'K', loader: none}), null);
+  assert.equal(await geocodeSavedPlace(null, {apiKey: 'K', loader}), null);
 });
