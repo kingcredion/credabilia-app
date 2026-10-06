@@ -2,7 +2,7 @@ import React, { useRef, useState } from 'react';
 import { ChevronLeft, ChevronRight, Flag, ShieldCheck } from 'lucide-react';
 import { RatingStars } from './ItemArt.jsx';
 
-const STOREFRONT_PAGE = 10, ITEM_PAGE = 5;
+const STOREFRONT_PAGE = 10, ITEM_PAGE = 1; // the item page shows one review at a time (Previous / Next); a storefront shows ten per page
 const REASONS = ['Abusive or hateful', 'Not a real customer', 'Not about this seller or sale', 'Spam or advertising', 'Something else'];
 
 // One public review: stars, the buyer's words, who ("Pat J." only) and what they bought. Anyone signed in can report it.
@@ -49,7 +49,7 @@ function PagedReviews({ firstPage, total, pageSize, loadPage, service }) {
     {reviews.map(review => <ReviewCard key={review.id} review={review} service={service}/>)}
     {pages > 1 && <nav className="review-pager" aria-label="Review pages">
       <button type="button" className="text-button" disabled={busy || page === 0} onClick={() => go(page - 1)}><ChevronLeft size={16}/> Previous</button>
-      <span role="status">Page {page + 1} of {pages}</span>
+      <span role="status">{pageSize === 1 ? 'Review' : 'Page'} {page + 1} of {pages}</span>
       <button type="button" className="text-button" disabled={busy || page >= pages - 1} onClick={() => go(page + 1)}>Next <ChevronRight size={16}/></button>
     </nav>}
     {error && <p role="alert" className="error">{error}</p>}
@@ -62,7 +62,7 @@ export function ReviewList({ slug, firstPage, total, service }) {
     loadPage={async (offset, size) => service.getSellerReviews(slug, size, offset)}/>;
 }
 
-// On the item page: a compact "Read N reviews" that opens the seller's reviews right there, five at a time, with a link to their storefront.
+// On the item page: a compact "Read N reviews" that opens the seller's reviews right there, one at a time with Previous / Next, and a link to their storefront.
 export function SellerReviewsPeek({ listingId, count, service }) {
   const [data, setData] = useState(null), [error, setError] = useState('');
   if (!count) return null;
