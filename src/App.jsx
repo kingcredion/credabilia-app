@@ -1,3 +1,4 @@
+import { watchForNewVersion } from './updatePrompt.js';
 import { notificationKey, isLoud, pruneSeen, glowClass, notificationSignature } from './notifications.js';
 import { Brand } from './Brand.jsx';
 import { ListingDetailFields, ListingDetailSummary } from './ListingDetails.jsx';
@@ -2033,6 +2034,8 @@ export default function App() {
   const [notifications, setNotifications] = useState([]);
   // Which bell items the member has already looked at (per account, kept in this browser), and a clock that ticks so a deadline getting close can pulse again.
   const [seen, setSeen] = useState({}), [clock, setClock] = useState(() => Date.now());
+  const [updateReady, setUpdateReady] = useState(false);
+  useEffect(() => watchForNewVersion(() => setUpdateReady(true)), []);
   const seenStoreKey = session ? 'credabilia:seen:' + session.user.id : null;
   useEffect(() => { try { setSeen(seenStoreKey ? JSON.parse(localStorage.getItem(seenStoreKey) || '{}') : {}); } catch { setSeen({}); } }, [seenStoreKey]);
   useEffect(() => { const timer = setInterval(() => setClock(Date.now()), 60000); return () => clearInterval(timer); }, []);
@@ -2362,6 +2365,7 @@ export default function App() {
     } catch (err) { setError(err.message); } finally { setBusy(false); }
   }
   return <div className="app">
+    {updateReady && <div className="update-banner" role="status"><span>A new version of Credabilia is ready.</span><button type="button" onClick={() => window.location.reload()}>Refresh</button></div>}
     {service.mode === 'demo' && <div className="demo-banner"><span><span className="live-dot"/> LOCAL PREVIEW <span className="banner-detail">· Sample items and two practice accounts. No real login or purchases.</span></span><button onClick={async () => { await service.reset(); setSelectedId(null); setWorkspace('collector'); refresh(); }}>Reset demo</button></div>}
     <header className="topbar">
       <button className="brand" onClick={() => switchWorkspace('collector')} aria-label="Credabilia home"><Brand/></button>

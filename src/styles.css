@@ -218,3 +218,7 @@ body:has(.legal-page){overflow:visible}
 .attention-calm::after{content:"";position:absolute;top:5px;right:5px;width:9px;height:9px;border-radius:50%;background:rgba(201,162,39,.95);box-shadow:0 0 0 2px var(--surface,#fff);pointer-events:none}
 /* The bell already shows its count badge, so it needs no extra dot (it landed on top of the badge). */
 .header-bell .attention-calm::after,.bottom-nav-item-wrap .attention-calm::after{display:none}
+
+/* A newer version is installed behind this page: offer a refresh instead of leaving the member on old code. */
+.update-banner{position:fixed;top:0;left:0;right:0;z-index:60;display:flex;gap:12px;align-items:center;justify-content:center;padding:8px 16px;background:#1d4d3e;color:#fff;font-size:14px}
+.update-banner button{background:#fff;color:#1d4d3e;border:0;border-radius:999px;padding:4px 14px;font-weight:600;cursor:pointer}
