@@ -1511,7 +1511,7 @@ function AdminDisputeRow({ request, onResolve }) {
     {evidence && <p className="field-note">{evidence.fulfillment_method === 'pickup'
       ? (evidence.handoff_verified_at ? `Pickup handoff code was verified ${new Date(evidence.handoff_verified_at).toLocaleString()}.` : 'Pickup handoff code was never entered.')
       : [evidence.shipped_at ? `Shipped ${new Date(evidence.shipped_at).toLocaleDateString()}` : 'Not shipped', evidence.tracking_status ? `tracking ${evidence.tracking_status}` : null, evidence.delivered_at ? `delivered ${new Date(evidence.delivered_at).toLocaleDateString()}` : null].filter(Boolean).join(' · ')}</p>}
-    <label>Refund amount — leave blank for the full {money(request.price_cents)}<input type="number" min="0.01" step="0.01" value={amount} onChange={event => setAmount(event.target.value)} disabled={busy} placeholder="Full amount"/></label>
+    <label>Refund amount — leave blank to refund everything the buyer paid (item, shipping and tax). For a partial refund, enter an amount under the {money(request.price_cents)} item price; tax is refunded in proportion, shipping is not.<input type="number" min="0.01" step="0.01" value={amount} onChange={event => setAmount(event.target.value)} disabled={busy} placeholder="Everything the buyer paid"/></label>
     <label>Note (optional, kept on the record)<textarea value={note} onChange={event => setNote(event.target.value)} rows={2} maxLength={2000} disabled={busy}/></label>
     {error && <p role="alert" className="error">{error}</p>}
     <div className="form-row">
