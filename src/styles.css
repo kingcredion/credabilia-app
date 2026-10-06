@@ -199,6 +199,6 @@ body:has(.legal-page){overflow:visible}
 
 /* An auction that ended with no bids: greyscale photo and the No Bids stamp, in the seller's Ended tab. */
 .ended-photo{position:relative}
-.ended-photo.no-bids .listing-cover,.ended-photo.no-bids .item-art{filter:grayscale(1) brightness(.82)}
+.ended-photo.has-stamp .listing-cover,.ended-photo.has-stamp .item-art{filter:grayscale(1) brightness(.82)}
 .lock-overlay.ended-stamp{height:100%;padding:0}
 .lock-overlay.ended-stamp img{width:min(170px,62%);height:auto;transform:rotate(-8deg);filter:drop-shadow(0 6px 10px rgba(0,0,0,.5))}
