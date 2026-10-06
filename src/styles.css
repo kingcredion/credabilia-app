@@ -216,3 +216,5 @@ body:has(.legal-page){overflow:visible}
 /* Calm: needs attention, already seen. A small steady dot instead of the pulse; the badge count stays as well. */
 .attention-calm{position:relative}
 .attention-calm::after{content:"";position:absolute;top:5px;right:5px;width:9px;height:9px;border-radius:50%;background:rgba(201,162,39,.95);box-shadow:0 0 0 2px var(--surface,#fff);pointer-events:none}
+/* The bell already shows its count badge, so it needs no extra dot (it landed on top of the badge). */
+.header-bell .attention-calm::after,.bottom-nav-item-wrap .attention-calm::after{display:none}
