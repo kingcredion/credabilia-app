@@ -68,3 +68,48 @@ test('the webhook records a saved bidding card without touching the order code, 
   assert.equal((await handler(req())).status,200);
   assert.equal(rpcCalls.length,0,'an abandoned save-card page does nothing');
 });
+
+test('a paid order records its card fingerprint (from the charge, or the payment method as a fallback), and a card that cannot be checked is logged and told to the operator without failing the payment',async()=>{
+  let event,intent;
+  const rpcCalls=[],alerts=[];
+  class Stripe {
+    static createFetchHttpClient(){}
+    static createSubtleCryptoProvider(){}
+    webhooks={constructEventAsync:async()=>event};
+    paymentIntents={retrieve:async()=>{if(intent instanceof Error) throw intent;return intent;}};
+  }
+  const client={
+    rpc:async(name,args)=>{
+      if(name==='notify_operator_alert'){alerts.push(args);return {error:null};}
+      rpcCalls.push([name,args]);
+      if(name==='finalize_checkout_session') return {data:'purchase-1',error:null};
+      if(name==='record_payment_fingerprint') return {data:{blocked:false},error:null};
+      return {error:null};
+    },
+    from:()=>({select:()=>({eq:()=>({maybeSingle:async()=>({data:{buyer_id:'member-1'}})})})}),
+  };
+  const createHandler=await loadHandler('stripe-webhook',Stripe);
+  const handler=createHandler({env:()=> 'test',createClient:()=>client});
+  const req=()=>new Request('https://example.test',{method:'POST',headers:{'Stripe-Signature':'test'},body:'{}'});
+  event={type:'checkout.session.completed',data:{object:{id:'cs_order',mode:'payment',payment_status:'paid',payment_intent:'pi_1'}}};
+  const recorded=()=>rpcCalls.filter(c=>c[0]==='record_payment_fingerprint');
+  const quiet=async fn=>{const original=console.error;console.error=()=>{};try{return await fn();}finally{console.error=original;}};
+
+  intent={latest_charge:{payment_method_details:{type:'card',card:{fingerprint:'fp_from_charge'}}}};
+  assert.equal((await handler(req())).status,200);
+  assert.deepEqual(recorded().at(-1)[1],{p_user_id:'member-1',p_kind:'card',p_fingerprint:'fp_from_charge',p_purchase_id:'purchase-1'});
+
+  rpcCalls.length=0;
+  intent={latest_charge:{payment_method_details:{type:'link'}},payment_method:{card:{fingerprint:'fp_from_method'}}};
+  assert.equal((await handler(req())).status,200);
+  assert.equal(recorded()[0][1].p_fingerprint,'fp_from_method','falls back to the payment method');
+
+  rpcCalls.length=0;
+  intent={latest_charge:{payment_method_details:{type:'link'}}};
+  assert.equal((await quiet(()=>handler(req()))).status,200);
+  assert.equal(recorded().length,0,'nothing to record, and the payment still succeeds');
+
+  intent=new Error('stripe down');
+  assert.equal((await quiet(()=>handler(req()))).status,200);
+  assert.match(alerts.at(-1).p_properties.summary,/could not be checked/);
+});

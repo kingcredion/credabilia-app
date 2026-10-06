@@ -95,14 +95,19 @@ async function recordBidCard(client, stripe, session, alertOperator) {
 async function recordCardFingerprint(client, stripe, session, purchaseId, alertOperator) {
   try {
     if(!purchaseId || !session.payment_intent) return;
-    const intent=await stripe.paymentIntents.retrieve(session.payment_intent,{expand:['latest_charge']});
-    const fingerprint=intent.latest_charge?.payment_method_details?.card?.fingerprint;
-    if(!fingerprint) return;
+    const intent=await stripe.paymentIntents.retrieve(session.payment_intent,{expand:['latest_charge','payment_method']});
+    // The charge normally carries the card's fingerprint; a wallet or Link payment can leave it off the charge but still have it on the payment method.
+    const fingerprint=intent.latest_charge?.payment_method_details?.card?.fingerprint || intent.payment_method?.card?.fingerprint;
+    if(!fingerprint) { console.error('card fingerprint unavailable for order',purchaseId,'payment type',intent.latest_charge?.payment_method_details?.type); return; }
     const {data:purchase}=await client.from('purchases').select('buyer_id').eq('id',purchaseId).maybeSingle();
     if(!purchase) return;
     const {data}=await client.rpc('record_payment_fingerprint',{p_user_id:purchase.buyer_id,p_kind:'card',p_fingerprint:fingerprint,p_purchase_id:purchaseId});
     if(data?.blocked) await alertOperator(client,{summary:'A payment came from a card tied to a banned member. The order is on hold.',reference:session.id,detail:'Purchase '+purchaseId});
-  } catch {}
+  } catch(error) {
+    // Never fails the webhook, but is no longer silent: a card that could not be checked is something the operator should know about.
+    console.error('card fingerprint check failed',session?.id,error?.message);
+    try { await alertOperator(client,{summary:'A paid order could not be checked against banned cards.',reference:session?.id,detail:'Purchase '+purchaseId+'. '+String(error?.message||'').slice(0,200)}); } catch {}
+  }
 }
 
 // Records the bank-account fingerprints on a seller's Stripe account. A bank account already tied to a banned member flags the
