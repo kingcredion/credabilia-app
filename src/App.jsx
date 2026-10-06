@@ -2213,7 +2213,8 @@ export default function App() {
     : workspace === 'auditor' ? items.filter(item => item.seller_id !== session?.user.id && !audits.some(a => a.listing_id === item.id))
     : collectionFilter === 'saved' ? items.filter(item => favoriteIds.includes(item.id)) : items;
   const filtered = eligible.filter(item => (category === 'All items' || item.category === category) && listingMatches(item, query));
-  const collectionItems = workspace === 'collector' && collectionFilter === 'owned' ? purchases : filtered;
+  // A fully refunded order is not something the member owns any more (it went back to the seller); it stays in `purchases` for its messages and receipt.
+  const collectionItems = workspace === 'collector' && collectionFilter === 'owned' ? purchases.filter(p => p.escrow_status !== 'refunded') : filtered;
   // What needs the member right now. The bell glows for anything actionable; Sell glows (until you are there) for seller work;
   // the Sold and Requests tabs glow for their own work, and opening Sell lands on the tab that has something waiting.
   const soldAttention = notifications.some(n => ['ship_pending', 'pickup_awaiting_handoff', 'refund_pending'].includes(n.kind));
