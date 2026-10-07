@@ -35,6 +35,14 @@
 			</array>
 		</dict>
 	</array>
+	<key>ITSAppUsesNonExemptEncryption</key>
+	<false/>
+	<key>NSCameraUsageDescription</key>
+	<string>Credabilia uses your camera so you can take photos of the items you list and of signatures.</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>Credabilia uses your photos so you can choose pictures of the items you list.</string>
+	<key>NSLocationWhenInUseUsageDescription</key>
+	<string>Credabilia uses your location only when you tap "Use my location", to show items near you.</string>
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
 	<key>UIApplicationSceneManifest</key>
