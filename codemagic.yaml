@@ -20,7 +20,7 @@ workflows:
       vars:
         XCODE_PROJECT: ios/App/App.xcodeproj
         XCODE_SCHEME: App
-        APP_STORE_APPLE_ID: 0   # replace with the numeric Apple ID shown on the app's App Store Connect page
+        APP_STORE_APPLE_ID: 6819971664   # the Credabilia app record in App Store Connect
       node: 22
       xcode: latest
     scripts:
