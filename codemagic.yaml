@@ -1,0 +1,71 @@
+# Cloud builds for the iPhone and Android apps (Codemagic: codemagic.io, sign in with GitHub, add kingcredion/credabilia-app).
+# One-time setup the account owner does in Codemagic, not in this file:
+#   1. Teams > Integrations > App Store Connect: add an API key (App Store Connect > Users and Access > Integrations > Team Keys, role App Manager) and name it "credabilia_appstore".
+#   2. Teams > Code signing identities > Android keystores: create/upload the Play upload keystore and name it "credabilia_upload".
+#   3. Environment variables > group "credabilia_build": the VITE_ values from .env.local (VITE_SUPABASE_URL, VITE_SUPABASE_PUBLISHABLE_KEY,
+#      VITE_LISTING_DETAILS_ENABLED, VITE_APPLE_SIGNIN_ENABLED, VITE_GOOGLE_MAPS_API_KEY, VITE_VAPID_PUBLIC_KEY), marked secure, plus GCLOUD_SERVICE_ACCOUNT_CREDENTIALS for Play uploads later.
+workflows:
+  ios-testflight:
+    name: iPhone app to TestFlight
+    instance_type: mac_mini_m2
+    max_build_duration: 45
+    integrations:
+      app_store_connect: credabilia_appstore
+    environment:
+      groups:
+        - credabilia_build
+      ios_signing:
+        distribution_type: app_store
+        bundle_identifier: com.credabilia.app
+      vars:
+        XCODE_PROJECT: ios/App/App.xcodeproj
+        XCODE_SCHEME: App
+        APP_STORE_APPLE_ID: 0   # replace with the numeric Apple ID shown on the app's App Store Connect page
+      node: 22
+      xcode: latest
+    scripts:
+      - name: Build the web app and copy it into the iPhone project
+        script: |
+          npm ci
+          npm run build
+          npx cap sync ios
+      - name: Set up signing
+        script: xcode-project use-profiles
+      - name: Next build number
+        script: |
+          LATEST=$(app-store-connect get-latest-testflight-build-number "$APP_STORE_APPLE_ID" 2>/dev/null || echo 0)
+          NEXT=$((LATEST + 1))
+          cd ios/App && agvtool new-version -all "$NEXT"
+      - name: Build the app file
+        script: |
+          xcode-project build-ipa --project "$XCODE_PROJECT" --scheme "$XCODE_SCHEME"
+    artifacts:
+      - build/ios/ipa/*.ipa
+    publishing:
+      app_store_connect:
+        auth: integration
+        submit_to_testflight: true
+
+  android-play:
+    name: Android app bundle
+    instance_type: linux_x2
+    max_build_duration: 30
+    environment:
+      groups:
+        - credabilia_build
+      android_signing:
+        - credabilia_upload
+      node: 22
+      java: 21
+    scripts:
+      - name: Build the web app and copy it into the Android project
+        script: |
+          npm ci
+          npm run build
+          npx cap sync android
+      - name: Build the signed bundle
+        script: |
+          export BUILD_NUMBER=$((${PROJECT_BUILD_NUMBER:-1}))
+          cd android && chmod +x gradlew && ./gradlew bundleRelease
+    artifacts:
+      - android/app/build/outputs/bundle/release/*.aab
