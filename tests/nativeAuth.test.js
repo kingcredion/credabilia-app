@@ -32,3 +32,17 @@ test('a normal browser is not treated as the app', () => {
   assert.equal(isNativeApp(), true);
   delete globalThis.Capacitor;
 });
+
+import { externalLinkUrl } from '../src/nativeAuth.js';
+test('outside web links open in the in-app browser, everything else is left alone', () => {
+  const origin = 'capacitor://localhost';
+  assert.equal(externalLinkUrl('https://track.example.com/abc', { origin }), 'https://track.example.com/abc');
+  assert.equal(externalLinkUrl('https://credabilia.com/store/x', { origin, target: '_blank' }), 'https://credabilia.com/store/x');
+  assert.equal(externalLinkUrl('/item/123', { origin: 'https://credabilia.com' }), null);
+  assert.equal(externalLinkUrl('/item/123', { origin: 'https://credabilia.com', target: '_blank' }), 'https://credabilia.com/item/123');
+  assert.equal(externalLinkUrl('mailto:support@credabilia.com', { origin }), null);
+  assert.equal(externalLinkUrl('tel:+18667500255', { origin }), null);
+  assert.equal(externalLinkUrl('com.credabilia.app://auth/callback?code=1', { origin }), null);
+  assert.equal(externalLinkUrl('', { origin }), null);
+  assert.equal(externalLinkUrl(undefined, { origin }), null);
+});

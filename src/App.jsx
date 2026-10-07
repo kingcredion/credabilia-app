@@ -16,7 +16,7 @@ import CertificateDetails, { CertificateFields } from './CertificateDetails.jsx'
 import React, { useEffect, useRef, useState } from 'react';
 import { ArrowUpRight, ArrowRight, Search, ShieldCheck, Plus, Store, Compass, ClipboardCheck, LogOut, X, Check, BookOpen, Sparkles, Layers, ArrowLeft, AlertCircle, Heart, Settings, RefreshCw, Package, Bell, MessageCircle, Sun, Moon, Monitor, Star, Flag, User, Crown, Share2, Copy, Lock, MapPin } from 'lucide-react';
 import { DEMO_ACCOUNTS } from './demo.js';
-import { makeService, openExternal } from './service.js';
+import { makeService, openExternal, listenForExternalLinks } from './service.js';
 import { isNativeApp, EMAIL_CODE_MAX } from './nativeAuth.js';
 const Storefront = React.lazy(() => import('./Storefront.jsx').then(module => ({ default: module.Storefront })));
 const TermsPage = React.lazy(() => import('./Legal.jsx').then(module => ({ default: module.TermsPage })));
@@ -1940,7 +1940,7 @@ function ProfileSettings({ profile, session, onSaved, onSignOut }) {
   }
   async function openDashboard() {
     setStripeBusy(true); setStripeError('');
-    try { const { url } = await service.openStripeDashboard(); window.open(url, '_blank'); }
+    try { const { url } = await service.openStripeDashboard(); if (isNativeApp()) await openExternal(url); else window.open(url, '_blank'); }
     catch (err) { setStripeError(err.message); } finally { setStripeBusy(false); }
   }
   const isAdmin = session?.user?.email === 'kingcredion@credabilia.com';
@@ -2164,6 +2164,7 @@ export default function App() {
   const [revision, setRevision] = useState(0);
   const [soldPreview, setSoldPreview] = useState(null);
   const refresh = () => setRevision(v => v + 1);
+  useEffect(() => listenForExternalLinks(), []); // phone app: outside links open in the in-app browser
   useEffect(() => {
     if (service.mode === 'unconfigured' || storefrontSlug || legalPage) return;
     let alive = true, eventSeen = false;

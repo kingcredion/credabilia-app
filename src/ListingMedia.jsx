@@ -1,4 +1,5 @@
-import React, { useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
+import { ChevronLeft, ChevronRight, X } from 'lucide-react';
 import { MEDIA_LIMITS, prepareImage } from './media.js';
 
 const backgroundRemoved = asset => /[.]png$/.test(asset.path);
@@ -45,7 +46,25 @@ export function MediaPicker({service,media,onChange,busy,onBusy,onError}) {
   </fieldset>;
 }
 
-function GalleryPhoto({asset,service,title,kind,index}) {
+// Full-screen photo viewer inside the app: a clear Close button, swipe or arrows between photos, and tap outside the photo to close.
+function PhotoViewer({photos,start,title,kind,onClose}) {
+  const [index,setIndex]=useState(start);
+  const dialog=useRef(null), touchStart=useRef(null);
+  useEffect(()=>{ const d=dialog.current; if(d && !d.open) d.showModal(); return ()=>{ if(d?.open) d.close(); }; },[]);
+  const count=photos.length, go=step=>setIndex(n=>(n+step+count)%count), asset=photos[index];
+  return <dialog ref={dialog} className="photo-viewer" aria-label={`${title} photos`} onCancel={event=>{event.preventDefault();onClose();}}
+    onClick={event=>{ if(event.target===dialog.current) onClose(); }}
+    onKeyDown={event=>{ if(count>1 && event.key==='ArrowRight') go(1); if(count>1 && event.key==='ArrowLeft') go(-1); }}
+    onTouchStart={event=>{ touchStart.current=event.touches[0].clientX; }}
+    onTouchEnd={event=>{ if(touchStart.current==null || count<2) return; const dx=event.changedTouches[0].clientX-touchStart.current; touchStart.current=null; if(Math.abs(dx)>60) go(dx<0?1:-1); }}>
+    <div className="photo-viewer-top"><span>{count>1 ? `${index+1} of ${count}` : ''}</span><button type="button" className="photo-viewer-close" onClick={onClose} aria-label="Close photo"><X size={22}/></button></div>
+    {asset?.url && <img className="photo-viewer-img" src={asset.url} alt={`${title} · ${kind} photo ${index+1}`} draggable={false}/>}
+    {count>1 && <><button type="button" className="photo-viewer-nav prev" onClick={()=>go(-1)} aria-label="Previous photo"><ChevronLeft size={26}/></button>
+      <button type="button" className="photo-viewer-nav next" onClick={()=>go(1)} aria-label="Next photo"><ChevronRight size={26}/></button></>}
+  </dialog>;
+}
+
+function GalleryPhoto({asset,service,title,kind,index,onOpen}) {
   const [url,setUrl]=useState(asset.url);
   const [failed,setFailed]=useState(!asset.url);
   const [retrying,setRetrying]=useState(false);
@@ -60,17 +79,18 @@ function GalleryPhoto({asset,service,title,kind,index}) {
     finally { setRetrying(false); }
   }
   if (failed) return <div role="status"><p>This photo couldn’t load.</p>{service?.signMediaUrls && <button type="button" className="text-button" disabled={retrying} onClick={retry}>{retrying ? 'Retrying…' : 'Retry photo'}</button>}</div>;
-  return <a href={url} target="_blank" rel="noopener noreferrer"><img className="gallery-main" src={url} decoding="async" fetchPriority={kind==='item' ? 'high' : 'auto'} loading={kind==='item' ? 'eager' : 'lazy'} onError={()=>setFailed(true)} alt={`${title} · ${kind} photo ${index+1}`}/></a>;
+  return <button type="button" className="gallery-open" onClick={onOpen} aria-label={`View ${kind} photo ${index+1} full screen`}><img className="gallery-main" src={url} decoding="async" fetchPriority={kind==='item' ? 'high' : 'auto'} loading={kind==='item' ? 'eager' : 'lazy'} onError={()=>setFailed(true)} alt={`${title} · ${kind} photo ${index+1}`}/></button>;
 }
 
 export function PhotoGallery({media=[],kind='item',title,service}) {
-  const [index,setIndex]=useState(0);
+  const [index,setIndex]=useState(0), [viewing,setViewing]=useState(false);
   const photos=media.filter(x=>x.kind===kind);
   if(!photos.length) return null;
   const current=photos[Math.min(index,photos.length-1)];
   return <section className="photo-gallery" aria-label={KIND_LABELS[kind] || 'Item photos'}>
     {kind!=='item' && <h3>{KIND_LABELS[kind]}</h3>}
-    <GalleryPhoto key={current.path+current.url} asset={current} service={service} title={title} kind={kind} index={Math.min(index,photos.length-1)}/>
+    <GalleryPhoto key={current.path+current.url} asset={current} service={service} title={title} kind={kind} index={Math.min(index,photos.length-1)} onOpen={()=>setViewing(true)}/>
     <div className="photo-thumbnails">{photos.map((asset,i)=><button key={asset.path} type="button" onClick={()=>setIndex(i)} aria-pressed={i===index} aria-label={`Show ${kind} photo ${i+1}`}>{asset.url && <img src={asset.url} loading="lazy" decoding="async" alt=""/>}</button>)}</div>
+    {viewing && <PhotoViewer photos={photos.filter(photo=>photo.url)} start={Math.max(0,photos.filter(photo=>photo.url).findIndex(photo=>photo.path===current.path))} title={title} kind={kind} onClose={()=>setViewing(false)}/>}
   </section>;
 }

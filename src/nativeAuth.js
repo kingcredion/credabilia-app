@@ -22,3 +22,14 @@ export function parseAuthRedirect(link) {
 export function cleanEmailCode(value) { return String(value || '').replace(/[^0-9]/g, ''); }
 export const EMAIL_CODE_LENGTH = 6;
 export const EMAIL_CODE_MIN = 6, EMAIL_CODE_MAX = 10;
+
+// Decides whether a tapped link is an outside web page that should open in the in-app browser (with a Done button) instead of replacing the app.
+// Anything that is not http(s) (mailto:, tel:, the app's own sign-in link) is left to the system.
+export function externalLinkUrl(href, { origin, target } = {}) {
+  if (typeof href !== 'string' || !href.trim()) return null;
+  let parsed;
+  try { parsed = new URL(href, origin || 'http://localhost'); } catch { return null; }
+  if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') return null;
+  if (target === '_blank' || (origin && parsed.origin !== origin)) return parsed.href;
+  return null;
+}

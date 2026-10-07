@@ -4,7 +4,7 @@ import { createClient } from '@supabase/supabase-js';
 import { createDemoService } from './demo.js';
 import { listingInput, auditInput } from './domain.js';
 import { pushSupported, currentPushSubscription, enablePush, disablePush } from './push.js';
-import { NATIVE_REDIRECT, isNativeApp, parseAuthRedirect, cleanEmailCode, EMAIL_CODE_MIN, EMAIL_CODE_MAX } from './nativeAuth.js';
+import { NATIVE_REDIRECT, isNativeApp, parseAuthRedirect, cleanEmailCode, EMAIL_CODE_MIN, EMAIL_CODE_MAX, externalLinkUrl } from './nativeAuth.js';
 
 // Opens an outside page (Stripe's payout setup). On the website it is an ordinary redirect. In the phone app it opens in the in-app browser so the member can
 // never get stuck outside the app, and onClosed runs when they tap Done.
@@ -13,6 +13,22 @@ export async function openExternal(url, { onClosed } = {}) {
   const { Browser } = await import('@capacitor/browser');
   if (onClosed) { const handle = await Browser.addListener('browserFinished', () => { handle.remove(); onClosed(); }); }
   await Browser.open({ url });
+}
+
+// In the phone app, every link to an outside page (shipment tracking, shipping labels, certificate lookups, directions...) opens in the in-app browser, so the
+// member always has a Done button and never lands in Safari with no way back. Returns a function that stops listening.
+export function listenForExternalLinks() {
+  if (!isNativeApp()) return () => {};
+  const handler = event => {
+    const link = event.target?.closest?.('a[href]');
+    if (!link) return;
+    const url = externalLinkUrl(link.getAttribute('href'), { origin: window.location.origin, target: link.target });
+    if (!url) return;
+    event.preventDefault();
+    openExternal(url).catch(() => {});
+  };
+  document.addEventListener('click', handler, true);
+  return () => document.removeEventListener('click', handler, true);
 }
 
 // Opens the provider's sign-in page. On the phone it opens in the system browser (Google refuses embedded web views) and returns through NATIVE_REDIRECT,
