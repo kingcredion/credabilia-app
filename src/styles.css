@@ -307,3 +307,4 @@ body::before{content:"";position:fixed;top:0;left:0;right:0;height:var(--safe-to
 .conversation-row .action-badge{top:6px;left:auto;right:40px;padding:2px 8px;font-size:10px}
 /* On a phone the Messages banner is just a heading, so the conversations are on the first screen. */
 @media(max-width:600px){.messages-hero{min-height:0}.messages-hero .hero-mascot{display:none}.messages-hero .hero-copy{padding:20px 22px}.messages-hero .hero h1,.messages-hero h1{font-size:30px;margin-bottom:8px}.messages-hero .hero-copy>p:not(.eyebrow){margin-bottom:0}}
+.messages-hero{margin-bottom:18px}
