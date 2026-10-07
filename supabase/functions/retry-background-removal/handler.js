@@ -4,7 +4,7 @@
 // close-auctions/release-stale-escrow). Retries the Photoroom call for listings whose main item
 // photo couldn't have its background removed at publish time -- see
 // 202609300049_background_removal_retry.sql for why publish no longer blocks on this.
-export function createHandler({createClient,env,fetcher=fetch}) {
+export function createHandler({createClient,env,fetcher=fetch,wait=ms=>new Promise(resolve=>setTimeout(resolve,ms))}) {
   const cors={'Access-Control-Allow-Origin':'*','Access-Control-Allow-Headers':'authorization, content-type','Access-Control-Allow-Methods':'POST, OPTIONS'};
   const reply=(body,status=200)=>Response.json(body,{status,headers:cors});
   return async request=>{
@@ -13,7 +13,10 @@ export function createHandler({createClient,env,fetcher=fetch}) {
     try {
       if(!env('PHOTOROOM_API_KEY')) return reply({processed:0,succeeded:0});
       const service=createClient(env('SUPABASE_URL'),env('SUPABASE_SERVICE_ROLE_KEY'));
-      const {data:pending,error}=await service.from('listing_media').select('path,bg_attempts').eq('kind','item').eq('bg_pending',true).lt('bg_attempts',5).limit(25);
+      const lookup=()=>service.from('listing_media').select('path,bg_attempts').eq('kind','item').eq('bg_pending',true).lt('bg_attempts',5).limit(25);
+      let {data:pending,error}=await lookup();
+      // A momentary database hiccup should not raise an alarm: try the lookup once more after a short pause before reporting a failure.
+      if(error) { console.error('retry-background-removal first lookup failed, trying again:',error.message); await wait(2000); ({data:pending,error}=await lookup()); }
       if(error) { console.error('retry-background-removal query failed:',error.message); return reply({error:'Could not check for pending photos.'},500); }
 
       let succeeded=0;

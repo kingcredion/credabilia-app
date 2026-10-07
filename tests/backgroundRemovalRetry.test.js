@@ -135,3 +135,20 @@ test('retry-background-removal: does nothing when PHOTOROOM_API_KEY is not confi
   const result=await handler(new Request('https://example.test',{method:'POST'}));
   assert.deepEqual(await result.json(),{processed:0,succeeded:0});
 });
+
+test('retry-background-removal: a one-off lookup failure is retried once and the job carries on; a lasting failure still reports an error', async () => {
+  const path='11111111-1111-4111-8111-111111111111/bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb.jpg';
+  const {service}=makeService({rows:[{path,bg_attempts:0}]});
+  let lookups=0, pauses=0;
+  const flaky={...service,from:table=>{ const real=service.from(table); return {...real,select:()=>({eq:()=>({eq:()=>({lt:()=>({limit:async()=>{lookups++; return lookups===1?{data:null,error:new Error('db hiccup')}:{data:[{path,bg_attempts:0}],error:null};}})})})})}; }};
+  const handler=createHandler({env:()=>'test-key',createClient:()=>flaky,fetcher:async()=>new Response(new Uint8Array([1,2,3]),{status:200}),wait:async()=>{pauses++;}});
+  const ok=await handler(new Request('https://example.test',{method:'POST'}));
+  assert.equal(ok.status,200); assert.deepEqual(await ok.json(),{processed:1,succeeded:1});
+  assert.equal(lookups,2,'looked twice'); assert.equal(pauses,1,'paused once between the two tries');
+
+  let always=0;
+  const broken={...service,from:()=>({select:()=>({eq:()=>({eq:()=>({lt:()=>({limit:async()=>{always++; return {data:null,error:new Error('db down')};}})})})})})};
+  const failing=createHandler({env:()=>'test-key',createClient:()=>broken,fetcher:async()=>{throw new Error('should not be called');},wait:async()=>{}});
+  const bad=await failing(new Request('https://example.test',{method:'POST'}));
+  assert.equal(bad.status,500); assert.equal(always,2,'a second try, then the error is reported');
+});
