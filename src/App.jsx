@@ -1458,7 +1458,7 @@ function MessagesInbox({ conversations, session, service, focusConversationId, o
     <MessageThread key={selected.id} conversationId={selected.id} service={service} session={session} counterpartyLabel={selected.role === 'buyer' ? 'seller' : 'buyer'} forceOpen pinnedListing={selected} onOpenListing={onOpenListing} onRead={onRead} pickupStation={selected.pickup_enabled ? selected.pickup_station : null}/>
   </>;
   if (!conversations.length) return <div className="empty-state"><MessageCircle size={34}/><h3>No conversations yet.</h3><p>Message a seller from any listing to start one.</p></div>;
-  return <div className="items-grid">{conversations.map(c => <button key={c.id} className={`item-card conversation-row${actionConversationIds.has(c.id) ? ' needs-action attention-glow' : ''}`} onClick={() => onSelect(c.id)}>{actionConversationIds.has(c.id) && <span className="action-badge">Action needed</span>}
+  return <div className="items-grid conversation-list">{conversations.map(c => <button key={c.id} className={`item-card conversation-row${actionConversationIds.has(c.id) ? ' needs-action attention-glow' : ''}`} onClick={() => onSelect(c.id)}>{actionConversationIds.has(c.id) && <span className="action-badge">Action needed</span>}
     <span role="button" tabIndex={0} className="icon-button conversation-clear" aria-label="Clear conversation" onClick={event => { event.stopPropagation(); onClear(c.id); }}><X size={14}/></span>
     <ItemArt photo={c.media?.[0]?.url}/>
     <div className="item-card-content">
