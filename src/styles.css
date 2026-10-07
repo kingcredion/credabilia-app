@@ -285,3 +285,5 @@ body{padding-left:var(--safe-left);padding-right:var(--safe-right)}
 .update-banner{padding-top:calc(8px + var(--safe-top))}
 .legal-nav{top:var(--safe-top)}
 @media(max-width:600px){.topbar{min-height:calc(73px + var(--safe-top))}.notif-panel{top:calc(62px + var(--safe-top))}}
+/* Pop-up windows (profile settings, create listing, checkout...) keep clear of the status bar and home indicator on phones that draw edge to edge. */
+dialog{max-height:calc(100% - 2 * max(20px, calc(var(--safe-top) + 12px)))}
