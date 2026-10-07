@@ -6,6 +6,15 @@ import { listingInput, auditInput } from './domain.js';
 import { pushSupported, currentPushSubscription, enablePush, disablePush } from './push.js';
 import { NATIVE_REDIRECT, isNativeApp, parseAuthRedirect, cleanEmailCode, EMAIL_CODE_MIN, EMAIL_CODE_MAX } from './nativeAuth.js';
 
+// Opens an outside page (Stripe's payout setup). On the website it is an ordinary redirect. In the phone app it opens in the in-app browser so the member can
+// never get stuck outside the app, and onClosed runs when they tap Done.
+export async function openExternal(url, { onClosed } = {}) {
+  if (!isNativeApp()) { window.location.href = url; return; }
+  const { Browser } = await import('@capacitor/browser');
+  if (onClosed) { const handle = await Browser.addListener('browserFinished', () => { handle.remove(); onClosed(); }); }
+  await Browser.open({ url });
+}
+
 // Opens the provider's sign-in page. On the phone it opens in the system browser (Google refuses embedded web views) and returns through NATIVE_REDIRECT,
 // which listenForNativeSignIn() finishes; on the web it is an ordinary redirect.
 export async function oauthSignIn(client, provider) {

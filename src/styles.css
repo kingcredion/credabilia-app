@@ -150,15 +150,15 @@
 
 .clarity-contents{display:contents}
 
-/* Needs-attention glow: a slow gold pulse on whatever the member should open next (bell, Sell, Sold, Ship now). */
-@keyframes attention-pulse{0%,100%{box-shadow:0 0 0 0 rgba(201,162,39,.0),0 0 6px 1px rgba(201,162,39,.55)}50%{box-shadow:0 0 0 5px rgba(201,162,39,.22),0 0 18px 5px rgba(201,162,39,.85)}}
-.attention-glow{animation:attention-pulse 1.8s ease-in-out infinite;border-radius:10px;outline:2px solid rgba(201,162,39,.7);outline-offset:1px}
-@media (prefers-reduced-motion:reduce){.attention-glow{animation:none;box-shadow:0 0 0 3px rgba(201,162,39,.6)}}
-/* Blue variant: a refund request the seller has to answer (gold stays for "do this next" steps like Ship now). */
-@keyframes attention-pulse-blue{0%,100%{box-shadow:0 0 0 0 rgba(37,99,235,.0),0 0 6px 1px rgba(37,99,235,.5)}50%{box-shadow:0 0 0 5px rgba(37,99,235,.2),0 0 18px 5px rgba(37,99,235,.8)}}
-.attention-glow.attention-glow-blue{animation-name:attention-pulse-blue;outline-color:rgba(37,99,235,.7);border-radius:14px}
-@media (prefers-reduced-motion:reduce){.attention-glow.attention-glow-blue{box-shadow:0 0 0 3px rgba(37,99,235,.6)}}
-.notif-row-urgent{font-weight:700;background:rgba(201,162,39,.14)}
+/* Needs-attention glow: a slow IBM-blue (#0f62fe) pulse on whatever the member should open next (bell, Sell, Sold, Ship now). */
+@keyframes attention-pulse{0%,100%{box-shadow:0 0 0 0 rgba(15,98,254,.0),0 0 6px 1px rgba(15,98,254,.55)}50%{box-shadow:0 0 0 5px rgba(15,98,254,.22),0 0 18px 5px rgba(15,98,254,.85)}}
+.attention-glow{animation:attention-pulse 1.8s ease-in-out infinite;border-radius:10px;outline:2px solid rgba(15,98,254,.7);outline-offset:1px}
+@media (prefers-reduced-motion:reduce){.attention-glow{animation:none;box-shadow:0 0 0 3px rgba(15,98,254,.6)}}
+/* Refund-request variant: same IBM blue, kept as its own class so it can be told apart later. */
+@keyframes attention-pulse-blue{0%,100%{box-shadow:0 0 0 0 rgba(15,98,254,.0),0 0 6px 1px rgba(15,98,254,.5)}50%{box-shadow:0 0 0 5px rgba(15,98,254,.2),0 0 18px 5px rgba(15,98,254,.8)}}
+.attention-glow.attention-glow-blue{animation-name:attention-pulse-blue;outline-color:rgba(15,98,254,.7);border-radius:14px}
+@media (prefers-reduced-motion:reduce){.attention-glow.attention-glow-blue{box-shadow:0 0 0 3px rgba(15,98,254,.6)}}
+.notif-row-urgent{font-weight:700;background:rgba(15,98,254,.14)}
 
 .shipping-choice{display:flex;flex-direction:column;gap:8px;border:1px solid var(--border);border-radius:12px;padding:12px;margin:0}
 .shipping-choice legend{padding:0 6px;font-weight:700;font-size:.9rem}
@@ -215,7 +215,7 @@ body:has(.legal-page){overflow:visible}
 
 /* Calm: needs attention, already seen. A small steady dot instead of the pulse; the badge count stays as well. */
 .attention-calm{position:relative}
-.attention-calm::after{content:"";position:absolute;top:5px;right:5px;width:9px;height:9px;border-radius:50%;background:rgba(201,162,39,.95);box-shadow:0 0 0 2px var(--surface,#fff);pointer-events:none}
+.attention-calm::after{content:"";position:absolute;top:5px;right:5px;width:9px;height:9px;border-radius:50%;background:rgba(15,98,254,.95);box-shadow:0 0 0 2px var(--surface,#fff);pointer-events:none}
 /* The bell already shows its count badge, so it needs no extra dot (it landed on top of the badge). */
 .header-bell .attention-calm::after,.bottom-nav-item-wrap .attention-calm::after{display:none}
 
@@ -289,3 +289,5 @@ body{padding-left:var(--safe-left);padding-right:var(--safe-right)}
 dialog{max-height:calc(100% - 2 * max(20px, calc(var(--safe-top) + 12px)))}
 /* Audit screen on a phone: the signature close-up and the certificate details stack, each at full width, instead of sharing two cramped columns. */
 @media(max-width:700px){.audit-queue .form-row{grid-template-columns:minmax(0,1fr)}}
+/* A solid strip behind the phone's status bar, so scrolled content stops under the clock instead of printing through it. Zero height (invisible) wherever there is no notch. */
+body::before{content:"";position:fixed;top:0;left:0;right:0;height:var(--safe-top);background:var(--surface);z-index:70;pointer-events:none}

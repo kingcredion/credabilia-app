@@ -16,7 +16,7 @@ import CertificateDetails, { CertificateFields } from './CertificateDetails.jsx'
 import React, { useEffect, useRef, useState } from 'react';
 import { ArrowUpRight, ArrowRight, Search, ShieldCheck, Plus, Store, Compass, ClipboardCheck, LogOut, X, Check, BookOpen, Sparkles, Layers, ArrowLeft, AlertCircle, Heart, Settings, RefreshCw, Package, Bell, MessageCircle, Sun, Moon, Monitor, Star, Flag, User, Crown, Share2, Copy, Lock, MapPin } from 'lucide-react';
 import { DEMO_ACCOUNTS } from './demo.js';
-import { makeService } from './service.js';
+import { makeService, openExternal } from './service.js';
 import { isNativeApp, EMAIL_CODE_MAX } from './nativeAuth.js';
 const Storefront = React.lazy(() => import('./Storefront.jsx').then(module => ({ default: module.Storefront })));
 const TermsPage = React.lazy(() => import('./Legal.jsx').then(module => ({ default: module.TermsPage })));
@@ -1920,6 +1920,10 @@ function ProfileSettings({ profile, session, onSaved, onSignOut }) {
   // A seller who hasn't connected payouts yet needs to see that prompt first, not a wall of zeros.
   const needsPayoutSetup = service.mode === 'live' && !profile?.stripe_charges_enabled && !profile?.stripe_details_submitted;
   const [tab, setTab] = useState(needsPayoutSetup ? 'settings' : 'dashboard');
+  // Glows (and scrolls into view) until payouts are fully connected, so a seller who has not finished cannot miss it.
+  const payoutPending = service.mode === 'live' && !!profile && !profile.stripe_charges_enabled;
+  const payoutBox = useRef(null);
+  useEffect(() => { if (payoutPending && tab === 'settings') payoutBox.current?.scrollIntoView({ block: 'center', behavior: 'smooth' }); }, [tab]); // eslint-disable-line react-hooks/exhaustive-deps
   const [name, setName] = useState(profile?.display_name || '');
   const [saving, setSaving] = useState(false), [error, setError] = useState('');
   const [stripeBusy, setStripeBusy] = useState(false), [stripeError, setStripeError] = useState('');
@@ -1931,7 +1935,7 @@ function ProfileSettings({ profile, session, onSaved, onSignOut }) {
   }
   async function connectStripe() {
     setStripeBusy(true); setStripeError('');
-    try { const { url } = await service.startStripeOnboarding(); window.location.href = url; }
+    try { const { url } = await service.startStripeOnboarding(); await openExternal(url, { onClosed: () => service.refreshStripeOnboardingStatus().catch(() => {}) }); setStripeBusy(false); }
     catch (err) { setStripeError(err.message); setStripeBusy(false); }
   }
   async function openDashboard() {
@@ -1957,7 +1961,7 @@ function ProfileSettings({ profile, session, onSaved, onSignOut }) {
       <ShippingSettings profile={profile}/>
       <NotificationSettings/>
       <SmsNotificationSettings profile={profile}/>
-      <div className="evidence-box"><h3>Payouts</h3>
+      <div ref={payoutBox} className={`evidence-box${payoutPending ? ' attention-glow' : ''}`}><h3>Payouts</h3>
         {service.mode !== 'live' ? <p className="field-note">Coming soon. You'll be able to add bank details here before real checkout launches — nothing is collected yet.</p>
           : profile?.stripe_charges_enabled ? <><p className="field-note">Payments are connected. Your sales pay out to your own Stripe account.</p><button type="button" className="text-button" onClick={openDashboard} disabled={stripeBusy}>{stripeBusy ? 'Opening…' : 'Open your Stripe dashboard'}</button></>
           : profile?.stripe_details_submitted ? <p className="field-note">Stripe is still reviewing your account. Check back soon.</p>
@@ -2422,6 +2426,20 @@ export default function App() {
       setItemsHasMore(more.length >= LISTINGS_PAGE_SIZE);
     } catch (err) { setError(err.message); } finally { setLoadingMore(false); }
   }
+  // The "finish payouts" notification and the Set up payouts button go straight to Stripe's setup page (in the in-app browser on the phone), then
+  // re-check the account when the member comes back.
+  async function finishPayoutSetup() {
+    try { const result = await service.refreshStripeOnboardingStatus(); setNotice(result.charges_enabled ? 'Payout details saved. Your listings are open for buyers.' : 'Stripe is reviewing your details.'); refresh(); }
+    catch (err) { setError(err.message); }
+  }
+  async function beginPayoutSetup() {
+    setWorkspace('seller'); setSellerTab('active'); setSelectedId(null);
+    if (service.mode !== 'live' || profile?.stripe_details_submitted) { if (profile?.stripe_charges_enabled) setNotice('Your payouts are already connected.'); else if (service.mode === 'live') finishPayoutSetup(); else setModal('profile'); return; }
+    if (profile?.stripe_charges_enabled) { setNotice('Your payouts are already connected.'); return; }
+    setNotice('Opening Stripe…');
+    try { const { url } = await service.startStripeOnboarding(); await openExternal(url, { onClosed: finishPayoutSetup }); }
+    catch (err) { setNotice(''); setError(err.message); }
+  }
   function focusNotification(n) {
     markSeen([n]);
     setModal(null);
@@ -2431,7 +2449,7 @@ export default function App() {
     if (n.role === 'buyer') { setSelectedId(n.listing_id); }
     else if (n.kind === 'buy_request_pending') { setWorkspace('seller'); setSellerTab('requests'); setSelectedId(null); }
     else if (n.kind === 'auction_relist') { setWorkspace('seller'); setSellerTab('ended'); setSelectedId(null); }
-    else if (n.kind === 'payout_setup') { setWorkspace('seller'); setSellerTab('active'); setSelectedId(null); }
+    else if (n.kind === 'payout_setup') { beginPayoutSetup(); }
     else if (n.role === 'operator') { setModal('profile'); }
     else { setWorkspace('seller'); setSellerTab('sold'); setSelectedId(null); }
   }
@@ -2518,7 +2536,7 @@ export default function App() {
           <section className={workspace === 'collector' && !isNativeApp() ? 'hero mobile-launch-hero' : 'hero'}><div className="hero-copy"><p className="eyebrow"><span className="small-line"/>{workspace === 'collector' ? (isNativeApp() ? 'YOUR KINGDOM. IN YOUR POCKET.' : 'YOUR KINGDOM. SOON IN YOUR POCKET.') : workspace === 'seller' ? 'YOUR NEXT GREAT FIND STARTS HERE' : 'OBSERVATION OVER ASSUMPTION'}</p><h1>{workspace === 'collector' ? (isNativeApp() ? <>The Kingdom<br/><em>is in your hands.</em></> : <>The Kingdom<br/><em>is going mobile.</em></>) : workspace === 'seller' ? <>Your collection.<br/><em>A new chapter.</em></> : <>Look closer.<br/><em>Share what you see.</em></>}</h1><p>{workspace === 'collector' ? (isNativeApp() ? 'Discover, collect and sell memorabilia with every piece looked over by King Credion. Browse the collection below.' : 'Coming soon to the App Store and Google Play. We’ll email our registered members when the apps are ready to download. Keep discovering and collecting here in the meantime.') : workspace === 'seller' ? 'Give every piece the context it deserves. Share its story, its condition, and what you know.' : 'Help collectors make informed decisions. Review evidence, explain your reasoning, and keep learning.'}</p><img className="ai-marketplace-badge" src="/brand/ai-powered-marketplace-badge-v2.png" width="2048" height="683" alt="AI powered marketplace"/><button className="primary" onClick={workspace === 'seller' ? openCreate : () => document.getElementById('listings').scrollIntoView({ behavior: 'smooth' })}>{workspace === 'seller' ? 'Create a listing' : workspace === 'auditor' ? 'Explore the audit queue' : 'Explore the collection'}<ArrowUpRight size={18}/></button>{workspace === 'seller' && <button className="text-button" onClick={openBulkCreate}><Layers size={16}/>Bulk list items</button>}</div><div className="hero-mascot"><img key={workspace} src={(workspace === 'collector' && isNativeApp() ? NATIVE_COLLECTOR_HERO : HERO_IMAGES[workspace]).src} width={(workspace === 'collector' && isNativeApp() ? NATIVE_COLLECTOR_HERO : HERO_IMAGES[workspace]).width} height={(workspace === 'collector' && isNativeApp() ? NATIVE_COLLECTOR_HERO : HERO_IMAGES[workspace]).height} alt={(workspace === 'collector' && isNativeApp() ? NATIVE_COLLECTOR_HERO : HERO_IMAGES[workspace]).alt} fetchPriority={workspace === 'collector' ? 'high' : 'auto'} /></div></section>
           <div className="values-strip"><span><Search size={16}/>Discover the details</span><span><ClipboardCheck size={16}/>Share your perspective</span><span><BookOpen size={16}/>Keep learning</span></div>
           <section id="listings" className="listings-section"><div className="section-heading"><div><p className="eyebrow">{workspace === 'auditor' ? 'A FRESH PERSPECTIVE' : 'THE COLLECTION'}</p><h2>{workspace === 'seller' ? (sellerTab === 'sold' ? 'Sold items' : sellerTab === 'requests' ? 'Buy requests' : 'Your listings') : workspace === 'auditor' ? 'Ready for a closer look' : collectionFilter === 'owned' ? 'Items you own' : collectionFilter === 'saved' ? 'Items you saved' : 'Discover something worth keeping'}</h2></div><span className="item-count">{workspace === 'seller' && sellerTab === 'sold' ? sales.length : workspace === 'seller' && sellerTab === 'requests' ? sellerBuyRequests.length : collectionItems.length} {(workspace === 'seller' && sellerTab === 'sold' ? sales.length : workspace === 'seller' && sellerTab === 'requests' ? sellerBuyRequests.length : collectionItems.length) === 1 ? 'item' : 'items'}</span></div>
-            {workspace === 'seller' && session && service.mode === 'live' && profile && !profile.stripe_charges_enabled && <div className="evidence-box lock-banner" role="status"><h3><Lock size={16}/> Your listings are locked</h3><p className="field-note">Buyers can see them, but nobody can buy or bid until you connect payouts with Stripe. It takes a couple of minutes, and everything opens automatically when you're done.</p><button type="button" className="primary" onClick={() => setModal('profile')}>{profile.stripe_details_submitted ? 'Check payout status' : 'Set up payouts'}<ArrowRight size={16}/></button></div>}
+            {workspace === 'seller' && session && service.mode === 'live' && profile && !profile.stripe_charges_enabled && <div className="evidence-box lock-banner" role="status"><h3><Lock size={16}/> Your listings are locked</h3><p className="field-note">Buyers can see them, but nobody can buy or bid until you connect payouts with Stripe. It takes a couple of minutes, and everything opens automatically when you're done.</p><button type="button" className="primary" onClick={beginPayoutSetup}>{profile.stripe_details_submitted ? 'Check payout status' : 'Set up payouts'}<ArrowRight size={16}/></button></div>}
             {workspace === 'seller' && session && <div className="categories" aria-label="Your listings"><button aria-pressed={sellerTab === 'active'} className={sellerTab === 'active' ? 'active' : ''} onClick={() => setSellerTab('active')}>Active</button><button aria-pressed={sellerTab === 'requests'} className={`${sellerTab === 'requests' ? 'active' : ''}${sellerTab !== 'requests' ? requestsTabGlow : ''}`} onClick={() => { markSeen(notifications.filter(isKind(['buy_request_pending']))); setSellerTab('requests'); }}>Requests {sellerBuyRequests.length ? `(${sellerBuyRequests.length})` : ''}</button><button aria-pressed={sellerTab === 'sold'} className={`${sellerTab === 'sold' ? 'active' : ''}${sellerTab !== 'sold' ? soldTabGlow : ''}`} onClick={() => { markSeen(notifications.filter(isKind(['ship_pending', 'pickup_awaiting_handoff', 'refund_pending']))); setSellerTab('sold'); }}>Sold {sales.length ? `(${sales.length})` : ''}</button>{(endedListings.length > 0 || sellerTab === 'ended') && <button aria-pressed={sellerTab === 'ended'} className={`${sellerTab === 'ended' ? 'active' : ''}${sellerTab !== 'ended' ? endedTabGlow : ''}`} onClick={() => { markSeen(notifications.filter(isKind(['auction_relist']))); setSellerTab('ended'); }}>Ended {endedListings.length ? `(${endedListings.length})` : ''}</button>}</div>}
             {workspace === 'seller' && sellerTab === 'active' && session && <SellerStorefrontBanner slug={profile?.slug} onSetup={() => setModal('profile')}/>}
             {workspace === 'collector' && session && <div className="categories" aria-label="My collection"><button aria-pressed={collectionFilter === 'all'} className={collectionFilter === 'all' ? 'active' : ''} onClick={() => setCollectionFilter('all')}>All items</button><button aria-pressed={collectionFilter === 'saved'} className={collectionFilter === 'saved' ? 'active' : ''} onClick={() => setCollectionFilter('saved')}><Heart size={14}/> Saved</button><button aria-pressed={collectionFilter === 'owned'} className={`${collectionFilter === 'owned' ? 'active' : ''}${collectionFilter !== 'owned' ? ownedGlow : ''}`} onClick={() => { markSeen(notifications.filter(isKind(BUYER_ORDER_KINDS))); setCollectionFilter('owned'); }}>Owned</button></div>}
