@@ -25,7 +25,7 @@ const HelpPage = React.lazy(() => import('./Help.jsx').then(module => ({ default
 import { ItemArt, money, RatingStars } from './ItemArt.jsx';
 import { MessageThread } from './MessageThread.jsx';
 import { SoldItemPage } from './SoldItemPage.jsx';
-import { trackItemListed } from './analytics.js';
+import { trackItemListed, trackSignUpIfNew } from './analytics.js';
 import { SellPage } from './SellPage.jsx';
 import { LIST_INTENT_KEY, captureListIntent, isSellHost } from './listIntent.js';
 const SupportChat = React.lazy(() => import('./SupportChat.jsx').then(module => ({ default: module.SupportChat })));
@@ -2175,7 +2175,7 @@ export default function App() {
     let alive = true, eventSeen = false;
     // Auth can emit again with the same session object when a tab regains focus.
     // Reload account data whenever it is cleared, even if session identity is unchanged.
-    const unsubscribe = service.onAuthChange(next => { eventSeen = true; if (alive) { setSession(next); if (next) { setNotice(''); setError(''); setModal(current => current === 'login' ? null : current); } setAuthReady(true); setProfile(null); setAudits([]); refresh(); } });
+    const unsubscribe = service.onAuthChange(next => { eventSeen = true; if (alive) { setSession(next); if (next) { trackSignUpIfNew(next.user); setNotice(''); setError(''); setModal(current => current === 'login' ? null : current); } setAuthReady(true); setProfile(null); setAudits([]); refresh(); } });
     service.getSession().then(value => { if (alive && !eventSeen) setSession(value); }).catch(err => { if (alive) setError(err.message); }).finally(() => { if (alive) setAuthReady(true); });
     const params = new URLSearchParams(window.location.search);
     const authError = params.get('error_description');
