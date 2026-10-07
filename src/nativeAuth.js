@@ -33,3 +33,6 @@ export function externalLinkUrl(href, { origin, target } = {}) {
   if (target === '_blank' || (origin && parsed.origin !== origin)) return parsed.href;
   return null;
 }
+
+// The address Apple's App Review team signs in with (only works while the review switch is on in the database).
+export const APP_REVIEW_EMAIL = 'appreview@credabilia.com';

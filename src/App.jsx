@@ -2081,9 +2081,13 @@ function AuditQueue({ items, session, profile, onNeedLogin, onAudited, focusItem
 
 function EmailLogin() {
   const [busy, setBusy] = useState(false), [sentTo, setSentTo] = useState(''), [error, setError] = useState(''), [resent, setResent] = useState(false);
+  // App Review's test account: the button exists only while the review switch is on in the database.
+  const [reviewOpen, setReviewOpen] = useState(false);
+  useEffect(() => { let alive = true; service.reviewSignInAvailable?.().then(on => { if (alive) setReviewOpen(!!on); }); return () => { alive = false; }; }, []);
+  async function reviewSignIn() { setBusy(true); setError(''); try { await service.signInAsReviewTeam(); } catch (err) { setError(err.message); setBusy(false); } }
   async function send(email) {
     setBusy(true); setError('');
-    try { await service.signInWithEmail(email); setSentTo(email.trim()); return true; }
+    try { const result = await service.signInWithEmail(email); if (!result?.signedIn) setSentTo(email.trim()); return true; }
     catch (err) { setError(err.message); return false; }
     finally { setBusy(false); }
   }
@@ -2109,6 +2113,7 @@ function EmailLogin() {
     <p className="field-note">We'll email you a secure sign-in code. No password to remember.</p>
     {error && <p className="error" role="alert">{error}</p>}
     <button className="primary full-width" disabled={busy}>{busy ? 'Sending code…' : 'Continue with email'}<ArrowRight size={18}/></button>
+    {reviewOpen && <button type="button" className="review-team-button" onClick={reviewSignIn} disabled={busy}><ShieldCheck size={16}/> Review Team sign-in</button>}
   </form>;
 }
 

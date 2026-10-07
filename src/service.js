@@ -4,7 +4,7 @@ import { createClient } from '@supabase/supabase-js';
 import { createDemoService } from './demo.js';
 import { listingInput, auditInput } from './domain.js';
 import { pushSupported, currentPushSubscription, enablePush, disablePush } from './push.js';
-import { NATIVE_REDIRECT, isNativeApp, parseAuthRedirect, cleanEmailCode, EMAIL_CODE_MIN, EMAIL_CODE_MAX, externalLinkUrl } from './nativeAuth.js';
+import { NATIVE_REDIRECT, isNativeApp, parseAuthRedirect, cleanEmailCode, EMAIL_CODE_MIN, EMAIL_CODE_MAX, externalLinkUrl, APP_REVIEW_EMAIL } from './nativeAuth.js';
 
 // Opens an outside page (Stripe's payout setup). On the website it is an ordinary redirect. In the phone app it opens in the in-app browser so the member can
 // never get stuck outside the app, and onClosed runs when they tap Done.
@@ -93,7 +93,21 @@ export function makeService() {
     async signInWithApple() { await oauthSignIn(client, 'apple'); },
     // The email carries both a link and a 6-digit code. The code works everywhere, including the apps, where a link opens the browser instead.
     async signInWithEmail(email) {
+      // App Review's test account: while the review switch is on, this address signs straight in. When it is off (or for anyone else) this falls through to the normal emailed code.
+      if (email.trim().toLowerCase() === APP_REVIEW_EMAIL) {
+        const { data, error } = await invokeFn('review-sign-in', { body: { email: email.trim() } });
+        if (!error && data?.token_hash) { unwrap(await client.auth.verifyOtp({ token_hash: data.token_hash, type: data.type || 'magiclink' })); return { signedIn: true }; }
+      }
       unwrap(await client.auth.signInWithOtp({ email: email.trim(), options: { emailRedirectTo: isNativeApp() ? NATIVE_REDIRECT : `${window.location.origin}/auth/callback` } }));
+      return { signedIn: false };
+    },
+    // True only while App Review's test sign-in is switched on (the Review Team button is hidden otherwise).
+    async reviewSignInAvailable() {
+      try { const { data, error } = await invokeFn('review-sign-in', { body: { probe: true } }); return !error && data?.enabled === true; } catch { return false; }
+    },
+    async signInAsReviewTeam() {
+      const result = await this.signInWithEmail(APP_REVIEW_EMAIL);
+      if (!result?.signedIn) throw new Error('Review sign-in is not available right now.');
     },
     async verifyEmailCode(email, code) {
       const token = cleanEmailCode(code);

@@ -320,3 +320,6 @@ dialog.photo-viewer::backdrop{background:#000}
 .photo-viewer-nav.prev{left:8px}.photo-viewer-nav.next{right:8px}
 .photo-viewer-close:focus,.photo-viewer-nav:focus{outline:none}
 .photo-viewer-close:focus-visible,.photo-viewer-nav:focus-visible{box-shadow:0 0 0 2px rgba(255,255,255,.7)}
+
+/* Shown only while App Review's test sign-in is switched on. */
+.review-team-button{display:flex;align-items:center;justify-content:center;gap:8px;width:100%;min-height:44px;margin-top:4px;border:1px dashed var(--border);border-radius:999px;font-size:13px;font-weight:600;color:var(--text-muted)}
