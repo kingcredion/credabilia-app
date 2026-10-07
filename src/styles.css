@@ -275,3 +275,13 @@ body:has(.legal-page){overflow:visible}
 .review-pager span{font-size:.9rem;color:var(--muted,#5a6a62)}
 .review-pager .text-button{display:inline-flex;align-items:center;gap:2px;min-height:40px}
 .review-pager .text-button:disabled{opacity:.4}
+
+/* iPhone/Android app and notched phones: the page runs edge to edge (viewport-fit=cover), so keep the top bar and floating bits clear of the status bar/notch,
+   and keep content off the side cut-outs in landscape. All of these are 0 on desktop and in an ordinary browser tab. */
+:root{--safe-top:env(safe-area-inset-top,0px);--safe-left:env(safe-area-inset-left,0px);--safe-right:env(safe-area-inset-right,0px)}
+body{padding-left:var(--safe-left);padding-right:var(--safe-right)}
+.topbar{border-top:var(--safe-top) solid var(--surface);min-height:calc(86px + var(--safe-top))}
+.demo-banner{padding-top:calc(8px + var(--safe-top))}
+.update-banner{padding-top:calc(8px + var(--safe-top))}
+.legal-nav{top:var(--safe-top)}
+@media(max-width:600px){.topbar{min-height:calc(73px + var(--safe-top))}.notif-panel{top:calc(62px + var(--safe-top))}}
