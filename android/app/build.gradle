@@ -1,5 +1,8 @@
 apply plugin: 'com.android.application'
 
+// Computed up here on purpose: the earlier one-line form, versionCode (System.getenv(...) ?: "1").toInteger(), failed the first cloud build with "Value is null".
+def appVersionCode = Integer.parseInt(System.getenv("BUILD_NUMBER") ?: "1")
+
 android {
     namespace = "com.credabilia.app"
     compileSdk = rootProject.ext.compileSdkVersion
@@ -8,7 +11,7 @@ android {
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
         // The cloud build passes a rising number so every upload to Google Play is accepted; local builds stay at 1.
-        versionCode (System.getenv("BUILD_NUMBER") ?: "1").toInteger()
+        versionCode appVersionCode
         versionName "1.0"
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
         aaptOptions {

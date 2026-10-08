@@ -66,6 +66,6 @@ workflows:
       - name: Build the signed bundle
         script: |
           export BUILD_NUMBER=$((${PROJECT_BUILD_NUMBER:-1}))
-          cd android && chmod +x gradlew && ./gradlew bundleRelease
+          cd android && chmod +x gradlew && ./gradlew bundleRelease --stacktrace
     artifacts:
       - android/app/build/outputs/bundle/release/*.aab
