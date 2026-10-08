@@ -32,10 +32,10 @@ const SAFETY_RULES=`Rules:
 const ordinal=index=>index===0?'most recent':index===1?'2nd most recent':`${index+1}th most recent`;
 function summarizeOrders(purchases, sales, creditBalance) {
   const buyerLines=(purchases||[]).slice(0,10).map((p,index)=>
-    `- (${ordinal(index)}, purchased ${p.purchased_at}) Bought "${truncate(p.title,80)}" for ${money(p.price_cents)}. Shipped: ${p.shipped_at?'yes, '+p.shipped_at:'not yet'}. Tracking status: ${p.tracking_status||'UNKNOWN'}. Escrow: ${p.escrow_status||'held'}. Insured: ${p.insured?'yes':'no'}.`
+    `- (${ordinal(index)}, purchased ${p.purchased_at}) Bought "${truncate(p.title,80)}" for ${money(p.price_cents)}. Shipped: ${p.shipped_at?'yes, '+p.shipped_at:'not yet'}. Tracking status: ${p.tracking_status||'UNKNOWN'}. Payment status: ${p.escrow_status||'held'}. Insured: ${p.insured?'yes':'no'}.`
   );
   const sellerLines=(sales||[]).slice(0,10).map((s,index)=>
-    `- (${ordinal(index)}, sold ${s.created_at}) Sold "${truncate(s.title,80)}" for ${money(s.price_cents)}. Shipped: ${s.shipped_at?'yes, '+s.shipped_at:'not yet'}. Escrow: ${s.escrow_status||'held'}${s.funds_released_at?', released '+s.funds_released_at:''}.`
+    `- (${ordinal(index)}, sold ${s.created_at}) Sold "${truncate(s.title,80)}" for ${money(s.price_cents)}. Shipped: ${s.shipped_at?'yes, '+s.shipped_at:'not yet'}. Payment status: ${s.escrow_status||'held'}${s.funds_released_at?', released '+s.funds_released_at:''}.`
   );
   return `This user's account:
 Credion Coins balance: ${money(creditBalance)}
