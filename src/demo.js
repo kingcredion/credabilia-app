@@ -563,6 +563,7 @@ const demoReview = r => { const purchase = state.purchases.find(p => p.id === r.
     async adminListUsers() { requireUser(); return []; },
     async adminPurchaseEvidence() { return null; },
     async adminReverseTransfer() { requireUser(); throw new Error('Reversing a transfer needs the connected app.'); },
+    async adminSellerAccountSettings() { requireUser(); throw new Error('Seller account settings need the connected app.'); },
     async adminListCertificatesToCheck() { requireUser(); return []; },
     async adminSetCertificateChecked() { requireUser(); throw new Error('Checking a certificate needs the connected app.'); },
     async adminOrderRiskQueue() { requireUser(); return []; },

@@ -385,6 +385,12 @@ export function makeService() {
       if(error) { let detail; try {detail=await error.context?.json();} catch {} throw new Error(detail?.error || 'Could not reverse the transfer.'); }
       return data;
     },
+    // Operator: read (or with fix=true, turn on) the 'debit negative balances' setting on every seller's connected Stripe account.
+    async adminSellerAccountSettings(fix) {
+      const {data,error}=await invokeFn('seller-account-settings',{body:{fix:!!fix}});
+      if(error) { let detail; try {detail=await error.context?.json();} catch {} throw new Error(detail?.error || 'Could not read the seller accounts.'); }
+      return data;
+    },
     async adminListCertificatesToCheck() { return unwrap(await client.rpc('admin_list_certificates_to_check')); },
     async adminSetCertificateChecked(listingId, checked) { unwrap(await client.rpc('admin_set_certificate_checked', { p_listing_id: listingId, p_checked: !!checked })); },
     async adminOrderRiskQueue() { return unwrap(await client.rpc('admin_order_risk_queue')); },

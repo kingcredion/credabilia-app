@@ -1869,6 +1869,25 @@ function AdminCertificates() {
   </div>;
 }
 
+// Stripe can pull money back from a seller's bank when their Stripe balance goes negative (after a refund or chargeback), but only if this setting is on.
+// Credabilia covers a negative balance, so it should be on for every seller. Reads the setting on each connected account; one button turns it on where it is off.
+function AdminSellerAccounts() {
+  const [data, setData] = useState(undefined), [error, setError] = useState(''), [busy, setBusy] = useState(false);
+  async function run(fix) { setBusy(true); setError(''); try { setData(await service.adminSellerAccountSettings(fix)); } catch (err) { setError(err.message); } finally { setBusy(false); } }
+  useEffect(() => { run(false); }, []);
+  if (error && data === undefined) return <p role="alert" className="error">{error}</p>;
+  if (data === undefined) return <p role="status">Reading seller accounts from Stripe…</p>;
+  return <div className="admin-list">
+    {error && <p role="alert" className="error">{error}</p>}
+    <p className="field-note">{data.accounts.length} connected {data.accounts.length === 1 ? 'account' : 'accounts'}. {data.off ? data.off + ' with "debit negative balances" off.' : 'All have "debit negative balances" on.'}</p>
+    {data.off > 0 && <div className="submit-row"><button type="button" className="primary compact" disabled={busy} onClick={() => run(true)}>Turn it on for every account</button></div>}
+    {data.accounts.map(account => <div key={account.id} className="evidence-box">
+      <div className="admin-row-head"><span><code>{account.id}</code>{account.email ? ' · ' + account.email : ''}</span><span>{account.debit_negative_balances ? (account.changed ? 'Turned on' : 'On') : 'Off'}</span></div>
+      {account.error && <p role="alert" className="error">{account.error}</p>}
+    </div>)}
+  </div>;
+}
+
 function AdminDashboard() {
   const [tab, setTab] = useState('disputes');
   return <div className="form-stack" data-clarity-mask="True">
@@ -1881,6 +1900,7 @@ function AdminDashboard() {
       <button aria-pressed={tab === 'listings'} className={tab === 'listings' ? 'active' : ''} onClick={() => setTab('listings')}>Listing review</button>
       <button aria-pressed={tab === 'risk'} className={tab === 'risk' ? 'active' : ''} onClick={() => setTab('risk')}>Order risk</button>
       <button aria-pressed={tab === 'certificates'} className={tab === 'certificates' ? 'active' : ''} onClick={() => setTab('certificates')}>Certificates</button>
+      <button aria-pressed={tab === 'sellerAccounts'} className={tab === 'sellerAccounts' ? 'active' : ''} onClick={() => setTab('sellerAccounts')}>Seller accounts</button>
     </div>
     {tab === 'disputes' && <AdminDisputes/>}
     {tab === 'reports' && <AdminReports/>}
@@ -1890,6 +1910,7 @@ function AdminDashboard() {
     {tab === 'listings' && <AdminListingReview/>}
     {tab === 'risk' && <AdminOrderRisk/>}
     {tab === 'certificates' && <AdminCertificates/>}
+    {tab === 'sellerAccounts' && <AdminSellerAccounts/>}
   </div>;
 }
 
