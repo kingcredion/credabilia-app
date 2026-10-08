@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Copy, Award } from 'lucide-react';
-import { ISSUERS, resolveIssuer } from './certificates.js';
+import { ISSUERS, OUTAGE_NOTE, resolveIssuer } from './certificates.js';
 
 export function CertificateFields({value,onChange,disabled=false}) {
   const issuer=value.certificate_issuer || '';
@@ -12,6 +12,7 @@ export function CertificateFields({value,onChange,disabled=false}) {
       {issuer==='other' && <label>Company name<input name="certificate_company" value={value.certificate_company || ''} onChange={event=>update('certificate_company',event.target.value)} required minLength={2} maxLength={100}/></label>}
       <label>Certificate number<input name="certificate_number" value={value.certificate_number || ''} onChange={event=>update('certificate_number',event.target.value)} required maxLength={80} autoComplete="off" placeholder="Exactly as printed on the certificate"/></label>
       <p className="field-note">Buyers can use these details to check the issuer's records. Confirm the company and number before publishing.</p>
+      {resolveIssuer(issuer)?.outage && <p className="field-note">{OUTAGE_NOTE}</p>}
     </>}
   </fieldset>;
 }
@@ -36,6 +37,7 @@ export default function CertificateDetails({item}) {
     <div className="submit-row"><button type="button" className="text-button certificate-copy" onClick={copy}><Copy size={15}/>Copy certificate number</button>
       {issuer.lookup && <a className="primary compact" href={issuer.lookup} target="_blank" rel="noopener noreferrer">Look up this certificate ↗</a>}
     </div>
+    {issuer.outage && !item.certificate_checked_at && <p className="field-note" role="note">{OUTAGE_NOTE}</p>}
     {!issuer.lookup && <p className="field-note">An official lookup link hasn't been added for this issuer yet.</p>}
     {message && <p role="status">{message}</p>}
     <p className="field-note">The lookup opens the issuer's search page. Enter the certificate number there.</p>

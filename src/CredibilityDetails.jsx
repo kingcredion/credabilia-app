@@ -1,5 +1,6 @@
 import React from 'react';
 import { Check, ClipboardCheck, ArrowRight, Gauge } from 'lucide-react';
+import { OUTAGE_NOTE, resolveIssuer } from './certificates.js';
 
 // Reused on the marketplace grid card (compact, no label) and on the full item-credibility
 // section below (full width, alongside the numeric breakdown already in the text around it).
@@ -23,6 +24,7 @@ export default function CredibilityDetails({ item, session, own, auditedLabel, o
     <p>{item.certificate_supplied ? `Issuer rating: ${item.certificate_score}/100` : 'No certificate provided'} · {item.certificate_weight}% of the score</p>
     {item.certificate_checked_at && <p className="field-note"><Check size={14}/> Checked with the issuer — a Credabilia operator confirmed this certificate with the issuer on {new Date(item.certificate_checked_at).toLocaleDateString()}.</p>}
     {item.certificate_supplied && item.certificate_number && !item.certificate_checked_at && <p className="field-note">The certificate number was entered by the seller and has not been checked with the issuer yet, so it counts at 75% of the issuer's rating.</p>}
+    {item.certificate_supplied && item.certificate_number && !item.certificate_checked_at && resolveIssuer(item.certificate_issuer)?.outage && <p className="field-note" role="note">{OUTAGE_NOTE}</p>}
     <p>Community: {item.credibility_audit_count ? `${item.community_score}/100` : 'No audits yet'} · {item.community_weight}% of the score</p>
     {item.certificate_issuer==='fiterman'
       ? <p className="field-note authenticity-note">Fiterman Sports does not use certificate numbers, so there is no certificate record to check. This score does not mean the item is not authentic; it only reflects that there is no certificate number with a record attached.</p>

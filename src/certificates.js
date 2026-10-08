@@ -2,7 +2,7 @@
 export const ISSUERS = [
   { id:'psa', name:'PSA/DNA', rating:95, aliases:['PSA','PSA DNA','PSA/DNA Authentication Services','PSA DNA Authentication Services'], lookup:'https://www.psacard.com/cert' },
   { id:'jsa', name:'JSA', rating:92, aliases:['James Spence Authentication'], lookup:'https://www.spenceloa.com/verify-authenticity' },
-  { id:'bas', name:'Beckett (BAS)', rating:93, aliases:['BAS','Beckett','Beckett Authentication','Beckett Authentication Services','Beckett Authentication Services (BAS)'], lookup:'https://www.beckett-authentication.com/verify-certificate' },
+  { id:'bas', name:'Beckett (BAS)', rating:93, aliases:['BAS','Beckett','Beckett Authentication','Beckett Authentication Services','Beckett Authentication Services (BAS)'], lookup:'https://www.beckett-authentication.com/verify-certificate', outage:true },
   { id:'sgc', name:'SGC', rating:90, aliases:[], lookup:null },
   { id:'cgc', name:'CGC', rating:91, aliases:[], lookup:null },
   { id:'uda', name:'Upper Deck Authenticated', rating:88, aliases:[], lookup:null },
@@ -17,6 +17,9 @@ export const ISSUERS = [
 ];
 // Issuers whose certificate numbers can be searched in Credabilia's own records (see the /certificate page).
 export const LOOKUP_ISSUERS = ISSUERS.filter(issuer => !issuer.noNumber && issuer.id !== 'other');
+// An issuer whose own lookup is down (flagged with outage:true above) cannot be checked, which holds scores down through no fault of the seller.
+// The note explains that, and that scores rise once the lookup is back and the numbers are checked. Remove the flag when the lookup works again.
+export const OUTAGE_NOTE = "Beckett's online certificate lookup is currently down, so we can't check Beckett certificate numbers right now. That is why items with Beckett certificates score lower at the moment. Copy the number and search it yourself once Beckett's site is back. When it is, we will check these numbers and the scores will go up.";
 export function resolveIssuer(value) {
   const text = String(value || '').trim().toLowerCase();
   return ISSUERS.find(issuer => [issuer.id,issuer.name,...issuer.aliases].some(name=>name.toLowerCase()===text)) || null;
