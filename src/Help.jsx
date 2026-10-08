@@ -21,6 +21,16 @@ export function HelpPage() {
       <li><strong>Chat:</strong> use the chat icon in the header after signing in</li>
     </ul>
 
+    <h2 id="delete-account">Delete your Credabilia account and data</h2>
+    <p>You can delete your account yourself at any time, in the website or the Credabilia app:</p>
+    <ol>
+      <li>Sign in and open your profile, then choose <strong>Profile and settings</strong>.</li>
+      <li>Scroll to <strong>Delete account</strong> and tap <strong>Delete my account</strong>, then confirm with <strong>Yes, delete my account</strong>.</li>
+    </ol>
+    <p>Before you delete, remove or sell any active listings and finish any open refund requests; we can't close an account while those are open.</p>
+    <p><strong>What is deleted:</strong> your display name (replaced with "Deleted user"), your saved shipping address, and your sign-in, which stops working. <strong>What we keep:</strong> records of orders, payments, refunds, disputes, messages and reports that we are required to keep for tax, legal and fraud-prevention reasons, for up to 7 years, with your name removed from your profile.</p>
+    <p>You can also ask us to delete your account and personal data by emailing <a href="mailto:support@credabilia.com">support@credabilia.com</a> from the email address on your account. Please put "Delete my account" in the subject line.</p>
+
     <h2>Frequently asked questions</h2>
 
     <h3>What does Credabilia charge?</h3>
