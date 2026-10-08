@@ -4,6 +4,7 @@ import { createClient } from '@supabase/supabase-js';
 import { createDemoService } from './demo.js';
 import { listingInput, auditInput } from './domain.js';
 import { pushSupported, currentPushSubscription, enablePush, disablePush } from './push.js';
+import { handleNativeBack } from './nativeBack.js';
 import { NATIVE_REDIRECT, isNativeApp, parseAuthRedirect, cleanEmailCode, EMAIL_CODE_MIN, EMAIL_CODE_MAX, externalLinkUrl, APP_REVIEW_EMAIL } from './nativeAuth.js';
 
 // Opens an outside page (Stripe's payout setup). On the website it is an ordinary redirect. In the phone app it opens in the in-app browser so the member can
@@ -52,7 +53,7 @@ export function makeService() {
   const client = createClient(url, key, { auth: { flowType: 'pkce', detectSessionInUrl: true, persistSession: true, autoRefreshToken: true } });
   // In the apps, the system browser hands the finished Google sign-in (or an emailed link) back through NATIVE_REDIRECT.
   if (isNativeApp()) {
-    import('@capacitor/app').then(({ App }) => App.addListener('appUrlOpen', async ({ url: link }) => {
+    import('@capacitor/app').then(({ App }) => { App.addListener('backButton', event => handleNativeBack(event, { exitApp: () => App.exitApp() })); return App; }).then(App => App.addListener('appUrlOpen', async ({ url: link }) => {
       const result = parseAuthRedirect(link);
       if (!result) return;
       try { const { Browser } = await import('@capacitor/browser'); await Browser.close(); } catch { /* nothing open */ }
