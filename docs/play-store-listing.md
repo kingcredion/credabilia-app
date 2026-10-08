@@ -8,7 +8,7 @@ phone screenshots = "Credabilia Screenshots/play-phone-1080x2160" (6 PNGs, 2:1, 
 Credabilia: Memorabilia Market
 
 ## Short description (80)
-Buy and sell signed memorabilia with credibility scores and King Credion's AI eye.
+Buy and sell signed memorabilia with credibility scores and an AI second look.
 
 ## Full description (4000)
 Credabilia is the memorabilia marketplace where every piece comes with context. Discover signed sports memorabilia, trading cards, comics, art and more, and see exactly how much evidence stands behind each item before you buy.
