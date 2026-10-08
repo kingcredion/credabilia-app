@@ -8,7 +8,7 @@ import { listingMatches } from './listingDetails.js';
 import { MediaPicker, PhotoGallery } from './ListingMedia.jsx';
 import { mainPhotoBackgroundRemoved, prepareImage } from './media.js';
 import { saveListingDraft, loadListingDraft, clearListingDraft, readFormValues, saveBulkDraft, loadBulkDraft, clearBulkDraft } from './listingDraft.js';
-import { certificateSuggestion } from './certificates.js';
+import { certificateSuggestion, resolveIssuer } from './certificates.js';
 import CredibilityDetails, { CredibilityMeter } from './CredibilityDetails.jsx';
 import { TriviaPanel } from './Trivia.jsx';
 import { ItemHistory } from './ItemHistory.jsx';
@@ -1842,6 +1842,30 @@ function AdminOrderRisk() {
   </div>;
 }
 
+// Numbered certificates on live listings: open the issuer's own lookup, confirm the number and the item match, then mark it checked. A checked
+// certificate counts in full in the credibility score and shows a "Checked with the issuer" note; changing the number later clears the check.
+function AdminCertificates() {
+  const [list, setList] = useState(undefined), [error, setError] = useState(''), [busyId, setBusyId] = useState(null);
+  function load() { service.adminListCertificatesToCheck().then(setList).catch(err => setError(err.message)); }
+  useEffect(() => { load(); }, []);
+  async function toggle(row) { setBusyId(row.listing_id); setError(''); try { await service.adminSetCertificateChecked(row.listing_id, !row.checked_at); load(); } catch (err) { setError(err.message); } finally { setBusyId(null); } }
+  if (error && list === undefined) return <p role="alert" className="error">{error}</p>;
+  if (list === undefined) return <p role="status">Loading certificates…</p>;
+  if (!list.length) return <p className="field-note">No live listings carry a certificate number.</p>;
+  return <div className="admin-list">
+    {error && <p role="alert" className="error">{error}</p>}
+    {list.map(row => { const issuer = resolveIssuer(row.issuer); return <div key={row.listing_id} className="evidence-box">
+      <div className="admin-row-head"><span><strong>{row.title}</strong></span><span>{row.checked_at ? 'Checked ' + new Date(row.checked_at).toLocaleDateString() : 'Not checked'}</span></div>
+      <p className="field-note">{row.issuer === 'other' ? row.company : issuer?.name || row.issuer} · number <code>{row.number}</code>{row.also_on > 0 && <span className="error"> · also on {row.also_on} other {row.also_on === 1 ? 'listing' : 'listings'}</span>}</p>
+      <div className="submit-row">
+        {issuer?.lookup && <a className="text-button" href={issuer.lookup} target="_blank" rel="noopener noreferrer">Open the issuer's lookup ↗</a>}
+        <a className="text-button" href={'/certificate?issuer=' + encodeURIComponent(row.issuer) + '&number=' + encodeURIComponent(row.number)} target="_blank" rel="noopener noreferrer">Credabilia records ↗</a>
+        <button type="button" className={row.checked_at ? 'text-button' : 'primary compact'} disabled={busyId === row.listing_id} onClick={() => toggle(row)}>{row.checked_at ? 'Undo check' : 'Mark checked with the issuer'}</button>
+      </div>
+    </div>; })}
+  </div>;
+}
+
 function AdminDashboard() {
   const [tab, setTab] = useState('disputes');
   return <div className="form-stack" data-clarity-mask="True">
@@ -1853,6 +1877,7 @@ function AdminDashboard() {
       <button aria-pressed={tab === 'signatures'} className={tab === 'signatures' ? 'active' : ''} onClick={() => setTab('signatures')}>Signature library</button>
       <button aria-pressed={tab === 'listings'} className={tab === 'listings' ? 'active' : ''} onClick={() => setTab('listings')}>Listing review</button>
       <button aria-pressed={tab === 'risk'} className={tab === 'risk' ? 'active' : ''} onClick={() => setTab('risk')}>Order risk</button>
+      <button aria-pressed={tab === 'certificates'} className={tab === 'certificates' ? 'active' : ''} onClick={() => setTab('certificates')}>Certificates</button>
     </div>
     {tab === 'disputes' && <AdminDisputes/>}
     {tab === 'reports' && <AdminReports/>}
@@ -1861,6 +1886,7 @@ function AdminDashboard() {
     {tab === 'signatures' && <AdminSignatureLibrary/>}
     {tab === 'listings' && <AdminListingReview/>}
     {tab === 'risk' && <AdminOrderRisk/>}
+    {tab === 'certificates' && <AdminCertificates/>}
   </div>;
 }
 

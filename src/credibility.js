@@ -14,7 +14,10 @@ export function credibilityScore(item, audits = []) {
   // and a no-op when no signature was submitted. Kept in lockstep with browse_scored_listings()
   // in 202609300048_signature_credibility_blend.sql.
   const signatureModifier = { consistent:5, concerns:-15 }[item.signature_ai_label] || 0;
-  const certificateScore = Math.max(0, Math.min(100, (supplied ? issuer.rating : 25) + signatureModifier));
+  // Option A: a numbered certificate nobody has checked counts at 75% of the issuer's rating; one an operator confirmed with the issuer counts in full.
+  // An issuer with no numbers (Fiterman Sports) has nothing to check and keeps its flat rating. Kept in step with certificate_credit() in the database.
+  const credit = !supplied ? 25 : issuer.noNumber || item.certificate_checked_at ? issuer.rating : Math.round(issuer.rating*0.75);
+  const certificateScore = Math.max(0, Math.min(100, credit + signatureModifier));
   const communityScore = Math.round((250+valid.reduce((sum,audit)=>sum+scores[audit.verdict],0))/(5+count));
   return {
     certificate_score:certificateScore, community_score:communityScore,

@@ -7,7 +7,9 @@ import { credibilityScore } from '../src/credibility.js';
 
 test('legacy blending thresholds and neutral smoothing',()=>{
   const item={certificate_issuer:'psa',certificate_number:'00001234'};
-  assert.equal(credibilityScore(item).credibility_score,86);
+  // An unchecked certificate number counts at 75% of the issuer rating (PSA 95 -> 71): round((71*80+50*20)/100) = 67.
+  assert.equal(credibilityScore(item).credibility_score,67);
+  assert.equal(credibilityScore({...item,certificate_checked_at:'2026-10-08T00:00:00Z'}).credibility_score,86,'once checked with the issuer it counts in full');
   assert.equal(credibilityScore({}).certificate_supplied,false);
   assert.equal(credibilityScore({}).credibility_score,30);
   assert.equal(credibilityScore(item,[{verdict:'concerns'}]).community_score,42);
@@ -34,7 +36,9 @@ test('server and preview agree for all issuer ratings and every blend boundary',
     await db.exec(`set role authenticated;set request.jwt.claim.sub='${owner}';`);
     const id=(await db.query("select public.create_listing_with_certificate('PSA fixture','A fictional certificate scoring fixture.','Sports',100,'','psa','00001234',null) as id")).rows[0].id;
     await assert.rejects(db.query("select public.certificate_rating('psa')"),/permission denied/);
-    const fixture={certificate_issuer:'psa',certificate_number:'00001234'};
+    // The legacy server function in this older migration chain scores the full issuer rating, which is what a CHECKED certificate gets; the current
+    // 75% rule for unchecked numbers lives in certificate_credit() and is covered by tests/certificateCheckedScore.test.js.
+    const fixture={certificate_issuer:'psa',certificate_number:'00001234',certificate_checked_at:'2026-10-08T00:00:00Z'};
     const audits=[];
     for(let count=0;count<=100;count++) {
       if([0,1,9,10,24,25,99,100].includes(count)) {

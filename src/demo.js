@@ -562,6 +562,8 @@ const demoReview = r => { const purchase = state.purchases.find(p => p.id === r.
     async adminReplyToSupport() { throw new Error('The admin dashboard requires the connected app. Not available in this practice preview.'); },
     async adminListUsers() { requireUser(); return []; },
     async adminPurchaseEvidence() { return null; },
+    async adminListCertificatesToCheck() { requireUser(); return []; },
+    async adminSetCertificateChecked() { requireUser(); throw new Error('Checking a certificate needs the connected app.'); },
     async adminOrderRiskQueue() { requireUser(); return []; },
     async adminAddOrderNote() { requireUser(); throw new Error('Order notes need the connected app.'); },
     async adminClearReviewHold() { requireUser(); throw new Error('Clearing a hold needs the connected app.'); },
