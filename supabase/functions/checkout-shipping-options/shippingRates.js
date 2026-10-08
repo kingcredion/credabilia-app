@@ -47,26 +47,43 @@ export function maxLabelCents(quoteCents) {
   return Math.max(Math.ceil(quoteCents*1.25), quoteCents+300);
 }
 
+// Orders at or above this price need a delivery signature, the strongest proof against a 'never arrived' chargeback. Keep in step with
+// checkout_risk_profile in the database (signature_required).
+export const SIGNATURE_OVER_CENTS=50000;
+export const needsSignature=priceCents=>Number(priceCents)>=SIGNATURE_OVER_CENTS;
+
 // Asks Shippo for rates. If an insured quote returns nothing (not every carrier account supports insurance) it falls back to a plain
-// quote, and says so in `insured`.
-export async function quoteRates({shippoKey, from, to, parcel, insurance, fetchImpl=fetch}) {
-  const ask=insure=>fetchImpl('https://api.goshippo.com/shipments/',{
+// quote, and says so in `insured`. The same goes for `signature` (a delivery signature): if no carrier offers it for this parcel the buyer
+// still gets a normal quote, and `signed` says it was left off.
+export async function quoteRates({shippoKey, from, to, parcel, insurance, signature=false, fetchImpl=fetch}) {
+  const ask=(insure,sign)=>fetchImpl('https://api.goshippo.com/shipments/',{
     method:'POST',
     headers:{Authorization:`ShippoToken ${shippoKey}`,'Content-Type':'application/json'},
     body:JSON.stringify({
       address_from:from, address_to:to,
       parcels:[{length:String(parcel.length_in),width:String(parcel.width_in),height:String(parcel.height_in),distance_unit:'in',weight:String(parcel.weight_oz),mass_unit:'oz'}],
-      extra:insure ? {insurance:{amount:String(insure.amount_cents/100),currency:'usd',content:String(insure.content||'Item').slice(0,100)}} : undefined,
+      extra:(insure || sign) ? {...(insure?{insurance:{amount:String(insure.amount_cents/100),currency:'usd',content:String(insure.content||'Item').slice(0,100)}}:{}),...(sign?{signature_confirmation:'STANDARD'}:{})} : undefined,
       async:false,
     }),
   }).then(r=>r.json());
-  let shipment=await ask(insurance||null);
+  let signed=!!signature, insured=!!insurance;
+  let shipment=await ask(insurance||null,signed);
   let options=normalizeRates(shipment.rates);
-  let insured=!!insurance;
-  if(!options.length && insurance) {
-    shipment=await ask(null);
+  if(!options.length && insured) {
+    shipment=await ask(null,signed);
     options=normalizeRates(shipment.rates);
     insured=false;
   }
-  return {options, insured, shipmentId:shipment.object_id};
+  if(!options.length && signed) {
+    signed=false;
+    insured=!!insurance;
+    shipment=await ask(insurance||null,false);
+    options=normalizeRates(shipment.rates);
+    if(!options.length && insured) {
+      shipment=await ask(null,false);
+      options=normalizeRates(shipment.rates);
+      insured=false;
+    }
+  }
+  return {options, insured, signed, shipmentId:shipment.object_id};
 }

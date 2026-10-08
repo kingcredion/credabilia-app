@@ -1,6 +1,6 @@
 import Stripe from 'npm:stripe@17';
 import { shippingMarkupFactor } from './markup.js';
-import { shippoAddress, quoteRates, buyerPrice, findChoice } from './shippingRates.js';
+import { shippoAddress, quoteRates, buyerPrice, findChoice, needsSignature } from './shippingRates.js';
 
 const UUID_RE=/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 // Stripe product tax codes: "General - Tangible Goods" and "Shipping".
@@ -35,8 +35,17 @@ export function createHandler({createClient,env,fetchImpl=fetch}) {
       const applyCreditCents=Number.isInteger(body?.apply_credit_cents) && body.apply_credit_cents>0 ? body.apply_credit_cents : 0;
       const wantInsurance=body?.want_insurance!==false;
       const fulfillmentMethod=body?.fulfillment_method==='pickup' ? 'pickup' : 'ship';
+      // The buyer's tap on the notice about an unchecked certificate. Apps built before the notice existed do not send the field at all: their
+      // purchases still go through but are recorded as 'not confirmed'. An explicit false is refused (see below).
+      const disclosureAck=body?.disclosure_ack===true ? true : body?.disclosure_ack===false ? false : null;
       if(typeof listingId!=='string' || !UUID_RE.test(listingId)) return reply({error:'Invalid request.'},400);
       if(fulfillmentMethod==='ship' && (typeof shippingAddress!=='object' || shippingAddress===null)) return reply({error:'A shipping address is required.'},400);
+
+      // How risky this purchase looks (certificate state, price, who is buying and selling). Never allowed to block a sale if it cannot be worked out.
+      const service=createClient(env('SUPABASE_URL'),env('SUPABASE_SERVICE_ROLE_KEY'),{auth:{persistSession:false,autoRefreshToken:false}});
+      let risk=null;
+      try { const {data}=await service.rpc('checkout_risk_profile',{p_listing_id:listingId,p_buyer_id:identity.user.id}); risk=data||null; } catch {}
+      if(risk?.requires_disclosure && disclosureAck===false) return reply({error:'Please read and confirm the notice about this item before you pay.',needs_disclosure:true},400);
 
       // Shipping is priced from a fresh carrier quote BEFORE the item is reserved, so a choice that is no longer available is refused
       // without holding the item for this buyer. The buyer's pick is matched against this quote; nothing the browser sends is trusted
@@ -48,7 +57,6 @@ export function createHandler({createClient,env,fetchImpl=fetch}) {
         // So an item that cannot be quoted (no package size, a seller with no address, a package the carriers will not take, or the carrier
         // being unreachable) cannot be bought for shipping, and the buyer is told why instead of being charged nothing for delivery.
         if(!env('SHIPPO_API_KEY')) return reply({error:'Shipping is not connected yet. Please try again later.'},503);
-        const service=createClient(env('SUPABASE_URL'),env('SUPABASE_SERVICE_ROLE_KEY'),{auth:{persistSession:false,autoRefreshToken:false}});
         const {data:inputs}=await service.rpc('shipping_quote_inputs',{p_listing_id:listingId});
         if(!inputs?.parcel || !inputs.seller_shipping_address) return reply({error:'This item cannot be shipped yet: the seller still needs to add its package size or shipping address. You can message the seller.'},409);
         markup=shippingMarkupFactor(inputs.is_king);
@@ -58,6 +66,7 @@ export function createHandler({createClient,env,fetchImpl=fetch}) {
             shippoKey:env('SHIPPO_API_KEY'), fetchImpl,
             from:shippoAddress(inputs.seller_shipping_address), to:shippoAddress(shippingAddress), parcel:inputs.parcel,
             insurance:wantInsurance ? {amount_cents:Math.min(inputs.price_cents,1000000),content:inputs.title||'Item'} : null,
+            signature:needsSignature(inputs.price_cents),
           });
         } catch { quoteFailed=true; }
         if(quoteFailed) return reply({error:'Shipping rates are temporarily unavailable. Please try again in a few minutes.'},503);
@@ -95,6 +104,15 @@ export function createHandler({createClient,env,fetchImpl=fetch}) {
       // "seller absorbs the shipping cost," never the insurance premium. It is taxed with shipping (a delivery-related charge).
       if(insuranceCostCents>0) lineItems.push(line('Shipping insurance',insuranceCostCents,TAX_CODE_SHIPPING));
 
+      // Save what we know about this purchase's risk and which notice the buyer confirmed, then read back the short labels that go on Stripe's
+      // payment record (codes and ids only, never names or addresses). Both are best effort: a problem here must never stop the sale.
+      let stripeTags=null;
+      if(risk) {
+        try {
+          await service.rpc('record_checkout_risk',{p_checkout_session_id:checkoutSessionId,p_profile:risk,p_acknowledged:disclosureAck===true});
+          const {data:tags}=await service.rpc('checkout_stripe_tags',{p_checkout_session_id:checkoutSessionId}); stripeTags=tags||null;
+        } catch {}
+      }
       const stripe=new Stripe(env('STRIPE_SECRET_KEY'),{apiVersion:'2024-06-20',httpClient:Stripe.createFetchHttpClient()});
       // A shipped order is taxed at the address it ships to: that address goes on a Stripe customer so the buyer does not type it twice.
       // A pickup order has no shipping address, so Stripe asks for a billing address at payment and taxes at that location.
@@ -112,6 +130,9 @@ export function createHandler({createClient,env,fetchImpl=fetch}) {
           ...(taxOn?{automatic_tax:{enabled:true}}:{}),
           ...(taxOn && fulfillmentMethod==='pickup'?{billing_address_collection:'required'}:{}),
           client_reference_id:checkoutSessionId,
+          ...(stripeTags?{metadata:stripeTags,payment_intent_data:{metadata:stripeTags,description:('Credabilia order '+checkoutSessionId).slice(0,200)}}:{}),
+          // Pricey or risky orders ask the buyer's bank to confirm the card holder (3D Secure), which moves fraud-chargeback liability to the bank.
+          ...(risk?.require_3ds?{payment_method_options:{card:{request_three_d_secure:'any'}}}:{}),
           line_items:lineItems,
           expires_at:Math.floor(Date.now()/1000)+1800,
           success_url:`${env('APP_URL')}/?checkout=success&session={CHECKOUT_SESSION_ID}`,

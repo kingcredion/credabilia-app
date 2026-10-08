@@ -1,5 +1,5 @@
 import { shippingMarkupFactor } from './markup.js';
-import { shippoAddress, quoteRates, buyerPrice } from './shippingRates.js';
+import { shippoAddress, quoteRates, buyerPrice, needsSignature } from './shippingRates.js';
 
 const UUID_RE=/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const MAX_OPTIONS=6;
@@ -41,6 +41,7 @@ export function createHandler({createClient,env,fetchImpl=fetch}) {
           shippoKey:env('SHIPPO_API_KEY'), fetchImpl,
           from:shippoAddress(inputs.seller_shipping_address), to:shippoAddress(shippingAddress), parcel:inputs.parcel,
           insurance:wantInsurance ? {amount_cents:Math.min(inputs.price_cents,1000000),content:inputs.title} : null,
+          signature:needsSignature(inputs.price_cents),
         });
       } catch { return reply(none); }
       if(!quote.options.length) return reply(none);

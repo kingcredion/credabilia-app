@@ -40,7 +40,7 @@ async function releaseEscrow(service, env, purchase) {
   const chargeId=typeof intent.latest_charge==='string' ? intent.latest_charge : intent.latest_charge?.id;
   if(!chargeId) return false;
   const transfer=await stripe.transfers.create(
-    {amount:purchase.seller_payout_cents,currency:'usd',destination:account.stripe_account_id,source_transaction:chargeId},
+    {amount:purchase.seller_payout_cents,currency:'usd',destination:account.stripe_account_id,source_transaction:chargeId,metadata:{purchase_id:purchase.id,listing_id:purchase.listing_id,seller_id:purchase.seller_id}},
     {idempotencyKey:'release-'+purchase.id});
   const {error}=await service.rpc('mark_purchase_released',{p_purchase_id:purchase.id,p_stripe_transfer_id:transfer.id});
   if(error) {

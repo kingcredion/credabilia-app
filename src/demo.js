@@ -162,7 +162,7 @@ const demoReview = r => { const purchase = state.purchases.find(p => p.id === r.
       const options=[{provider:'USPS',service:'usps_ground_advantage',name:'Ground Advantage',estimated_days:5,shipping_cents:704,insurance_cents:55},{provider:'USPS',service:'usps_priority',name:'Priority Mail',estimated_days:2,shipping_cents:1078,insurance_cents:55},{provider:'UPS',service:'ups_next_day_air',name:'Next Day Air',estimated_days:1,shipping_cents:4840,insurance_cents:55}].map(o=>({...o,total_cents:o.shipping_cents+o.insurance_cents}));
       return {options:item.free_shipping?options.slice(0,1).map(o=>({...o,shipping_cents:0,total_cents:o.insurance_cents})):options,free_shipping:!!item.free_shipping,locked:!!item.free_shipping,insured:true};
     },
-    async startCheckout(listingId, shippingAddress, applyCreditCents, wantInsurance, fulfillmentMethod, shippingChoice) {
+    async startCheckout(listingId, shippingAddress, applyCreditCents, wantInsurance, fulfillmentMethod, shippingChoice, disclosureAck) {
       requireUser();
       const isPickup=fulfillmentMethod==='pickup';
       const item=state.listings.find(x=>x.id===listingId);
@@ -207,6 +207,8 @@ const demoReview = r => { const purchase = state.purchases.find(p => p.id === r.
       return {completed:true};
     },
     async pickupStations() { return DEMO_PICKUP_STATIONS; },
+    async checkoutDisclosure() { return { requires_acknowledgement: false }; },
+    async attestAuthenticity() {},
     async myCreditBalance() { requireUser(); return state.credits.filter(c=>c.user_id===state.userId).reduce((sum,c)=>sum+c.amount_cents,0); },
     async myPayoutStatus() {
       return state.purchases.filter(p=>p.buyer_id===state.userId || p.seller_id===state.userId).map(p=>({
@@ -555,6 +557,9 @@ const demoReview = r => { const purchase = state.purchases.find(p => p.id === r.
     async adminReplyToSupport() { throw new Error('The admin dashboard requires the connected app. Not available in this practice preview.'); },
     async adminListUsers() { requireUser(); return []; },
     async adminPurchaseEvidence() { return null; },
+    async adminOrderRiskQueue() { requireUser(); return []; },
+    async adminAddOrderNote() { requireUser(); throw new Error('Order notes need the connected app.'); },
+    async adminClearReviewHold() { requireUser(); throw new Error('Clearing a hold needs the connected app.'); },
     async adminMemberFlags() { requireUser(); return []; },
     async adminBanUser() { throw new Error('Needs the connected app.'); },
     async adminUnbanUser() { throw new Error('Needs the connected app.'); },

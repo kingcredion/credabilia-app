@@ -29,7 +29,7 @@ function makeEnv({due=[],dueError=null,markError=null,accounts={}}={}) {
   return {handler,transfers,rpcCalls};
 }
 const post=()=>new Request('https://example.test',{method:'POST'});
-const row=(id,seller)=>({id,seller_id:seller,stripe_payment_intent_id:'pi_'+id,seller_payout_cents:1000,escrow_status:'held'});
+const row=(id,seller)=>({id,seller_id:seller,stripe_payment_intent_id:'pi_'+id,seller_payout_cents:1000,escrow_status:'held',listing_id:'l_'+id});
 
 test('payout sweep pays exactly what the database says is due, once, with an idempotency key', async () => {
   const {handler,transfers,rpcCalls}=makeEnv({due:[row('p1','s1'),row('p2','s2')],accounts:{s1:'acct_1',s2:'acct_2'}});
@@ -38,7 +38,7 @@ test('payout sweep pays exactly what the database says is due, once, with an ide
   assert.equal((await res.json()).released,2);
   assert.deepEqual(transfers.map(t=>t.args.destination),['acct_1','acct_2']);
   assert.deepEqual(transfers.map(t=>t.options.idempotencyKey),['release-p1','release-p2']);
-  assert.deepEqual(transfers[0].args,{amount:1000,currency:'usd',destination:'acct_1',source_transaction:'ch_pi_p1'});
+  assert.deepEqual(transfers[0].args,{amount:1000,currency:'usd',destination:'acct_1',source_transaction:'ch_pi_p1',metadata:{purchase_id:'p1',listing_id:'l_p1',seller_id:'s1'}});
   assert.deepEqual(rpcCalls.filter(c=>c[0]==='mark_purchase_released').map(c=>c[1].p_purchase_id),['p1','p2']);
 });
 

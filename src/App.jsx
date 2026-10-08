@@ -198,7 +198,7 @@ function CreateListing({ onClose, onCreated, relistFrom, bulkPhoto, bulkProgress
   const [listingType, setListingType] = useState('fixed');
   const [busy, setBusy] = useState(false), [error, setError] = useState('');
   const [media,setMedia]=useState([]), [uploading,setUploading]=useState(false), [analyzing,setAnalyzing]=useState(false);
-  const [certificate,setCertificate]=useState({}),[suggestion,setSuggestion]=useState(null),[confirmed,setConfirmed]=useState(false);
+  const [certificate,setCertificate]=useState({}),[suggestion,setSuggestion]=useState(null),[confirmed,setConfirmed]=useState(false),[attested,setAttested]=useState(false);
   const [notes,setNotes]=useState(''),[drafting,setDrafting]=useState(false),[pendingDraft,setPendingDraft]=useState(null);
   const [draftApplied,setDraftApplied]=useState(false),[draftNote,setDraftNote]=useState('');
   const [copyingPhotos,setCopyingPhotos]=useState(false);
@@ -442,6 +442,7 @@ function CreateListing({ onClose, onCreated, relistFrom, bulkPhoto, bulkProgress
     try {
       if(certificates.length && !certificate.certificate_issuer) throw new Error('Choose the issuer for your certificate photos.');
       if(certificate.certificate_issuer && !confirmed) throw new Error('Confirm the certificate details before publishing.');
+      if(!attested) throw new Error('Confirm the statement about this item before publishing.');
       let finalMedia=media;
       const mainPhoto=finalMedia.find(asset=>asset.kind==='item');
       if(!mainPhoto) throw new Error('Add at least one item photo.');
@@ -461,6 +462,8 @@ function CreateListing({ onClose, onCreated, relistFrom, bulkPhoto, bulkProgress
       if (signaturePhoto && signedBy && reviewedSubject.current !== signedBy) { try { opinion = await service.analyzeSignature(signaturePhoto.path, signedBy); } catch { /* keep the earlier opinion */ } }
       const id = await service.createListing({ ...form, attributes, ...certificate, media: finalMedia, price_cents: priceInCents(form.price), listing_type: listingType, auction_days: form.auction_days, signature_ai_label: opinion?.label, signature_ai_note: opinion?.note, needs_review: fit?.fit==='unrelated' || fit?.fit==='unsure', needs_review_reason: fit?.reason||null });
       clearListingDraft();
+      // Best-effort: the seller's statement is recorded against the new listing.
+      service.attestAuthenticity(id).catch(err => console.warn('Could not record the seller statement:', err.message));
       // Tell Google Ads a seller listed something -- but not listings held for review, so junk can't teach it the wrong audience.
       if (!(fit?.fit==='unrelated' || fit?.fit==='unsure')) trackItemListed(id);
       // Best-effort: the listing is already published, so a failure here shouldn't block the seller — but it should be visible for debugging.
@@ -547,6 +550,7 @@ function CreateListing({ onClose, onCreated, relistFrom, bulkPhoto, bulkProgress
       {suggestion && <div className="evidence-box"><h3>Suggested certificate details</h3><p>Issuer: {suggestion.certificate_issuer} · Number: {suggestion.certificate_number || 'Not readable'}</p><button type="button" className="text-button" onClick={()=>{setCertificate(suggestion);setConfirmed(false);setSuggestion(null);}}>Use these details and review</button><button type="button" className="text-button" onClick={()=>setSuggestion(null)}>Dismiss suggestion</button></div>}
       <CertificateFields value={certificate} onChange={value=>{setCertificate(value);setConfirmed(false);}} disabled={working}/>
       {certificate.certificate_issuer && <label className="certificate-confirm"><input type="checkbox" checked={confirmed} onChange={event=>setConfirmed(event.target.checked)} required disabled={working}/>I checked the company and number against my certificate.</label>}
+      <label className="certificate-confirm"><input type="checkbox" checked={attested} onChange={event=>setAttested(event.target.checked)} required disabled={working}/>I own this item, it is what this listing says it is, and any certificate I attached is genuine. I understand that misleading buyers can lead to removal and a ban.</label>
       {error && <p role="alert" className="error">{error}</p>}
       <div className="submit-row">
         <button className="primary" disabled={working}>{busy ? 'Publishing…' : relistFrom ? 'Publish relisted item' : bulkPhoto ? 'Publish and next' : 'Publish listing'}<ArrowRight size={17}/></button>
@@ -966,7 +970,11 @@ function CheckoutAddress({ item, profile, busy, onClose, onConfirm }) {
   const [verified, setVerified] = useState(false);
   const [shippingChoice, setShippingChoice] = useState(null);
   const [shippingReady, setShippingReady] = useState(false);
+  // null while loading; the server decides whether this item needs a notice and supplies its exact wording.
+  const [disclosure, setDisclosure] = useState(null);
   useEffect(() => { service.myCreditBalance().then(setBalance).catch(() => {}); }, []);
+  useEffect(() => { let alive = true; service.checkoutDisclosure(item.listing_id || item.id).then(d => { if (alive) setDisclosure(d || {}); }).catch(() => { if (alive) setDisclosure({}); }); return () => { alive = false; }; }, [item.listing_id, item.id]);
+  const needsNotice = !!disclosure?.requires_acknowledgement;
   const isPickup = fulfillmentMethod === 'pickup';
   // Mirrors reserve_listing_checkout()'s own cap -- the server re-validates and clamps this
   // regardless, this is just so the buyer sees an accurate number before submitting.
@@ -979,7 +987,7 @@ function CheckoutAddress({ item, profile, busy, onClose, onConfirm }) {
       if (required.some(key => !address[key]?.trim())) { setError('Fill in all required address fields.'); return; }
       if (!verified) { setError('Verify your address before continuing.'); return; }
     }
-    onConfirm(isPickup ? null : address, creditToApply, wantInsurance, fulfillmentMethod, isPickup ? null : shippingChoice);
+    onConfirm(isPickup ? null : address, creditToApply, wantInsurance, fulfillmentMethod, isPickup ? null : shippingChoice, needsNotice ? true : undefined);
   }
   return <Modal title={isPickup ? 'Confirm pickup' : 'Confirm shipping address'} onClose={onClose}>
     {item.pickup_enabled && <div className="categories" aria-label="How you'll get this item">
@@ -996,8 +1004,9 @@ function CheckoutAddress({ item, profile, busy, onClose, onConfirm }) {
       {!!balance && <label className="certificate-confirm"><input type="checkbox" checked={applyCredit} onChange={event => setApplyCredit(event.target.checked)} disabled={busy}/><img src="/brand/screen-face-v1/coin-simple.webp" alt="" className="coin-icon"/>Apply {money(Math.min(balance, coinCap))} in Credion Coins to this order (you have {money(balance)} available)</label>}
       {!isPickup && <label className="certificate-confirm"><input type="checkbox" checked={wantInsurance} onChange={event => setWantInsurance(event.target.checked)} disabled={busy}/>Insure this item for shipping (covers loss or damage in transit — exact cost shown at payment)</label>}
       {!isPickup && <ShippingChoice itemId={item.listing_id || item.id} address={address} wantInsurance={wantInsurance} verified={verified} onChoice={(choice, ready) => { setShippingChoice(choice); setShippingReady(!!ready); }}/>}
+      {needsNotice && <div className="evidence-box authenticity-note" role="note"><h3>Before you buy</h3><p>{disclosure.text}</p></div>}
       {error && <p role="alert" className="error">{error}</p>}
-      <button className="primary" disabled={busy || (!isPickup && (!verified || !shippingReady))}>{busy ? 'Processing…' : 'Continue to payment'}<ArrowRight size={16}/></button>
+      <button className="primary" disabled={busy || disclosure === null || (!isPickup && (!verified || !shippingReady))}>{busy ? 'Processing…' : needsNotice ? 'I understand — continue to payment' : 'Continue to payment'}<ArrowRight size={16}/></button>
     </form>
   </Modal>;
 }
@@ -1803,6 +1812,35 @@ function AdminListingReview() {
   </div>)}</div>;
 }
 
+const RISK_FLAG_LABELS = { high_value: 'High value', no_certificate: 'No certificate', cert_unchecked: 'Certificate not checked', signed_unverified: 'Signed, unverified', new_seller: 'New seller', new_buyer_high_value: 'New buyer, high value', no_seller_attestation: 'No seller statement' };
+
+// Orders worth a second look: risky checkouts, held orders and card chargebacks, with private operator notes (never shown to buyers or sellers).
+function AdminOrderRisk() {
+  const [list, setList] = useState(undefined), [error, setError] = useState(''), [notes, setNotes] = useState({}), [busyId, setBusyId] = useState(null);
+  function load() { service.adminOrderRiskQueue().then(setList).catch(err => setError(err.message)); }
+  useEffect(() => { load(); }, []);
+  async function run(id, action) { setBusyId(id); setError(''); try { await action(); load(); } catch (err) { setError(err.message); } finally { setBusyId(null); } }
+  if (error && list === undefined) return <p role="alert" className="error">{error}</p>;
+  if (list === undefined) return <p role="status">Loading orders…</p>;
+  if (!list.length) return <p className="field-note">No orders need a second look.</p>;
+  return <div className="admin-list">
+    {error && <p role="alert" className="error">{error}</p>}
+    {list.map(order => <div key={order.purchase_id} className="evidence-box">
+      <div className="admin-row-head"><span><strong>{order.title}</strong> · {money(order.price_cents)}</span><span>{new Date(order.created_at).toLocaleDateString()}</span></div>
+      <p className="field-note">Risk: <strong>{order.level}</strong>{order.flags.length ? ' · ' + order.flags.map(flag => RISK_FLAG_LABELS[flag] || flag).join(', ') : ''}</p>
+      <p className="field-note">Seller {order.seller_name} · Buyer {order.buyer_name} · {order.fulfillment_method === 'pickup' ? 'pickup' : 'shipped'} · payment {order.escrow_status}{order.review_hold ? ' · ON HOLD' : ''}</p>
+      <p className="field-note">Certificate: {order.certificate_state === 'none' ? 'none' : order.certificate_state === 'seller_reported' ? 'seller-entered, not checked' : order.certificate_state || 'unknown'} · Notice confirmed by buyer: {order.disclosure_acknowledged ? 'yes' : 'no'}{order.signature_required ? ' · signature required' : ''}</p>
+      {order.disputes.map(dispute => <p key={dispute.id} role="alert" className="error">Chargeback {dispute.id}: {dispute.status} · {money(dispute.amount_cents)} · {dispute.reason}{dispute.evidence_due_by ? ' · respond by ' + new Date(dispute.evidence_due_by).toLocaleDateString() : ''}{dispute.seller_already_paid ? ' · seller already paid' : ''}{dispute.evidence_saved ? ' · evidence draft saved in Stripe' : ''}</p>)}
+      {order.notes.map(note => <p key={note.id} className="field-note">Note: {note.note} <span className="optional">— {note.author || 'operator'}, {new Date(note.created_at).toLocaleDateString()}</span></p>)}
+      <form className="form-row" onSubmit={event => { event.preventDefault(); const note = (notes[order.purchase_id] || '').trim(); if (note) run(order.purchase_id, async () => { await service.adminAddOrderNote(order.purchase_id, note); setNotes(current => ({ ...current, [order.purchase_id]: '' })); }); }}>
+        <label>Private note<input value={notes[order.purchase_id] || ''} onChange={event => setNotes(current => ({ ...current, [order.purchase_id]: event.target.value }))} maxLength={1000} disabled={busyId === order.purchase_id}/></label>
+        <button className="primary" disabled={busyId === order.purchase_id || !(notes[order.purchase_id] || '').trim()}>Add note</button>
+      </form>
+      {order.review_hold && <button type="button" className="text-button" disabled={busyId === order.purchase_id} onClick={() => run(order.purchase_id, () => service.adminClearReviewHold(order.purchase_id))}>Clear the hold on this order</button>}
+    </div>)}
+  </div>;
+}
+
 function AdminDashboard() {
   const [tab, setTab] = useState('disputes');
   return <div className="form-stack" data-clarity-mask="True">
@@ -1813,6 +1851,7 @@ function AdminDashboard() {
       <button aria-pressed={tab === 'users'} className={tab === 'users' ? 'active' : ''} onClick={() => setTab('users')}>Users</button>
       <button aria-pressed={tab === 'signatures'} className={tab === 'signatures' ? 'active' : ''} onClick={() => setTab('signatures')}>Signature library</button>
       <button aria-pressed={tab === 'listings'} className={tab === 'listings' ? 'active' : ''} onClick={() => setTab('listings')}>Listing review</button>
+      <button aria-pressed={tab === 'risk'} className={tab === 'risk' ? 'active' : ''} onClick={() => setTab('risk')}>Order risk</button>
     </div>
     {tab === 'disputes' && <AdminDisputes/>}
     {tab === 'reports' && <AdminReports/>}
@@ -1820,6 +1859,7 @@ function AdminDashboard() {
     {tab === 'users' && <AdminUsers/>}
     {tab === 'signatures' && <AdminSignatureLibrary/>}
     {tab === 'listings' && <AdminListingReview/>}
+    {tab === 'risk' && <AdminOrderRisk/>}
   </div>;
 }
 
@@ -2469,11 +2509,11 @@ export default function App() {
     try { const now = await service.toggleFavorite(listingId); setFavoriteIds(ids => now ? [...ids, listingId] : ids.filter(id => id !== listingId)); }
     catch (err) { setError(err.message); }
   }
-  async function buyNow(listingId, shippingAddress, applyCreditCents, wantInsurance, fulfillmentMethod, shippingChoice) {
+  async function buyNow(listingId, shippingAddress, applyCreditCents, wantInsurance, fulfillmentMethod, shippingChoice, disclosureAck) {
     if (!session) { setModal('login'); return; }
     setBusy(true); setError('');
     try {
-      const result = await service.startCheckout(listingId, shippingAddress, applyCreditCents, wantInsurance, fulfillmentMethod, shippingChoice);
+      const result = await service.startCheckout(listingId, shippingAddress, applyCreditCents, wantInsurance, fulfillmentMethod, shippingChoice, disclosureAck);
       if (result?.url) { window.location.href = result.url; return; }
       setNotice('Purchase complete — this item is now in your collection.'); setSelectedId(null); refresh();
     } catch (err) { setError(err.message); }
@@ -2564,7 +2604,7 @@ export default function App() {
     </div>
     <BottomNav sellGlow={sellGlow} messagesGlow={messagesGlow} session={session} workspace={workspace} onSwitchWorkspace={switchWorkspace} profile={profile} authReady={authReady} onProfile={() => setModal('profile')} onSignIn={() => setModal('login')}/>
     {modal === 'login' && <Modal title="Welcome to Credabilia" onClose={() => setModal(null)}><p className="muted">One account to collect, sell, and share your perspective.</p>{service.mode === 'demo' ? <><div className="evidence-box"><h3>Try the local preview</h3><p>These two separate practice accounts stay in this browser. Each can switch between all three workspaces. Real sign-in is available when the Supabase project is connected.</p></div><div className="form-stack">{DEMO_ACCOUNTS.map(account => <button key={account.id} className="primary full-width" onClick={() => signIn(account.id)} disabled={busy}>{busy ? 'Opening…' : `Continue as ${account.display_name}`}<ArrowRight size={18}/></button>)}</div></> : <><button className="primary full-width" onClick={() => signIn()} disabled={busy}>{busy ? 'Opening…' : 'Continue with Google'}<ArrowRight size={18}/></button>{APPLE_SIGNIN_ENABLED && <button type="button" className="apple-signin full-width" onClick={signInApple} disabled={busy}><AppleLogo/> Continue with Apple</button>}<p className="field-note">or</p><EmailLogin/><p className="field-note">By continuing, you agree to Credabilia's <a href="/terms" target="_blank" rel="noreferrer">Terms of Service</a> and <a href="/privacy" target="_blank" rel="noreferrer">Privacy Policy</a>.</p></>}<p className="field-note">Your sign-in method does not determine your workspace. You can switch between all three after signing in.</p></Modal>}
-    {modal === 'checkout-address' && (selected || pendingBuy) && <CheckoutAddress item={selected || pendingBuy} profile={profile} busy={busy} onClose={() => setModal(null)} onConfirm={(address, applyCreditCents, wantInsurance, fulfillmentMethod, shippingChoice) => { const id = selected?.id || pendingBuy?.listing_id; setModal(null); buyNow(id, address, applyCreditCents, wantInsurance, fulfillmentMethod, shippingChoice); }}/>}
+    {modal === 'checkout-address' && (selected || pendingBuy) && <CheckoutAddress item={selected || pendingBuy} profile={profile} busy={busy} onClose={() => setModal(null)} onConfirm={(address, applyCreditCents, wantInsurance, fulfillmentMethod, shippingChoice, disclosureAck) => { const id = selected?.id || pendingBuy?.listing_id; setModal(null); buyNow(id, address, applyCreditCents, wantInsurance, fulfillmentMethod, shippingChoice, disclosureAck); }}/>}
     {modal === 'create' && <CreateListing onClose={() => setModal(null)} onCreated={(id,fit) => { setModal(null); setNotice(fit ? `Your listing was saved, but it needs a quick review before buyers can see it — ${fit.reason || "it didn't clearly look like a collectible."}` : service.mode === 'live' && profile && !profile.stripe_charges_enabled ? 'Your listing is published, but it is locked until you connect payouts with Stripe. Buyers can see it, and it opens for sale automatically when you are done. Open Sell to set up payouts.' : 'Your listing is published.'); setSelectedId(id); refresh(); }}/>}
     {modal === 'bulk-create' && <BulkListing onClose={() => setModal(null)} onAllDone={() => { setModal(null); setNotice('Bulk listing complete.'); refresh(); }}/>}
     {modal === 'relist' && ownedItem && <CreateListing relistFrom={ownedItem} onClose={() => setModal(null)} onCreated={(id,fit) => { setModal(null); setNotice(fit ? `Your relisted item was saved, but it needs a quick review before buyers can see it — ${fit.reason || "it didn't clearly look like a collectible."}` : 'Your relisted item is published.'); switchWorkspace('seller'); setSelectedId(id); refresh(); }}/>}

@@ -1,4 +1,4 @@
-import { shippoAddress, quoteRates, findChoice, maxLabelCents } from './shippingRates.js';
+import { shippoAddress, quoteRates, findChoice, maxLabelCents, needsSignature } from './shippingRates.js';
 
 const UUID_RE=/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -21,7 +21,7 @@ export function createHandler({createClient,env,fetchImpl=fetch}) {
       const purchaseId=body?.purchase_id, bodyParcel=body?.parcel;
       if(typeof purchaseId!=='string' || !UUID_RE.test(purchaseId)) return reply({error:'Invalid request.'},400);
 
-      const {data:sale,error:saleError}=await client.from('purchases').select('id,escrow_status,shipping_address,listing_id,insured,insured_value_cents,listings!purchases_listing_id_fkey(weight_oz,length_in,width_in,height_in)').eq('id',purchaseId).eq('seller_id',identity.user.id).maybeSingle();
+      const {data:sale,error:saleError}=await client.from('purchases').select('id,escrow_status,shipping_address,listing_id,price_cents,insured,insured_value_cents,listings!purchases_listing_id_fkey(weight_oz,length_in,width_in,height_in)').eq('id',purchaseId).eq('seller_id',identity.user.id).maybeSingle();
       if(saleError || !sale) return reply({error:'Sale not found.'},404);
       if(sale.escrow_status && sale.escrow_status!=='held') return reply({error:'This order is no longer waiting to ship, so a label cannot be bought for it.'},409);
       // Prefer the listing's own stored dimensions (set at listing time); fall back to the
@@ -43,6 +43,8 @@ export function createHandler({createClient,env,fetchImpl=fetch}) {
           // Insurance is shipment-scoped in Shippo -- any rate/label bought from this shipment automatically carries the coverage the
           // buyer already paid for at checkout.
           insurance:sale.insured ? {amount_cents:sale.insured_value_cents,content:'Item'} : null,
+          // High-value orders were quoted to the buyer with a delivery signature, so the label must carry it too.
+          signature:needsSignature(sale.price_cents),
         });
       } catch { return reply({error:'Shipping service is temporarily unavailable. Try again later.'},503); }
       if(!quote.options.length) return reply({error:'Could not get shipping rates. Check both addresses and try again.'},400);

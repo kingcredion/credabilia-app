@@ -106,6 +106,7 @@ export function TermsPage() {
 
     <h2>12. Prohibited conduct</h2>
     <p>You agree not to: list stolen, counterfeit, or illegal items; submit false certificate information or fraudulent community assessments; harass, threaten, or impersonate another user; attempt to complete a transaction outside the Service to avoid fees; bid on your own listing, use other accounts or people to drive up a bid, or place bids you do not intend to pay for; open another account to get around a suspension or ban; interfere with or attempt to circumvent the Service's security; or use the Service in a way that violates any applicable law.</p>
+    <p><strong>Authenticity.</strong> Credabilia does not authenticate items. When you list an item you confirm that you own it, that it is what the listing says it is, and that any certificate you attach is genuine. Where an item has no certificate, or a certificate we have not checked with its issuer, buyers are told so before they pay. Misleading buyers is against these terms and the law. We may remove a listing, hold or refund a payment, suspend or close an account, and report suspected fraud or counterfeiting to our payment processor and to the authorities. Anyone can report a listing or a user from the item or profile page.</p>
 
     <h2>13. Content you submit</h2>
     <p>You keep ownership of the photos, descriptions, messages, and other content you submit. By submitting it, you grant Credabilia a non-exclusive, worldwide, royalty-free license to host, display, reproduce, and distribute that content as needed to operate and promote the Service (for example, showing your listing photos to potential buyers). You are solely responsible for content you submit and for having the rights to submit it.</p>
@@ -174,7 +175,7 @@ export function PrivacyPage() {
     <p>We share information with the service providers who help us run Credabilia, and only as needed for them to provide their service to us:</p>
     <ul>
       <li><strong>Supabase</strong> — hosting, database, authentication, and file storage;</li>
-      <li><strong>Stripe</strong> — payment processing, seller payouts, and identity verification for payouts;</li>
+      <li><strong>Stripe</strong> — payment processing, seller payouts, and identity verification for payouts. We also share information about suspected fraud, card disputes, and confirmed reports about an account with Stripe to prevent fraud and handle chargebacks;</li>
       <li><strong>Shippo</strong> — shipping rates, labels, tracking, and insurance;</li>
       <li><strong>OpenAI</strong> — the AI-assisted features described in Section 3;</li>
       <li><strong>Photoroom</strong> — removing the background from item photos you upload;</li>

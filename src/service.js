@@ -276,11 +276,15 @@ export function makeService() {
       if(error) { let detail; try {detail=await error.context?.json();} catch {} throw new Error(detail?.error || 'Could not load shipping options.'); }
       return data;
     },
-    async startCheckout(listingId, shippingAddress, applyCreditCents, wantInsurance, fulfillmentMethod, shippingChoice) {
-      const {data,error}=await invokeFn('create-checkout-session',{body:{listing_id:listingId,shipping_address:shippingAddress,apply_credit_cents:applyCreditCents||0,want_insurance:wantInsurance!==false,fulfillment_method:fulfillmentMethod==='pickup'?'pickup':'ship',shipping_choice:shippingChoice||undefined}});
+    async startCheckout(listingId, shippingAddress, applyCreditCents, wantInsurance, fulfillmentMethod, shippingChoice, disclosureAck) {
+      const {data,error}=await invokeFn('create-checkout-session',{body:{listing_id:listingId,shipping_address:shippingAddress,apply_credit_cents:applyCreditCents||0,want_insurance:wantInsurance!==false,fulfillment_method:fulfillmentMethod==='pickup'?'pickup':'ship',shipping_choice:shippingChoice||undefined,disclosure_ack:disclosureAck===true?true:undefined}});
       if(error) { let detail; try {detail=await error.context?.json();} catch {} throw new Error(detail?.error || 'This item could not be purchased right now.'); }
       return data;
     },
+    // The notice a buyer must confirm before paying for an item whose certificate has not been checked (wording comes from the database).
+    async checkoutDisclosure(listingId) { return unwrap(await client.rpc('checkout_disclosure', { p_listing_id: listingId })); },
+    // The seller's statement that the item is authentic and any certificate they attached is genuine.
+    async attestAuthenticity(listingId) { unwrap(await client.rpc('attest_listing_authenticity', { p_listing_id: listingId })); },
     async myCreditBalance() { return unwrap(await client.rpc('my_credit_balance')); },
     async confirmCheckout(stripeSessionId) {
       const {data,error}=await invokeFn('confirm-checkout',{body:{stripe_session_id:stripeSessionId}});
@@ -373,6 +377,9 @@ export function makeService() {
     async adminReplyToSupport(userId, body) { return unwrap(await client.rpc('admin_reply_to_support', { p_user_id: userId, p_body: body })); },
     async adminListUsers(search) { return unwrap(await client.rpc('admin_list_users', { p_search: search || null })); },
     async adminPurchaseEvidence(purchaseId) { return unwrap(await client.rpc('admin_purchase_evidence', { p_purchase_id: purchaseId })); },
+    async adminOrderRiskQueue() { return unwrap(await client.rpc('admin_order_risk_queue')); },
+    async adminAddOrderNote(purchaseId, note) { unwrap(await client.rpc('admin_add_order_note', { p_purchase_id: purchaseId, p_note: note })); },
+    async adminClearReviewHold(purchaseId) { unwrap(await client.rpc('admin_clear_review_hold', { p_purchase_id: purchaseId })); },
     async adminMemberFlags() { return unwrap(await client.rpc('admin_member_flags')); },
     async adminBanUser(userId, reason) { unwrap(await client.rpc('admin_ban_user', { p_user_id: userId, p_reason: reason })); },
     async adminUnbanUser(userId) { unwrap(await client.rpc('admin_unban_user', { p_user_id: userId })); },

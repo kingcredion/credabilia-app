@@ -22,6 +22,9 @@ export default function CredibilityDetails({ item, session, own, auditedLabel, o
     <CredibilityMeter score={item.credibility_score}/>
     <p>{item.certificate_supplied ? `Issuer rating: ${item.certificate_score}/100` : 'No certificate provided'} · {item.certificate_weight}% of the score</p>
     <p>Community: {item.credibility_audit_count ? `${item.community_score}/100` : 'No audits yet'} · {item.community_weight}% of the score</p>
+    {item.certificate_supplied
+      ? <p className="field-note authenticity-note">The seller entered this item's certificate details. Credabilia has not checked them with the issuer and does not authenticate items — use the issuer's lookup link to check the certificate yourself.</p>
+      : <p className="field-note authenticity-note">No certificate of authenticity was provided for this item. Credabilia does not authenticate items — review the photos, the score and the evidence notes before you buy.</p>}
     {session && !own && (auditedLabel
       ? <p className="field-note"><Check size={14}/> You audited this — {auditedLabel}</p>
       : <button type="button" className="primary compact" onClick={onAudit}><ClipboardCheck size={16}/>Audit this item<ArrowRight size={16}/></button>)}

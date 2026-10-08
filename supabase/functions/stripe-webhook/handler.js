@@ -33,6 +33,11 @@ export function createHandler({createClient,env}) {
       client=createClient(env('SUPABASE_URL'),env('SUPABASE_SERVICE_ROLE_KEY'));
       object=event.data.object;
       let result;
+      if(event.type==='charge.dispute.created' || event.type==='charge.dispute.updated' || event.type==='charge.dispute.closed') {
+        // A cardholder disputed a payment. A failure to record it is worth a retry from Stripe, so it answers 500.
+        const recorded=await handleDispute(client,stripe,event.type,object,alertOperator);
+        return recorded ? reply({received:true}) : reply({error:'Webhook handling failed.'},500);
+      }
       if((event.type==='checkout.session.completed' || event.type==='checkout.session.expired') && object.mode==='setup') {
         // A member saved a card to be allowed to bid (nothing was charged). It is not an order, so it never goes near the order code.
         if(event.type==='checkout.session.completed') await recordBidCard(client,stripe,object,alertOperator);
@@ -123,4 +128,75 @@ async function recordBankFingerprints(client, account, alertOperator) {
       if(data?.blocked) await alertOperator(client,{summary:'A seller connected a bank account tied to a banned member. Their payouts are on hold.',reference:account.id,detail:'Member '+row.user_id});
     }
   } catch {}
+}
+
+// A card chargeback. It is recorded (which holds the order and, if the seller was already paid, freezes their payouts), the operator is
+// told, and the evidence we already have is saved to the dispute as a DRAFT -- it is never submitted automatically, because Stripe allows
+// one submission and a person should read it first. Nothing here moves money. Returns false only when the dispute could not be recorded.
+async function handleDispute(client, stripe, type, dispute, alertOperator) {
+  try {
+    const payload={id:dispute.id,payment_intent:typeof dispute.payment_intent==='string'?dispute.payment_intent:dispute.payment_intent?.id,charge:typeof dispute.charge==='string'?dispute.charge:dispute.charge?.id,
+      amount:dispute.amount,reason:dispute.reason,status:dispute.status,evidence_due_by:dispute.evidence_details?.due_by!=null?String(dispute.evidence_details.due_by):null};
+    const {data,error}=await client.rpc('record_stripe_dispute',{p_dispute:payload});
+    if(error) { console.error('dispute not recorded',dispute.id,error.message); await alertOperator(client,{summary:'A card chargeback was filed but could not be recorded.',reference:dispute.id,detail:String(error.message||'').slice(0,300)}); return false; }
+    const dollars=Number.isFinite(Number(dispute.amount))?'$'+(Number(dispute.amount)/100).toFixed(2):'unknown amount';
+    const due=dispute.evidence_details?.due_by?new Date(dispute.evidence_details.due_by*1000).toISOString().slice(0,10):'unknown';
+    if(type==='charge.dispute.closed') {
+      await alertOperator(client,{summary:'A card chargeback was closed: '+(dispute.status==='won'?'we won it.':dispute.status==='lost'?'we lost it.':dispute.status+'.'),reference:dispute.id,
+        detail:dollars+', reason '+dispute.reason+(data?.purchase_id?'. Order '+data.purchase_id+' stays on hold until you clear it in the Risk tab.':'. No matching order was found.')});
+      return true;
+    }
+    if(type==='charge.dispute.created') {
+      let saved=false;
+      if(data?.purchase_id && data.open) {
+        try {
+          const {data:packet}=await client.rpc('dispute_evidence_packet',{p_purchase_id:data.purchase_id});
+          if(packet) { await stripe.disputes.update(dispute.id,{evidence:buildDisputeEvidence(packet),submit:false}); saved=true; await client.rpc('mark_dispute_progress',{p_stripe_dispute_id:dispute.id,p_evidence_saved:true,p_transfer_reversed:false}); }
+        } catch(error) { console.error('dispute evidence not saved',dispute.id,error?.message); }
+      }
+      await alertOperator(client,{summary:'A card chargeback was filed on an order.',reference:dispute.id,
+        detail:dollars+', reason '+dispute.reason+', respond by '+due+'. '+(data?.purchase_id?'Order '+data.purchase_id+' is on hold.':'No matching order was found.')
+          +(data?.seller_already_paid?' The seller was already paid, so their payouts are frozen; consider reversing transfer '+(data.transfer_id||'(unknown)')+' in Stripe.':'')
+          +(saved?' A draft of the evidence is saved in Stripe: review it and submit it.':' Evidence could not be drafted automatically: build it in Stripe.')});
+    }
+    return true;
+  } catch(error) {
+    console.error('dispute handling failed',dispute?.id,error?.message);
+    try { await alertOperator(client,{summary:'A card chargeback could not be processed.',reference:dispute?.id,detail:String(error?.message||'').slice(0,300)}); } catch {}
+    return false;
+  }
+}
+
+// Turns our own records for an order into the fields Stripe asks for in a dispute. Text only; every field is capped well under Stripe's limits.
+function buildDisputeEvidence(p) {
+  const cap=(value,max=19000)=>String(value||'').slice(0,max);
+  const day=value=>value?new Date(value).toISOString().slice(0,10):undefined;
+  const a=p.shipping_address||{};
+  const address=[a.name,a.street1,a.street2,[a.city,a.state,a.zip].filter(Boolean).join(' '),a.country].filter(Boolean).join(', ');
+  const lines=[
+    'Order for "'+p.title+'" ('+p.category+'), $'+(Number(p.price_cents)/100).toFixed(2)+', placed '+(day(p.purchased_at)||'')+'.',
+    p.fulfillment_method==='pickup'
+      ? 'Local pickup at a safe-trade location.'+(p.handoff_verified_at?' The seller entered the buyer\'s private handoff code on '+day(p.handoff_verified_at)+', which only the buyer has.':'')
+      : (p.tracking_number?'Shipped '+(day(p.shipped_at)||'')+' with '+(p.shipping_provider||'the carrier')+' tracking '+p.tracking_number+'.':'')+(p.delivered_at?' Carrier tracking marked it delivered on '+day(p.delivered_at)+' to '+address+'.':' Carrier tracking has not yet marked it delivered.'),
+    p.signature_required?'A delivery signature was required for this order.':'',
+    p.inspection_accepted_at?'The buyer inspected the item and accepted it on '+day(p.inspection_accepted_at)+'.':'',
+    p.disclosure_text?'Before paying, the buyer was shown this notice and confirmed it on '+(day(p.disclosure_acknowledged_at)||'the order date')+' (version '+p.disclosure_version+'): "'+p.disclosure_text+'"':'',
+    p.certificate_issuer?'Certificate details entered by the seller: issuer '+p.certificate_issuer+', number '+p.certificate_number+'.':'No certificate of authenticity was listed, and the listing said so.',
+    p.seller_attested_at?'The seller confirmed on '+day(p.seller_attested_at)+' that the item is authentic and any certificate attached is genuine.':'',
+    'Credabilia is a marketplace: '+p.credibility_note,
+    'The buyer sent the seller '+p.buyer_message_count+' message(s) through the app and opened '+p.refund_request_count+' refund request(s) before the dispute.',
+  ].filter(Boolean);
+  const evidence={
+    product_description:cap('"'+p.title+'" — '+p.description),
+    customer_name:cap(p.buyer_name,200),customer_email_address:cap(p.buyer_email,200),
+    refund_policy_disclosure:'Buyers can request a refund in the app during the inspection period after delivery. Payment is held until the buyer has had that time to inspect the item; see the Terms of Service, section 8.',
+    uncategorized_text:cap(lines.join('\n')),
+  };
+  if(p.fulfillment_method!=='pickup' && p.tracking_number) {
+    evidence.shipping_tracking_number=cap(p.tracking_number,200);
+    if(p.shipping_provider) evidence.shipping_carrier=cap(p.shipping_provider,200);
+    if(p.shipped_at) evidence.shipping_date=day(p.shipped_at);
+    if(address) evidence.shipping_address=cap(address,1000);
+  }
+  return evidence;
 }
