@@ -21,6 +21,7 @@ import { isNativeApp, EMAIL_CODE_MAX } from './nativeAuth.js';
 const Storefront = React.lazy(() => import('./Storefront.jsx').then(module => ({ default: module.Storefront })));
 const TermsPage = React.lazy(() => import('./Legal.jsx').then(module => ({ default: module.TermsPage })));
 const PrivacyPage = React.lazy(() => import('./Legal.jsx').then(module => ({ default: module.PrivacyPage })));
+const CertificateLookupPage = React.lazy(() => import('./CertificateLookup.jsx').then(module => ({ default: module.CertificateLookupPage })));
 const HelpPage = React.lazy(() => import('./Help.jsx').then(module => ({ default: module.HelpPage })));
 import { ItemArt, money, RatingStars } from './ItemArt.jsx';
 import { MessageThread } from './MessageThread.jsx';
@@ -1812,7 +1813,7 @@ function AdminListingReview() {
   </div>)}</div>;
 }
 
-const RISK_FLAG_LABELS = { high_value: 'High value', no_certificate: 'No certificate', cert_unchecked: 'Certificate not checked', signed_unverified: 'Signed, unverified', new_seller: 'New seller', new_buyer_high_value: 'New buyer, high value', no_seller_attestation: 'No seller statement' };
+const RISK_FLAG_LABELS = { high_value: 'High value', no_certificate: 'No certificate', cert_unchecked: 'Certificate not checked', signed_unverified: 'Signed, unverified', new_seller: 'New seller', new_buyer_high_value: 'New buyer, high value', no_seller_attestation: 'No seller statement', cert_no_record: 'Certificate has no number or record', cert_number_reused: 'Certificate number used on another listing' };
 
 // Orders worth a second look: risky checkouts, held orders and card chargebacks, with private operator notes (never shown to buyers or sellers).
 function AdminOrderRisk() {
@@ -1829,7 +1830,7 @@ function AdminOrderRisk() {
       <div className="admin-row-head"><span><strong>{order.title}</strong> · {money(order.price_cents)}</span><span>{new Date(order.created_at).toLocaleDateString()}</span></div>
       <p className="field-note">Risk: <strong>{order.level}</strong>{order.flags.length ? ' · ' + order.flags.map(flag => RISK_FLAG_LABELS[flag] || flag).join(', ') : ''}</p>
       <p className="field-note">Seller {order.seller_name} · Buyer {order.buyer_name} · {order.fulfillment_method === 'pickup' ? 'pickup' : 'shipped'} · payment {order.escrow_status}{order.review_hold ? ' · ON HOLD' : ''}</p>
-      <p className="field-note">Certificate: {order.certificate_state === 'none' ? 'none' : order.certificate_state === 'seller_reported' ? 'seller-entered, not checked' : order.certificate_state || 'unknown'} · Notice confirmed by buyer: {order.disclosure_acknowledged ? 'yes' : 'no'}{order.signature_required ? ' · signature required' : ''}</p>
+      <p className="field-note">Certificate: {order.certificate_state === 'none' ? 'none' : order.certificate_state === 'seller_reported' ? 'seller-entered, not checked' : order.certificate_state === 'no_record' ? 'issuer has no certificate numbers' : order.certificate_state || 'unknown'} · Notice confirmed by buyer: {order.disclosure_acknowledged ? 'yes' : 'no'}{order.signature_required ? ' · signature required' : ''}</p>
       {order.disputes.map(dispute => <p key={dispute.id} role="alert" className="error">Chargeback {dispute.id}: {dispute.status} · {money(dispute.amount_cents)} · {dispute.reason}{dispute.evidence_due_by ? ' · respond by ' + new Date(dispute.evidence_due_by).toLocaleDateString() : ''}{dispute.seller_already_paid ? ' · seller already paid' : ''}{dispute.evidence_saved ? ' · evidence draft saved in Stripe' : ''}</p>)}
       {order.notes.map(note => <p key={note.id} className="field-note">Note: {note.note} <span className="optional">— {note.author || 'operator'}, {new Date(note.created_at).toLocaleDateString()}</span></p>)}
       <form className="form-row" onSubmit={event => { event.preventDefault(); const note = (notes[order.purchase_id] || '').trim(); if (note) run(order.purchase_id, async () => { await service.adminAddOrderNote(order.purchase_id, note); setNotes(current => ({ ...current, [order.purchase_id]: '' })); }); }}>
@@ -2163,7 +2164,7 @@ export default function App() {
   const storefrontSlug = (() => { const segments = window.location.pathname.split('/').filter(Boolean); return segments.length === 1 && segments[0] !== 'auth' ? segments[0] : null; })();
   // /terms, /privacy, and /help are standalone, no-login-required pages -- checked before
   // storefrontSlug so they can never be shadowed by a seller's store name (also reserved server-side).
-  const legalPage = window.location.pathname === '/terms' ? 'terms' : window.location.pathname === '/privacy' ? 'privacy' : window.location.pathname === '/help' ? 'help' : (window.location.pathname === '/sell' || (isSellHost(window.location.hostname) && window.location.pathname === '/')) ? 'sell' : null;
+  const legalPage = window.location.pathname === '/terms' ? 'terms' : window.location.pathname === '/privacy' ? 'privacy' : window.location.pathname === '/help' ? 'help' : window.location.pathname === '/certificate' ? 'certificate' : (window.location.pathname === '/sell' || (isSellHost(window.location.hostname) && window.location.pathname === '/')) ? 'sell' : null;
   // /item/<id> gives each listing its own shareable, bookmarkable, back-button-friendly URL --
   // parsed once here (same pattern as storefrontSlug/legalPage above) and reconciled against the
   // loaded `items`/`buyRequests` once they're fetched, below.
@@ -2397,6 +2398,7 @@ export default function App() {
   if (legalPage === 'terms') return <TermsPage/>;
   if (legalPage === 'privacy') return <PrivacyPage/>;
   if (legalPage === 'help') return <HelpPage/>;
+  if (legalPage === 'certificate') return <CertificateLookupPage service={service}/>;
   if (legalPage === 'sell') return <SellPage/>;
   if (soldPreview) return <SoldItemPage item={soldPreview} onBack={() => { window.location.href = '/'; }}/>;
   if (storefrontSlug) return <Storefront slug={storefrontSlug} service={service} onBack={() => { window.location.href = '/'; }}/>;

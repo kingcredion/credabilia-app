@@ -24,7 +24,7 @@ function returnTarget() {
 // other two pages.
 export function LegalNav({ current, footer = false }) {
   const back = returnTarget();
-  const pages = [['/terms', 'Terms', 'terms'], ['/privacy', 'Privacy', 'privacy'], ['/help', 'Help', 'help']];
+  const pages = [['/terms', 'Terms', 'terms'], ['/privacy', 'Privacy', 'privacy'], ['/help', 'Help', 'help'], ['/certificate', 'Certificates', 'certificate']];
   return <nav className={`legal-nav${footer ? ' legal-nav-footer' : ''}`} aria-label="Credabilia pages">
     <a className="legal-back-button" href={back}><ArrowLeft size={16}/>Back to Credabilia</a>
     <span className="legal-nav-links">{pages.map(([href, label, key]) => key === current

@@ -10,9 +10,13 @@ export const ISSUERS = [
   { id:'steiner', name:'Steiner Sports', rating:85, aliases:[], lookup:null },
   { id:'tristar', name:'TriStar Productions', rating:84, aliases:[], lookup:'https://www.tristarauthentic.com/' },
   { id:'mlb', name:'MLB Authenticated', rating:89, aliases:[], lookup:null },
-  { id:'credabilia', name:'Credabilia', rating:100, aliases:[], lookup:null },
+  // Fiterman Sports does not put certificate numbers on its items, so there is no record a buyer can look up. It is scored lower for that
+  // reason; the score says nothing about whether the item is authentic.
+  { id:'fiterman', name:'Fiterman Sports', rating:50, aliases:['Fiterman','Fiterman Sports Collectibles'], lookup:null, noNumber:true },
   { id:'other', name:'Other', rating:50, aliases:[], lookup:null },
 ];
+// Issuers whose certificate numbers can be searched in Credabilia's own records (see the /certificate page).
+export const LOOKUP_ISSUERS = ISSUERS.filter(issuer => !issuer.noNumber && issuer.id !== 'other');
 export function resolveIssuer(value) {
   const text = String(value || '').trim().toLowerCase();
   return ISSUERS.find(issuer => [issuer.id,issuer.name,...issuer.aliases].some(name=>name.toLowerCase()===text)) || null;
@@ -24,6 +28,7 @@ export function certificateInput(input={}) {
   if (!rawIssuer && !number && !custom) return { certificate_issuer:null, certificate_number:null, certificate_company:null };
   const issuer = resolveIssuer(rawIssuer);
   if (!issuer) throw new Error('Choose the certificate issuer.');
+  if (issuer.noNumber) return { certificate_issuer:issuer.id, certificate_number:null, certificate_company:null };
   if (!/^[A-Za-z0-9][A-Za-z0-9 ._/-]{0,79}$/.test(number)) throw new Error('Enter the certificate number as printed (up to 80 characters).');
   if (issuer.id === 'other' && (custom.length<2 || custom.length>100)) throw new Error('Enter the issuing company name (2–100 characters).');
   return { certificate_issuer:issuer.id, certificate_number:number, certificate_company:issuer.id==='other'?custom:null };

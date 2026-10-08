@@ -282,6 +282,8 @@ export function makeService() {
       return data;
     },
     // The notice a buyer must confirm before paying for an item whose certificate has not been checked (wording comes from the database).
+    // Public: is this certificate number recorded on a Credabilia listing (and how many)? Works without signing in.
+    async lookupCertificate(issuer, number) { return unwrap(await client.rpc('lookup_certificate', { p_issuer: issuer, p_number: number })); },
     async checkoutDisclosure(listingId) { return unwrap(await client.rpc('checkout_disclosure', { p_listing_id: listingId })); },
     // The seller's statement that the item is authentic and any certificate they attached is genuine.
     async attestAuthenticity(listingId) { unwrap(await client.rpc('attest_listing_authenticity', { p_listing_id: listingId })); },

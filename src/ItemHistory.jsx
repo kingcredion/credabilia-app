@@ -28,7 +28,7 @@ export function ItemHistory({ item, service }) {
         <p><strong>{version.title}</strong> · {version.category}</p>
         <p>{version.description}</p>
         {version.evidence && <p className="field-note">Evidence at the time: {version.evidence}</p>}
-        {version.certificate_issuer && <p className="field-note">Certificate: {version.certificate_issuer} · {version.certificate_number}</p>}
+        {version.certificate_issuer && <p className="field-note">Certificate: {version.certificate_issuer}{version.certificate_number ? ' · ' + version.certificate_number : ''}</p>}
         {!!Object.keys(version.attributes || {}).length && <p className="field-note">{Object.entries(version.attributes).map(([key, value]) => `${DETAIL_FIELDS[key] || key}: ${value}`).join(' · ')}</p>}
         {version.audits.length ? <ul>{version.audits.map((audit, i) => <li key={i}>{LABELS[audit.verdict] || audit.verdict} · {audit.explanation}</li>)}</ul> : <p className="field-note">No reviews were recorded for this version.</p>}
       </div>

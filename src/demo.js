@@ -207,6 +207,11 @@ const demoReview = r => { const purchase = state.purchases.find(p => p.id === r.
       return {completed:true};
     },
     async pickupStations() { return DEMO_PICKUP_STATIONS; },
+    async lookupCertificate(issuer, number) {
+      const wanted = String(number || '').trim().toLowerCase();
+      const rows = state.listings.filter(item => item.certificate_issuer === issuer && String(item.certificate_number || '').toLowerCase() === wanted && ['active','pending','sold'].includes(item.status));
+      return { found: rows.length > 0, count: rows.length, issuer, number: String(number || '').trim(), listings: rows.map(item => ({ id: item.id, title: item.title, category: item.category, listed_at: item.created_at, status: item.status === 'active' ? 'For sale' : item.status === 'pending' ? 'Reserved' : 'Sold' })) };
+    },
     async checkoutDisclosure() { return { requires_acknowledgement: false }; },
     async attestAuthenticity() {},
     async myCreditBalance() { requireUser(); return state.credits.filter(c=>c.user_id===state.userId).reduce((sum,c)=>sum+c.amount_cents,0); },

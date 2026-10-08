@@ -66,6 +66,9 @@ export function HelpPage() {
       <p>Credion Coins are credit Credabilia awards for participation — like being a top auditor in a given month. At checkout, you can apply them toward the item's price, up to 50% of that price.</p>
     </div>
 
+    <h3>How do I check a certificate?</h3>
+    <p>Use our <a href="/certificate">certificate lookup</a>: choose the issuer, enter the certificate number exactly as printed, and see whether it is recorded on a Credabilia listing and how many times. A genuine certificate belongs to one item, so a number on more than one listing is a warning sign. This confirms the number appears in our records; it does not mean the issuer has verified it, so also use the issuer's own lookup where one exists.</p>
+
     <h3>I found a bug or something looks wrong</h3>
     <p>We are a new site, so we want to hear about it. Open the chat with King Credion (chat icon in the header after signing in) and choose "Report a problem". It goes straight to the Credabilia team.</p>
 

@@ -143,7 +143,7 @@ async function handleDispute(client, stripe, type, dispute, alertOperator) {
     const due=dispute.evidence_details?.due_by?new Date(dispute.evidence_details.due_by*1000).toISOString().slice(0,10):'unknown';
     if(type==='charge.dispute.closed') {
       await alertOperator(client,{summary:'A card chargeback was closed: '+(dispute.status==='won'?'we won it.':dispute.status==='lost'?'we lost it.':dispute.status+'.'),reference:dispute.id,
-        detail:dollars+', reason '+dispute.reason+(data?.purchase_id?'. Order '+data.purchase_id+' stays on hold until you clear it in the Risk tab.':'. No matching order was found.')});
+        detail:dollars+', reason '+dispute.reason+(data?.purchase_id?'. Order '+data.purchase_id+' stays on hold until you clear it in the Order risk tab.':'. No matching order was found.')});
       return true;
     }
     if(type==='charge.dispute.created') {
@@ -181,7 +181,7 @@ function buildDisputeEvidence(p) {
     p.signature_required?'A delivery signature was required for this order.':'',
     p.inspection_accepted_at?'The buyer inspected the item and accepted it on '+day(p.inspection_accepted_at)+'.':'',
     p.disclosure_text?'Before paying, the buyer was shown this notice and confirmed it on '+(day(p.disclosure_acknowledged_at)||'the order date')+' (version '+p.disclosure_version+'): "'+p.disclosure_text+'"':'',
-    p.certificate_issuer?'Certificate details entered by the seller: issuer '+p.certificate_issuer+', number '+p.certificate_number+'.':'No certificate of authenticity was listed, and the listing said so.',
+    p.certificate_issuer?(p.certificate_number?'Certificate details entered by the seller: issuer '+p.certificate_issuer+', number '+p.certificate_number+'.':'The seller named '+p.certificate_issuer+' as the certificate source; that issuer does not use certificate numbers, so there is no certificate record to look up, and the listing said so.'):'No certificate of authenticity was listed, and the listing said so.',
     p.seller_attested_at?'The seller confirmed on '+day(p.seller_attested_at)+' that the item is authentic and any certificate attached is genuine.':'',
     'Credabilia is a marketplace: '+p.credibility_note,
     'The buyer sent the seller '+p.buyer_message_count+' message(s) through the app and opened '+p.refund_request_count+' refund request(s) before the dispute.',

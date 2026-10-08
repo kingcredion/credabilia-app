@@ -6,7 +6,7 @@ export function credibilityScore(item, audits = []) {
   const count = valid.length;
   const certificateWeight = count<10 ? 80 : count<25 ? 65 : count<100 ? 50 : 35;
   const issuer = resolveIssuer(item.certificate_issuer);
-  const supplied = Boolean(issuer && item.certificate_number);
+  const supplied = Boolean(issuer && (item.certificate_number || issuer.noNumber));
   // An absent certificate is a real signal (the seller chose not to provide one), not the same
   // as "not enough data yet" -- so it drags the score down rather than landing on a neutral 50.
   // The AI signature opinion is folded in here as a small, capped modifier -- deliberately
