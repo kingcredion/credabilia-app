@@ -379,6 +379,12 @@ export function makeService() {
     async adminReplyToSupport(userId, body) { return unwrap(await client.rpc('admin_reply_to_support', { p_user_id: userId, p_body: body })); },
     async adminListUsers(search) { return unwrap(await client.rpc('admin_list_users', { p_search: search || null })); },
     async adminPurchaseEvidence(purchaseId) { return unwrap(await client.rpc('admin_purchase_evidence', { p_purchase_id: purchaseId })); },
+    // Operator: take a seller's payout back (reverse the Stripe transfer) after a card chargeback on an order they were already paid for.
+    async adminReverseTransfer(purchaseId) {
+      const {data,error}=await invokeFn('reverse-transfer',{body:{purchase_id:purchaseId}});
+      if(error) { let detail; try {detail=await error.context?.json();} catch {} throw new Error(detail?.error || 'Could not reverse the transfer.'); }
+      return data;
+    },
     async adminListCertificatesToCheck() { return unwrap(await client.rpc('admin_list_certificates_to_check')); },
     async adminSetCertificateChecked(listingId, checked) { unwrap(await client.rpc('admin_set_certificate_checked', { p_listing_id: listingId, p_checked: !!checked })); },
     async adminOrderRiskQueue() { return unwrap(await client.rpc('admin_order_risk_queue')); },

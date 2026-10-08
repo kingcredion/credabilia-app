@@ -283,3 +283,43 @@ test('only the seller can state that their listing is authentic, and only the fi
     await assert.rejects(db.query('select public.attest_listing_authenticity($1)', [listing]), /permission denied/);
   } finally { await db.close(); }
 });
+
+test('taking a seller\'s payout back is limited to a chargeback on an order the seller was already paid for, by an operator, once', async () => {
+  const { db, as, raw } = await freshDb();
+  try {
+    await setup(raw);
+    const paid = await makePurchase(db, as, raw, { price: 5000 });
+    const unpaid = await makePurchase(db, as, raw, { price: 5000 });
+    const quiet = await makePurchase(db, as, raw, { price: 5000 });
+    await raw("update public.purchases set escrow_status='released',stripe_transfer_id='tr_paid' where id=$1", [paid]);
+    const intent = id => raw('select stripe_payment_intent_id from public.purchases where id=$1', [id]).then(r => r.rows[0].stripe_payment_intent_id);
+    await as(IDS.buyer, 'service_role');
+    await db.query('select public.record_stripe_dispute($1)', [JSON.stringify({ id: 'dp_a', payment_intent: await intent(paid), amount: 5000, reason: 'fraudulent', status: 'needs_response' })]);
+    await as(IDS.buyer, 'service_role');
+    await db.query('select public.record_stripe_dispute($1)', [JSON.stringify({ id: 'dp_b', payment_intent: await intent(unpaid), amount: 5000, reason: 'fraudulent', status: 'needs_response' })]);
+
+    await as(IDS.seller);
+    await assert.rejects(db.query('select public.admin_transfer_reversal_info($1)', [paid]), /Not authorized/);
+
+    await as(IDS.operator);
+    const ok = (await db.query('select public.admin_transfer_reversal_info($1) as i', [paid])).rows[0].i;
+    assert.equal(ok.eligible, true); assert.equal(ok.transfer_id, 'tr_paid');
+    assert.equal((await db.query('select public.admin_transfer_reversal_info($1) as i', [unpaid])).rows[0].i.eligible, false, 'the seller was not paid yet: the order is simply held');
+    const none = (await db.query('select public.admin_transfer_reversal_info($1) as i', [quiet])).rows[0].i;
+    assert.equal(none.eligible, false); assert.equal(none.has_dispute, false);
+
+    await as(IDS.operator, 'service_role');
+    await db.query("select public.record_transfer_reversal($1,'trr_1',4320,$2)", [paid, IDS.operator]);
+    assert.equal((await raw('select transfer_reversed from public.payment_disputes where stripe_dispute_id=$1', ['dp_a'])).rows[0].transfer_reversed, true);
+    const note = (await raw('select note,author_id from public.order_notes where purchase_id=$1', [paid])).rows[0];
+    assert.match(note.note, /taken back after a chargeback: \$43\.20/); assert.match(note.note, /trr_1/);
+    assert.equal(note.author_id, IDS.operator);
+    await as(IDS.operator);
+    const again = (await db.query('select public.admin_transfer_reversal_info($1) as i', [paid])).rows[0].i;
+    assert.equal(again.eligible, false); assert.equal(again.already_reversed, true);
+
+    // Ordinary users cannot call the recorder.
+    await as(IDS.buyer);
+    await assert.rejects(db.query("select public.record_transfer_reversal($1,'x',1,$2)", [paid, IDS.buyer]), /permission denied/);
+  } finally { await db.close(); }
+});

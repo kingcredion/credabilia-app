@@ -48,7 +48,7 @@ export function createHandler({createClient,env}) {
       const amount=refundRequest.offered_amount_cents ?? undefined;
 
       if(purchase.escrow_status==='released' && purchase.stripe_transfer_id) {
-        await stripe.transferReversals.create({transfer:purchase.stripe_transfer_id, ...(amount!==undefined?{amount}:{})});
+        await stripe.transfers.createReversal(purchase.stripe_transfer_id, amount!==undefined?{amount}:{});
       }
       // A full refund returns the whole payment, tax included. A partial refund of an order that carried sales tax also returns the matching
       // share of the tax (the seller's transfer reversal above is only ever the price portion: tax never went to the seller).

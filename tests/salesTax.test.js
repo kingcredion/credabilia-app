@@ -124,7 +124,7 @@ test('a partial refund returns the matching share of the tax; the seller reversa
   const source=await readFile(new URL('handler.js',FN('process-refund')),'utf8');
   const load=new Function('Stripe',source.replace("import Stripe from 'npm:stripe@17';",'').replace('export function createHandler','function createHandler')+'\nreturn createHandler;');
   const refunds=[],reversals=[];
-  class Stripe { static createFetchHttpClient(){} refunds={create:async a=>{refunds.push(a);return {id:'re_1'};}}; transferReversals={create:async a=>{reversals.push(a);return {};}}; }
+  class Stripe { static createFetchHttpClient(){} refunds={create:async a=>{refunds.push(a);return {id:'re_1'};}}; transfers={createReversal:async (transfer,a)=>{reversals.push({transfer,...(a||{})});return {};}}; }
   const REQUEST='44444444-4444-4444-8444-dddddddddddd';
   const build=(offered,purchase)=>{
     const chain=data=>{const b={select:()=>b,eq:()=>b,maybeSingle:async()=>({data,error:null})};return b;};

@@ -139,7 +139,7 @@ test('process-refund handler: passes offered_amount_cents through as a partial S
     class Stripe {
       static createFetchHttpClient(){}
       refunds={create:async(args)=>{calls.push(['refund',args]);return {id:'re_test_stub'};}};
-      transferReversals={create:async(args)=>{calls.push(['reversal',args]);return {id:'trr_test_stub'};}};
+      transfers={createReversal:async(transfer,args)=>{calls.push(['reversal',{transfer,...(args||{})}]);return {id:'trr_test_stub'};}};
     }
     const createHandler=loadProcessRefund(Stripe);
     return {calls:marked,handler:createHandler({

@@ -61,7 +61,7 @@ async function refundReturn(service, env, purchaseId, refundRequestId) {
   if(!purchase) return;
   const stripe=new Stripe(env('STRIPE_SECRET_KEY'),{apiVersion:'2024-06-20',httpClient:Stripe.createFetchHttpClient()});
   if(purchase.escrow_status==='released' && purchase.stripe_transfer_id) {
-    await stripe.transferReversals.create({transfer:purchase.stripe_transfer_id});
+    await stripe.transfers.createReversal(purchase.stripe_transfer_id);
   }
   const refund=await stripe.refunds.create({payment_intent:purchase.stripe_payment_intent_id});
   await service.rpc('mark_refund_processed',{p_request_id:refundRequestId,p_stripe_refund_id:refund.id});
