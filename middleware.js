@@ -9,11 +9,11 @@ import { next } from '@vercel/functions';
 const SUPABASE_URL = process.env.VITE_SUPABASE_URL;
 const SUPABASE_KEY = process.env.VITE_SUPABASE_PUBLISHABLE_KEY;
 const DEFAULT_IMAGE = 'https://credabilia.com/brand/app-icons/crown-c/web/icon-512.png';
-const RESERVED_SLUGS = new Set(['terms', 'privacy', 'help', 'auth', 'item', 'sell']);
+const RESERVED_SLUGS = new Set(['terms', 'privacy', 'help', 'auth', 'item', 'sell', 'certificate']);
 const BOT_UA = /bot|facebookexternalhit|facebookcatalog|twitterbot|slackbot|discordbot|linkedinbot|whatsapp|telegrambot|applebot|pinterest|redditbot|vkshare|skypeuripreview|embedly|quora|outbrain|iframely|w3c_validator/i;
 
 export const config = {
-  matcher: ['/item/:id', '/:slug([^/.]+)', '/sitemap.xml', '/products.xml'],
+  matcher: ['/', '/item/:id', '/:slug([^/.]+)', '/sitemap.xml', '/products.xml'],
 };
 
 function escapeHtml(value) {
@@ -61,6 +61,65 @@ async function signedImageUrl(path, expiresIn = 604800) {
   } catch { return null; }
 }
 
+// Crawlers get each page's own title, description and self-referencing canonical, plus a plain-HTML copy of its main content: the app is a
+// single page that only draws itself with JavaScript, so without this every address looked like the home page to a crawler that does not run it.
+const SITE_NAME = 'Credabilia';
+const HOME_DESCRIPTION = 'Credabilia is The Memorabilia Kingdom: buy and sell collectibles, explore certificate details, and collect with confidence.';
+const STATIC_PAGES = {
+  help: { title: 'Help Center | Credabilia', description: 'Answers about buying, selling, shipping, payment protection, certificates and community audits on Credabilia.', heading: 'Credabilia Help Center', text: 'Answers about buying, selling, shipping, how your payment is held until delivery, certificates of authenticity and community audits.' },
+  terms: { title: 'Terms of Service | Credabilia', description: 'The terms for buying and selling on Credabilia, including payment holds, refunds, shipping and certificates.', heading: 'Credabilia Terms of Service', text: 'The terms for buying and selling on Credabilia, including how payments are held until delivery, refunds, shipping and certificates.' },
+  privacy: { title: 'Privacy Policy | Credabilia', description: 'How Credabilia collects, uses and protects your information.', heading: 'Credabilia Privacy Policy', text: 'How Credabilia collects, uses and protects your information.' },
+  certificate: { title: 'Certificate lookup | Credabilia', description: 'Search a certificate number from PSA/DNA, JSA, Beckett (BAS) and other issuers to see whether it appears on a Credabilia listing.', heading: 'Certificate lookup', text: 'Search a certificate number from PSA/DNA, JSA, Beckett (BAS) and other issuers to see whether it appears on a Credabilia listing.' },
+  sell: { title: 'Sell your memorabilia | Credabilia', description: 'List signed memorabilia and collectibles on Credabilia. Get paid through Stripe after delivery, with item credibility scores that help buyers trust your listing.', heading: 'Sell your memorabilia on Credabilia', text: 'List signed memorabilia and collectibles. You are paid through Stripe after delivery, and item credibility scores help buyers trust your listing.' },
+};
+
+// Cut at a word boundary so a description never ends mid-word.
+export function shorten(text, max) {
+  const clean = String(text || '').replace(/\s+/g, ' ').trim();
+  if (clean.length <= max) return clean;
+  const cut = clean.slice(0, max);
+  return cut.slice(0, Math.max(cut.lastIndexOf(' '), 40)).replace(/[\s,.;:-]+$/, '') + '…';
+}
+
+const NAV_LINKS = '<nav><a href="/">Credabilia</a> · <a href="/help">Help</a> · <a href="/terms">Terms</a> · <a href="/privacy">Privacy</a> · <a href="/certificate">Certificate lookup</a> · <a href="/sell">Sell</a></nav>';
+
+// schema.org Product for one listing, so Google can show price and availability. Only facts the listing already states publicly.
+export function productJsonLd(item, pageUrl, image) {
+  return {
+    '@context': 'https://schema.org',
+    '@type': 'Product',
+    name: item.title,
+    description: shorten(item.description, 500) || item.title,
+    sku: item.id,
+    url: pageUrl,
+    ...(image ? { image: [image] } : {}),
+    ...(item.category ? { category: item.category } : {}),
+    itemCondition: 'https://schema.org/UsedCondition',
+    offers: {
+      '@type': 'Offer',
+      url: pageUrl,
+      priceCurrency: 'USD',
+      price: (item.price_cents / 100).toFixed(2),
+      availability: 'https://schema.org/InStock',
+      itemCondition: 'https://schema.org/UsedCondition',
+      seller: { '@type': 'Organization', name: SITE_NAME },
+    },
+  };
+}
+
+function itemBody(item, image) {
+  return '<main><h1>' + escapeHtml(item.title) + '</h1>' + (image ? '<img src="' + escapeHtml(image) + '" alt="' + escapeHtml(item.title) + '" width="640" />' : '') +
+    '<p>' + escapeHtml(money(item.price_cents)) + (item.category ? ' · ' + escapeHtml(item.category) : '') + '</p><p>' + escapeHtml(item.description || '').replace(/\n/g, '<br />') + '</p>' + NAV_LINKS + '</main>';
+}
+
+async function homeBody() {
+  const [feed, entries] = await Promise.all([callRpc('merchant_feed_listings', {}), callRpc('sitemap_entries', {})]);
+  const items = (feed || []).map(l => '<li><a href="/item/' + escapeHtml(l.id) + '">' + escapeHtml(l.title) + '</a> · ' + escapeHtml(money(l.price_cents)) + '</li>').join('');
+  const stores = (entries?.storefronts || []).map(slug => '<li><a href="/' + escapeHtml(slug) + '">' + escapeHtml(slug) + '</a></li>').join('');
+  return '<main><h1>Credabilia | The Memorabilia Kingdom</h1><p>' + escapeHtml(HOME_DESCRIPTION) + '</p>' +
+    (items ? '<h2>Featured collectibles</h2><ul>' + items + '</ul>' : '') + (stores ? '<h2>Storefronts</h2><ul>' + stores + '</ul>' : '') + NAV_LINKS + '</main>';
+}
+
 async function buildMeta(pathname) {
   const segments = pathname.split('/').filter(Boolean);
   if (segments.length === 2 && segments[0] === 'item') {
@@ -69,8 +128,14 @@ async function buildMeta(pathname) {
     if (!item) return NOT_FOUND;
     // The resized ~640px JPEG at a stable address (api/email-image.js), not the multi-megabyte original on a temporary link: chat apps drop big images.
     const image = item.photo_path ? `https://credabilia.com/img/item/${segments[1]}` : DEFAULT_IMAGE;
-    const description = [money(item.price_cents), item.category, (item.description || '').slice(0, 150)].filter(Boolean).join(' · ');
-    return { title: `${item.title} | Credabilia`, description, image };
+    const description = [money(item.price_cents), item.category, shorten(item.description, 150)].filter(Boolean).join(' · ');
+    const photo = item.photo_path ? image : null;
+    return { title: `${item.title} | Credabilia`, description, image, body: itemBody(item, photo), jsonLd: productJsonLd({ ...item, id: segments[1] }, `https://credabilia.com/item/${segments[1]}`, photo) };
+  }
+  if (segments.length === 0) return { title: 'Credabilia | The Memorabilia Kingdom', description: HOME_DESCRIPTION, image: DEFAULT_IMAGE, body: await homeBody() };
+  if (segments.length === 1 && STATIC_PAGES[segments[0]]) {
+    const page = STATIC_PAGES[segments[0]];
+    return { title: page.title, description: page.description, image: DEFAULT_IMAGE, body: '<main><h1>' + escapeHtml(page.heading) + '</h1><p>' + escapeHtml(page.text) + '</p>' + NAV_LINKS + '</main>' };
   }
   if (segments.length === 1 && !RESERVED_SLUGS.has(segments[0])) {
     const { ok, data: store } = await callRpcChecked('get_storefront', { p_slug: segments[0] });
@@ -79,7 +144,8 @@ async function buildMeta(pathname) {
     const firstListing = store.listings?.[0];
     const image = firstListing?.media?.[0]?.path ? `https://credabilia.com/img/item/${firstListing.id}` : DEFAULT_IMAGE;
     const description = `Browse ${store.display_name}'s collection on Credabilia${store.sales_count ? ` — ${store.sales_count} sale${store.sales_count === 1 ? '' : 's'}` : ''}.`;
-    return { title: `${store.display_name} | Credabilia Storefront`, description, image };
+    const links = (store.listings || []).filter(l => l.id && l.title).map(l => '<li><a href="/item/' + escapeHtml(l.id) + '">' + escapeHtml(l.title) + '</a></li>').join('');
+    return { title: `${store.display_name} | Credabilia Storefront`, description, image, body: '<main><h1>' + escapeHtml(store.display_name) + '</h1><p>' + escapeHtml(description) + '</p>' + (links ? '<ul>' + links + '</ul>' : '') + NAV_LINKS + '</main>' };
   }
   return null;
 }
@@ -88,7 +154,7 @@ async function buildMeta(pathname) {
 // so every real listing and storefront was invisible to search engines). Served to every
 // requester, not just BOT_UA, since this is a machine-readable endpoint by definition, not an
 // HTML page needing bot-only treatment.
-const STATIC_URLS = ['/', '/help', '/terms', '/privacy'];
+const STATIC_URLS = ['/', '/help', '/terms', '/privacy', '/certificate', '/sell'];
 
 async function buildSitemap(origin) {
   const data = await callRpc('sitemap_entries', {});
@@ -145,7 +211,8 @@ function injectMeta(html, meta, pageUrl) {
     .replace(/<meta property="og:description" content="[^"]*" \/>/, `<meta property="og:description" content="${escapeHtml(meta.description)}" />`)
     .replace(/<meta property="og:url" content="[^"]*" \/>/, `<meta property="og:url" content="${escapeHtml(pageUrl)}" />`)
     .replace(/<meta property="og:image" content="[^"]*" \/>/, `<meta property="og:image" content="${escapeHtml(meta.image)}" />`)
-    .replace('</head>', '<meta name="twitter:card" content="summary_large_image" /></head>');
+    .replace('<div id="root"></div>', () => '<div id="root">' + (meta.body || '') + '</div>')
+    .replace('</head>', () => '<meta name="robots" content="index, follow, max-image-preview:large" /><meta name="twitter:card" content="summary_large_image" />' + (meta.jsonLd ? '<script type="application/ld+json">' + JSON.stringify(meta.jsonLd).replace(/</g, '\\u003c') + '</script>' : '') + '</head>');
 }
 
 export default async function middleware(request) {
@@ -165,7 +232,7 @@ export default async function middleware(request) {
   const meta = await buildMeta(url.pathname);
   if (!meta) return next();
 
-  const origin = await fetch(new URL('/', url));
+  const origin = await fetch(new URL('/index.html', url));
   if (!origin.ok) return next();
   // The single-page app answers every address with 200, so search engines took made-up addresses (the old Credabilia app's pages) for real ones and
   // kept them listed. For crawlers, an item or storefront that does not exist now says 404 and "do not index"; people still get the app as before.
