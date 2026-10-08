@@ -62,7 +62,7 @@ export function SupportChat({ service }) {
     {!messages?.length && <div className="support-welcome">
       <img src="/brand/screen-face-v1/support.webp" alt="King Credion, wearing his crown and a headset, seated at a laptop"/>
       <h3>Hi, I'm King Credion. How can I help?</h3>
-      <p className="field-note">I'm an AI support assistant. Ask about fees, escrow, shipping insurance, audits, or your own orders.</p>
+      <p className="field-note">I'm an AI support assistant. Ask about fees, payment protection, shipping insurance, audits, or your own orders.</p>
     </div>}
     {messages === undefined ? <p role="status" className="field-note">Loading…</p>
       : <div className="chat-log" ref={logRef}>

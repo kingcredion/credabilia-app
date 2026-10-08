@@ -18,7 +18,7 @@ Credabilia is a marketplace for sports and entertainment memorabilia (signed ite
 cannot easily tell how much evidence stands behind a collectible. Every listing shows an Item Credibility score
 (80% the issuer's own rating, 20% community audits) with certificate details, issuer lookups and photos in one place,
 plus an AI second look at signatures. Sellers get a simple listing flow with an AI draft from a photo. Buyers pay through
-Stripe and funds are held in escrow until delivery. Audience: adults 18+ in the United States who collect or sell memorabilia.
+Stripe and the payment is held until delivery. Audience: adults 18+ in the United States who collect or sell memorabilia.
 
 All purchases are physical goods paid by card through Stripe, so no in-app purchase is involved. Users sign in with
 Sign in with Apple, Google or an emailed code; the attached video shows launch, Sign in with Apple, selling, buying,
@@ -32,7 +32,7 @@ real payments are live, so please do not buy real items. Normal users sign in wi
 
 ## 4. External services used
 - Supabase: database, authentication, file storage and server functions
-- Stripe (Connect and Checkout): payments, seller payouts, escrow
+- Stripe (Connect and Checkout): payments and seller payouts
 - Shippo: shipping labels and tracking
 - OpenAI: AI listing draft and the AI signature opinion
 - Photoroom: automatic photo background removal

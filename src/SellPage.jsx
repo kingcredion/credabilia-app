@@ -10,12 +10,12 @@ const LIST_URL = listUrl(typeof window === 'undefined' ? '' : window.location.ho
 const STEPS = [
   ['1', 'Snap your photos', 'Take a few clear photos of your piece, plus a close-up of the signature.'],
   ['2', 'King Credion drafts it', 'Our AI writes the title and description and suggests details. You review and edit before anything is published.'],
-  ['3', 'Publish and get paid', 'When it sells, ship it. Payment is held in escrow and released once delivery is confirmed.'],
+  ['3', 'Publish and get paid', "When it sells, ship it. The buyer's payment is held until delivery is confirmed, then released to you."],
 ];
 
 const REASONS = [
   ['A fee only when it sells', 'Sellers pay a platform fee on completed sales. The exact amount is shown before you publish.'],
-  ['Paid safely', "Buyers' payments are held in escrow until tracking confirms delivery, then released to you."],
+  ['Paid safely', "Buyers' payments are held until tracking confirms delivery, then released to you."],
   ['Built for collectibles', 'Signature close-ups, certificate details and community audits help buyers trust what they see.'],
   ['Made for memorabilia', 'A marketplace for sports, entertainment, art and comics collectors, not a general store.'],
 ];
@@ -23,7 +23,7 @@ const REASONS = [
 const FAQ = [
   ['What can I sell?', 'Memorabilia and collectibles in sports, entertainment, art and comics: signed jerseys, baseballs, trading cards, framed pieces, boxing gloves, comics and more.'],
   ['What does it cost?', 'Sellers pay a platform fee on each completed sale: about 13.6% of the price, plus $0.30 for orders $10 or under or $0.40 for orders over $10. The fee is charged when an item sells, and the exact amount is shown before you publish.'],
-  ['How do I get paid?', "When a buyer pays, we hold the money in escrow until tracking confirms delivery, then release it to you. You'll connect a Stripe account for payouts."],
+  ['How do I get paid?', "When a buyer pays, we hold the payment until tracking confirms delivery, then release it to you. You'll connect a Stripe account for payouts."],
   ['Who handles shipping?', 'You ship the item. Shipping rates and labels are available through the app.'],
   ['Is my item authenticated?', "Community audits are opinions from other members, not professional authentication. Buyers see your photos and details and judge the evidence for themselves."],
   ['Is there a mobile app?', "Apps for the Apple App Store and Google Play are coming soon. Until then, Credabilia works right in your phone's browser."],

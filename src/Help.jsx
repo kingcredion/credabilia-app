@@ -10,11 +10,11 @@ export function HelpPage() {
     <p className="legal-updated">We're here to help, day or night.</p>
 
     <section>
-      <p>Credabilia is a marketplace and community for collectors — a place to buy and sell memorabilia with more context than a typical listing: certificate details, community assessments, and a credibility score to help you judge the evidence for yourself. Every purchase is protected by escrow, and sellers must confirm an item is still available before you pay.</p>
+      <p>Credabilia is a marketplace and community for collectors — a place to buy and sell memorabilia with more context than a typical listing: certificate details, community assessments, and a credibility score to help you judge the evidence for yourself. Every purchase is protected: your payment is held until delivery is confirmed, and sellers must confirm an item is still available before you pay.</p>
     </section>
 
     <h2>Talk to King Credion</h2>
-    <p>Our AI assistant, King Credion, can answer questions about fees, shipping, escrow, and more — anytime, day or night.</p>
+    <p>Our AI assistant, King Credion, can answer questions about fees, shipping, payment protection, and more — anytime, day or night.</p>
     <ul>
       <li><strong>Call:</strong> <a href="tel:+18667500255">1 (866) 750-0255</a></li>
       <li><strong>Email:</strong> <a href="mailto:support@credabilia.com">support@credabilia.com</a></li>
@@ -40,7 +40,7 @@ export function HelpPage() {
     <p>Where the law requires it, yes. Tax is worked out from the address your order is delivered to (or the meetup spot for a local pickup) and shown as its own line at checkout before you pay. It is added on top of the item price, and sellers are not charged it. If an order is refunded, the matching tax is refunded too.</p>
 
     <h3>How does payment protection work?</h3>
-    <p>When you buy an item, Credabilia holds your payment in escrow. The seller is paid after delivery is confirmed by tracking, followed by a short protection period: 72 hours to 7 days for new sellers (depending on the price), 72 hours for established sellers, and as little as 48 hours for trusted sellers. If you accept your delivery sooner, an established or trusted seller can be paid sooner. An open refund request pauses the payout. If tracking never shows delivery, the payout waits up to 21 days. Sellers are not paid instantly at purchase.</p>
+    <p>When you buy an item, Credabilia holds your payment until delivery is confirmed. The seller is paid after delivery is confirmed by tracking, followed by a short protection period: 72 hours to 7 days for new sellers (depending on the price), 72 hours for established sellers, and as little as 48 hours for trusted sellers. If you accept your delivery sooner, an established or trusted seller can be paid sooner. An open refund request pauses the payout. If tracking never shows delivery, the payout waits up to 21 days. Sellers are not paid instantly at purchase.</p>
 
     <h3>How do auctions work?</h3>
     <p>To bid you need a card on file with us. It is not charged; it just shows you are a real bidder, because every bid is a binding commitment to buy. You enter the most you are willing to pay, and we bid for you only as much as needed to keep you in the lead, up to that maximum. The price goes up in steps that grow with the price. A bid in the last 5 minutes extends the auction by 5 minutes, so nobody can win with a last-second bid. If you win you have 48 hours to pay; if you don't, the item goes to the next bidder and you get a strike (two strikes pause bidding). Once an auction has a bid, the seller cannot change its price or remove it.</p>
