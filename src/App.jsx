@@ -1584,6 +1584,18 @@ function AdminReportRow({ report, onResolve }) {
     <div className="admin-row-head"><span>{report.target_type} · reported by {report.reporter_name}</span><span>{report.status}</span></div>
     <p><strong>{report.reason}</strong></p>
     {report.details && <p className="field-note">{report.details}</p>}
+    {report.listing && <div className="field-note">
+      <p><strong>{report.listing.title}</strong> · {money(report.listing.price_cents)} · {report.listing.status}{report.listing.category ? ' · ' + report.listing.category : ''}</p>
+      <p>Seller: {report.listing.seller_slug ? <a href={'/' + report.listing.seller_slug} target="_blank" rel="noopener noreferrer">{report.listing.seller_name}</a> : report.listing.seller_name} · <a href={'/item/' + report.listing.id} target="_blank" rel="noopener noreferrer">Open listing ↗</a></p>
+    </div>}
+    {report.target_type === 'listing' && !report.listing && <p className="field-note">This listing no longer exists.</p>}
+    {report.member && <p className="field-note">Member: {report.member.slug ? <a href={'/' + report.member.slug} target="_blank" rel="noopener noreferrer">{report.member.name}</a> : report.member.name}{report.member.banned ? ' · banned' : ''}{report.member.deleted ? ' · deleted' : ''}</p>}
+    {report.target_type === 'user' && !report.member && <p className="field-note">This member no longer exists.</p>}
+    {report.message && <div className="field-note">
+      <p>“{report.message.body}”</p>
+      <p>Sent by {report.message.sender_name} · {new Date(report.message.sent_at).toLocaleString()} · about <a href={'/item/' + report.message.listing_id} target="_blank" rel="noopener noreferrer">{report.message.listing_title} ↗</a></p>
+    </div>}
+    {report.target_type === 'message' && !report.message && <p className="field-note">This message no longer exists.</p>}
     {report.review && <div className="field-note"><p><RatingStars value={report.review.rating} size={14}/> {report.review.comment || <em>No comment.</em>}</p><p>By {report.review.reviewer_name} about {report.review.seller_name}{report.review.item_title ? ` · ${report.review.item_title}` : ''}{report.review.hidden ? ' · already hidden' : ''}</p></div>}
     <label>Note (optional)<textarea value={note} onChange={event => setNote(event.target.value)} rows={2} maxLength={2000} disabled={busy}/></label>
     {error && <p role="alert" className="error">{error}</p>}
