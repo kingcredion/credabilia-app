@@ -25,11 +25,15 @@ export function createHandler({ env, fetcher = fetch }) {
       if (!signed) return fallback();
       const photo = await fetcher(`${supabaseUrl}/storage/v1${signed}`);
       if (!photo.ok) return fallback();
-      const jpeg = await sharp(Buffer.from(await photo.arrayBuffer()))
-        .rotate().resize({ width: 640, withoutEnlargement: true })
-        .flatten({ background: CARD_BG }).jpeg({ quality: 80, mozjpeg: true }).toBuffer();
+      // ?fmt=webp is the app's card thumbnail: same address-never-expires idea, but it keeps the photo's transparent background (the app's
+      // cards are not cream) and is much smaller than the original. ?w= picks the width (160 to 1280, default 640).
+      const first = value => Array.isArray(value) ? value[0] : value;
+      const wantsWebp = first(req.query?.fmt) === 'webp';
+      const width = Math.min(1280, Math.max(160, parseInt(first(req.query?.w), 10) || 640));
+      const resized = sharp(Buffer.from(await photo.arrayBuffer())).rotate().resize({ width, withoutEnlargement: true });
+      const jpeg = wantsWebp ? await resized.webp({ quality: 78 }).toBuffer() : await resized.flatten({ background: CARD_BG }).jpeg({ quality: 80, mozjpeg: true }).toBuffer();
       res.statusCode = 200;
-      res.setHeader('Content-Type', 'image/jpeg');
+      res.setHeader('Content-Type', wantsWebp ? 'image/webp' : 'image/jpeg');
       // Cached at the edge for a day and by mail clients' proxies; a replaced photo shows up within a day.
       res.setHeader('Cache-Control', 'public, max-age=3600, s-maxage=86400');
       res.end(jpeg);

@@ -63,10 +63,13 @@ export function makeService() {
       } catch (err) { window.dispatchEvent(new CustomEvent('credabilia:auth-error', { detail: err.message })); }
     })).catch(() => {});
   }
+  // Photo links used to last one hour, so a phone app left open (or backgrounded) longer than that showed broken photos. Six hours, plus the
+  // app now re-signs when it comes back to the foreground (see App.jsx).
+  const MEDIA_LINK_SECONDS=21600;
   async function signMedia(items) {
     const paths=items.flatMap(item=>(item.media || []).map(asset=>asset.path));
     if(!paths.length) return items;
-    const {data}=await client.storage.from('listing-media').createSignedUrls(paths,3600);
+    const {data}=await client.storage.from('listing-media').createSignedUrls(paths,MEDIA_LINK_SECONDS);
     const urls=new Map((data || []).map(asset=>[asset.path,asset.signedUrl]));
     return items.map(item=>({...item,media:(item.media || []).map(asset=>({...asset,url:urls.get(asset.path)||null}))}));
   }
@@ -141,7 +144,7 @@ export function makeService() {
       if(!user) throw new Error('Sign in to add photos.');
       const path=user.id+'/'+crypto.randomUUID()+'.jpg';
       unwrap(await client.storage.from('listing-media').upload(path,blob,{contentType:'image/jpeg',upsert:false}));
-      const signed=unwrap(await client.storage.from('listing-media').createSignedUrl(path,3600));
+      const signed=unwrap(await client.storage.from('listing-media').createSignedUrl(path,MEDIA_LINK_SECONDS));
       return {path,kind,url:signed.signedUrl};
     },
     async removeImage(path) {
@@ -151,7 +154,7 @@ export function makeService() {
     },
     async signMediaUrls(media) {
       if(!media.length) return [];
-      const {data}=await client.storage.from('listing-media').createSignedUrls(media.map(a=>a.path),3600);
+      const {data}=await client.storage.from('listing-media').createSignedUrls(media.map(a=>a.path),MEDIA_LINK_SECONDS);
       const urls=new Map((data||[]).map(a=>[a.path,a.signedUrl]));
       return media.map(asset=>({...asset,url:urls.get(asset.path)||null}));
     },
@@ -166,7 +169,7 @@ export function makeService() {
       // function response), so it must be re-wrapped with the real type before uploading.
       const png=new Blob([data],{type:'image/png'});
       unwrap(await client.storage.from('listing-media').upload(newPath,png,{contentType:'image/png',upsert:false}));
-      const signed=unwrap(await client.storage.from('listing-media').createSignedUrl(newPath,3600));
+      const signed=unwrap(await client.storage.from('listing-media').createSignedUrl(newPath,MEDIA_LINK_SECONDS));
       await client.storage.from('listing-media').remove([path]).catch(()=>{});
       return {path:newPath,kind:'item',url:signed.signedUrl};
     },
@@ -403,7 +406,7 @@ export function makeService() {
     async adminListSignatureReferences(provenance) {
       const items = unwrap(await client.rpc('admin_list_signature_references', { p_provenance: provenance || 'self_reported' }));
       if(!items.length) return items;
-      const {data}=await client.storage.from('listing-media').createSignedUrls(items.map(i=>i.path),3600);
+      const {data}=await client.storage.from('listing-media').createSignedUrls(items.map(i=>i.path),MEDIA_LINK_SECONDS);
       const urls=new Map((data||[]).map(a=>[a.path,a.signedUrl]));
       return items.map(item=>({...item,url:urls.get(item.path)||null}));
     },
