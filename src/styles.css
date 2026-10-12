@@ -347,3 +347,18 @@ dialog.login-dialog{width:min(860px,calc(100vw - 32px));max-width:860px;overflow
 .login-form input{font-size:16px}
 @media(max-width:640px){dialog.login-dialog{padding:20px;width:calc(100vw - 24px)}.login-layout{grid-template-columns:1fr;gap:12px}.login-art img{width:142px;max-height:142px}.login-intro{text-align:center;margin-bottom:16px}.login-dialog .dialog-header{margin-bottom:12px}.login-divider{margin:14px 0}}
 @media(max-width:640px) and (max-height:700px){.login-art img{width:100px;max-height:100px}}
+
+/* Sign-in box: the mascot sits on a deep emerald "stage" with a soft gold glow and drifting gold sparks. The form side stays white with the
+   blue buttons on purpose (that blue is the trust signal at the point where people hand over an email). Motion is transform/opacity only. */
+dialog.login-dialog{border-color:#c9a22780;box-shadow:0 25px 100px var(--shadow-dialog),0 0 0 1px #c9a22733,0 0 60px #c9a2271f}
+dialog.login-dialog::backdrop{background:radial-gradient(ellipse at 50% 38%,#c9a22729,transparent 62%),#05180ed1;backdrop-filter:blur(5px)}
+.login-art{position:relative;overflow:hidden;isolation:isolate;align-self:stretch;border-radius:12px;padding:18px;background:radial-gradient(circle at 50% 46%,#1f7455 0%,#0d3b2c 52%,#06231a 100%);--rise:300px}
+.login-art::before{content:"";position:absolute;z-index:-1;left:50%;top:48%;width:78%;aspect-ratio:1;transform:translate(-50%,-50%);border-radius:50%;background:radial-gradient(circle,#ffd96a59 0%,#c9a22724 45%,transparent 70%);animation:login-glow 5.5s ease-in-out infinite}
+.login-art img{position:relative;z-index:1;animation:login-float 6.5s ease-in-out infinite}
+.login-sparks{position:absolute;inset:0;z-index:0;pointer-events:none}
+.login-sparks i{position:absolute;bottom:-10px;left:var(--x);width:var(--s);height:var(--s);border-radius:50%;background:radial-gradient(circle,#fff3c4 0%,#e8b94a 45%,transparent 72%);box-shadow:0 0 9px 2px #f0c35ccc;opacity:0;will-change:transform,opacity;animation:login-spark var(--d) linear var(--delay) infinite}
+@keyframes login-spark{0%{transform:translate(0,0) scale(.6);opacity:0}12%{opacity:.95}50%{transform:translate(var(--drift),calc(var(--rise)*-.5)) scale(1.15);opacity:.8}100%{transform:translate(calc(var(--drift)*-.6),calc(var(--rise)*-1)) scale(.5);opacity:0}}
+@keyframes login-glow{0%,100%{opacity:.75;transform:translate(-50%,-50%) scale(.96)}50%{opacity:1;transform:translate(-50%,-50%) scale(1.06)}}
+@keyframes login-float{0%,100%{transform:translateY(0)}50%{transform:translateY(-5px)}}
+@media(max-width:640px){.login-art{--rise:150px;padding:10px 0}}
+@media(prefers-reduced-motion:reduce){.login-sparks{display:none}.login-art::before,.login-art img{animation:none}}
