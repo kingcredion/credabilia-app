@@ -323,3 +323,27 @@ dialog.photo-viewer::backdrop{background:#000}
 
 /* Shown only while App Review's test sign-in is switched on. */
 .review-team-button{display:flex;align-items:center;justify-content:center;gap:8px;width:100%;min-height:44px;margin-top:4px;border:1px dashed var(--border);border-radius:999px;font-size:13px;font-weight:600;color:var(--text-muted)}
+
+/* "List your first item" hand-off: covers the marketplace while sign-in opens (the sign-in dialog sits above this, in the top layer). */
+.list-handoff{position:fixed;inset:0;z-index:50;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;padding:24px;text-align:center;background:var(--bg);color:var(--text)}
+.list-handoff .brand-tagline{display:none}
+.list-handoff .brand-logo{width:190px}
+.list-handoff h1{font-size:30px;line-height:1.15;letter-spacing:-1px;margin:18px 0 0}
+.list-handoff p{max-width:420px;margin:0;font-size:15px;color:var(--text-muted)}
+.list-handoff .list-handoff-note{font-weight:600;color:var(--text)}
+
+/* Responsive King Credion login welcome. */
+dialog.login-dialog{width:min(860px,calc(100vw - 32px));max-width:860px;overflow-y:auto}
+.login-layout{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.1fr);gap:28px;align-items:center}
+.login-art{display:flex;align-items:center;justify-content:center;min-width:0}
+.login-art img{display:block;width:100%;height:auto;object-fit:contain}
+.login-form{min-width:0}
+.login-intro{margin:0 0 20px;line-height:1.6}
+.login-form .full-width{min-height:48px}
+.login-divider{display:flex;align-items:center;gap:12px;margin:18px 0;color:var(--text-muted);font-size:12px}
+.login-divider::before,.login-divider::after{content:"";height:1px;flex:1;background:var(--border)}
+.login-form .form-stack{gap:12px}
+.login-form .field-note{line-height:1.6}
+.login-form input{font-size:16px}
+@media(max-width:640px){dialog.login-dialog{padding:20px;width:calc(100vw - 24px)}.login-layout{grid-template-columns:1fr;gap:12px}.login-art img{width:142px;max-height:142px}.login-intro{text-align:center;margin-bottom:16px}.login-dialog .dialog-header{margin-bottom:12px}.login-divider{margin:14px 0}}
+@media(max-width:640px) and (max-height:700px){.login-art img{width:100px;max-height:100px}}

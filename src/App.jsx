@@ -28,7 +28,7 @@ import { MessageThread } from './MessageThread.jsx';
 import { SoldItemPage } from './SoldItemPage.jsx';
 import { trackItemListed, trackSignUpIfNew } from './analytics.js';
 import { SellPage } from './SellPage.jsx';
-import { LIST_INTENT_KEY, captureListIntent, isSellHost } from './listIntent.js';
+import { LIST_INTENT_KEY, captureListIntent, hasFreshListIntent, isSellHost } from './listIntent.js';
 const SupportChat = React.lazy(() => import('./SupportChat.jsx').then(module => ({ default: module.SupportChat })));
 import { CATEGORIES, WORKSPACES, priceInCents } from './domain.js';
 import { formatWeight, formatLength } from './weight.js';
@@ -50,10 +50,10 @@ const HERO_IMAGES = {
   auditor: { src: '/brand/screen-face-v1/audit.webp', width: 800, height: 800, alt: 'King Credion inspecting a certificate of authenticity with a magnifying glass beside a signed baseball' },
 };
 
-function Modal({ title, children, onClose }) {
+function Modal({ title, children, onClose, className }) {
   const dialog = useRef(null);
   useEffect(() => { const el = dialog.current; el.showModal(); return () => { if (el.open) el.close(); }; }, []);
-  return <dialog ref={dialog} onCancel={event => { event.preventDefault(); onClose(); }} onClick={event => { if (event.target === dialog.current) onClose(); }} aria-labelledby="modal-title">
+  return <dialog ref={dialog} className={className} onCancel={event => { event.preventDefault(); onClose(); }} onClick={event => { if (event.target === dialog.current) onClose(); }} aria-labelledby="modal-title">
     <header className="dialog-header"><h2 id="modal-title">{title}</h2><button className="icon-button" aria-label="Close" onClick={onClose}><X size={20}/></button></header>{children}
   </dialog>;
 }
@@ -2232,6 +2232,14 @@ export default function App() {
   // loaded `items`/`buyRequests` once they're fetched, below.
   const itemPathId = (() => { const segments = window.location.pathname.split('/').filter(Boolean); return segments.length === 2 && segments[0] === 'item' ? segments[1] : null; })();
   useState(captureListIntent); // runs once: a ?list=1 arrival becomes a stored intent for the effect below
+  // True while someone who clicked "List your first item" is being taken through sign-in to the listing form: a focused screen covers
+  // the marketplace so they never see unrelated content first (see the effect below and .list-handoff).
+  const [listHandoff, setListHandoff] = useState(() => !legalPage && !storefrontSlug && hasFreshListIntent());
+  useEffect(() => { // never leave the cover up if something stalls
+    if (!listHandoff) return;
+    const timer = setTimeout(() => setListHandoff(false), 12000);
+    return () => clearTimeout(timer);
+  }, [listHandoff]);
   const [session, setSession] = useState(null), [authReady, setAuthReady] = useState(false), [profile, setProfile] = useState(null);
   const [workspace, setWorkspace] = useState('collector'), [items, setItems] = useState([]), [audits, setAudits] = useState([]);
   const [category, setCategory] = useState('All items'), [query, setQuery] = useState(''), [selectedId, setSelectedId] = useState(null);
@@ -2457,14 +2465,16 @@ export default function App() {
   // abandoned visit doesn't pop the form open weeks later.
   const loginPrompted = useRef(false);
   useEffect(() => {
-    if (!authReady || loading || storefrontSlug || legalPage) return;
+    if (!authReady || storefrontSlug || legalPage) return;
     let started = null;
-    try { started = Number(localStorage.getItem(LIST_INTENT_KEY)); } catch { return; }
-    if (!started) return;
-    if (Date.now() - started > 24 * 60 * 60 * 1000) { try { localStorage.removeItem(LIST_INTENT_KEY); } catch {} return; }
+    try { started = Number(localStorage.getItem(LIST_INTENT_KEY)); } catch { setListHandoff(false); return; }
+    if (!started) { setListHandoff(false); return; }
+    if (Date.now() - started > 24 * 60 * 60 * 1000) { try { localStorage.removeItem(LIST_INTENT_KEY); } catch {} setListHandoff(false); return; }
+    // Not signed in: ask straight away. There is no reason to wait for the marketplace to finish loading behind it.
     if (!session) { if (!loginPrompted.current) { loginPrompted.current = true; setModal('login'); } return; }
-    if (!profile) return;
+    if (loading || !profile) return; // signed in: the profile has to be loaded to know whether they can sell
     try { localStorage.removeItem(LIST_INTENT_KEY); } catch {}
+    setListHandoff(false);
     if (profile.can_sell) setModal('create'); else setError('Your account does not have selling permission.');
   }, [authReady, loading, session, profile]);
   // /?view=requests (the "Buy Request Received" email's button) opens the seller's Requests tab. Remembered in
@@ -2630,6 +2640,12 @@ export default function App() {
     } catch (err) { setError(err.message); } finally { setBusy(false); }
   }
   return <div className="app">
+    {listHandoff && !error && (!authReady || !session || loading || !profile) && <div className="list-handoff" role="status" aria-live="polite">
+      <span className="brand" aria-label="Credabilia"><Brand/></span>
+      <h1>List your first item</h1>
+      <p>King Credion drafts your listing from your photos. You review it before anything goes live.</p>
+      <p className="list-handoff-note">{authReady && !session ? 'Sign in to continue.' : 'Getting things ready…'}</p>
+    </div>}
     {updateReady && <div className="update-banner" role="status"><span>A new version of Credabilia is ready.</span><button type="button" onClick={() => window.location.reload()}>Refresh</button></div>}
     {service.mode === 'demo' && <div className="demo-banner"><span><span className="live-dot"/> LOCAL PREVIEW <span className="banner-detail">· Sample items and two practice accounts. No real login or purchases.</span></span><button onClick={async () => { await service.reset(); setSelectedId(null); setWorkspace('collector'); refresh(); }}>Reset demo</button></div>}
     <header className="topbar">
@@ -2697,7 +2713,7 @@ export default function App() {
       </main>
     </div>
     <BottomNav sellGlow={sellGlow} messagesGlow={messagesGlow} session={session} workspace={workspace} onSwitchWorkspace={switchWorkspace} profile={profile} authReady={authReady} onProfile={() => setModal('profile')} onSignIn={() => setModal('login')}/>
-    {modal === 'login' && <Modal title="Welcome to Credabilia" onClose={() => setModal(null)}><p className="muted">One account to collect, sell, and share your perspective.</p>{service.mode === 'demo' ? <><div className="evidence-box"><h3>Try the local preview</h3><p>These two separate practice accounts stay in this browser. Each can switch between all three workspaces. Real sign-in is available when the Supabase project is connected.</p></div><div className="form-stack">{DEMO_ACCOUNTS.map(account => <button key={account.id} className="primary full-width" onClick={() => signIn(account.id)} disabled={busy}>{busy ? 'Opening…' : `Continue as ${account.display_name}`}<ArrowRight size={18}/></button>)}</div></> : <><button className="primary full-width" onClick={() => signIn()} disabled={busy}>{busy ? 'Opening…' : 'Continue with Google'}<ArrowRight size={18}/></button>{APPLE_SIGNIN_ENABLED && <button type="button" className="apple-signin full-width" onClick={signInApple} disabled={busy}><AppleLogo/> Continue with Apple</button>}<p className="field-note">or</p><EmailLogin/><p className="field-note">By continuing, you agree to Credabilia's <a href="/terms" target="_blank" rel="noreferrer">Terms of Service</a> and <a href="/privacy" target="_blank" rel="noreferrer">Privacy Policy</a>.</p></>}<p className="field-note">Your sign-in method does not determine your workspace. You can switch between all three after signing in.</p></Modal>}
+    {modal === 'login' && <Modal className="login-dialog" title={listHandoff ? 'Sign in to list your item' : 'Welcome to the Kingdom'} onClose={() => { setModal(null); setListHandoff(false); }}><div className="login-layout"><div className="login-art"><img src="/brand/king-credion-login-welcome-ai-v2.webp" width="640" height="640" alt="King Credion welcomes you through the royal gate"/></div><div className="login-form"><p className="muted login-intro">{listHandoff ? 'One quick sign-in, then King Credion drafts your listing from your photos. You pay a fee only when it sells.' : 'Sign in or join to collect, sell, and explore.'}</p>{service.mode === 'demo' ? <><div className="evidence-box"><h3>Try the local preview</h3><p>These two separate practice accounts stay in this browser. Each can switch between all three workspaces. Real sign-in is available when the Supabase project is connected.</p></div><div className="form-stack">{DEMO_ACCOUNTS.map(account => <button key={account.id} className="primary full-width" onClick={() => signIn(account.id)} disabled={busy}>{busy ? 'Opening…' : `Continue as ${account.display_name}`}<ArrowRight size={18}/></button>)}</div></> : <><button className="primary full-width" onClick={() => signIn()} disabled={busy}>{busy ? 'Opening…' : 'Continue with Google'}<ArrowRight size={18}/></button>{APPLE_SIGNIN_ENABLED && <button type="button" className="apple-signin full-width" onClick={signInApple} disabled={busy}><AppleLogo/> Continue with Apple</button>}<div className="login-divider"><span>or use email</span></div><EmailLogin/><p className="field-note">By continuing, you agree to Credabilia's <a href="/terms" target="_blank" rel="noreferrer">Terms of Service</a> and <a href="/privacy" target="_blank" rel="noreferrer">Privacy Policy</a>.</p></>}</div></div></Modal>}
     {modal === 'checkout-address' && (selected || pendingBuy) && <CheckoutAddress item={selected || pendingBuy} profile={profile} busy={busy} onClose={() => setModal(null)} onConfirm={(address, applyCreditCents, wantInsurance, fulfillmentMethod, shippingChoice, disclosureAck) => { const id = selected?.id || pendingBuy?.listing_id; setModal(null); buyNow(id, address, applyCreditCents, wantInsurance, fulfillmentMethod, shippingChoice, disclosureAck); }}/>}
     {modal === 'create' && <CreateListing onClose={() => setModal(null)} onCreated={(id,fit) => { setModal(null); setNotice(fit ? `Your listing was saved, but it needs a quick review before buyers can see it — ${fit.reason || "it didn't clearly look like a collectible."}` : service.mode === 'live' && profile && !profile.stripe_charges_enabled ? 'Your listing is published, but it is locked until you connect payouts with Stripe. Buyers can see it, and it opens for sale automatically when you are done. Open Sell to set up payouts.' : 'Your listing is published.'); setSelectedId(id); refresh(); }}/>}
     {modal === 'bulk-create' && <BulkListing onClose={() => setModal(null)} onAllDone={() => { setModal(null); setNotice('Bulk listing complete.'); refresh(); }}/>}
