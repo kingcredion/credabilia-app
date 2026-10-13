@@ -49,6 +49,8 @@
   width: 300px;
   height: auto;
   margin: 4px 0 14px;
+  /* A slight glow in the same gold as the badge's trim (#f3b823); drop-shadow follows the pill's own outline. */
+  filter: drop-shadow(0 0 7px rgba(243, 184, 35, 0.5)) drop-shadow(0 0 16px rgba(243, 184, 35, 0.22));
 }
 .hero-mascot {
   display: flex;

@@ -28,7 +28,7 @@ import { MessageThread } from './MessageThread.jsx';
 import { SoldItemPage } from './SoldItemPage.jsx';
 import { trackItemListed, trackSignUpIfNew } from './analytics.js';
 import { SellPage } from './SellPage.jsx';
-import { LIST_INTENT_KEY, captureListIntent, isSellHost } from './listIntent.js';
+import { LIST_INTENT_KEY, captureListIntent, hasFreshListIntent, isSellHost } from './listIntent.js';
 const SupportChat = React.lazy(() => import('./SupportChat.jsx').then(module => ({ default: module.SupportChat })));
 import { CATEGORIES, WORKSPACES, priceInCents } from './domain.js';
 import { formatWeight, formatLength } from './weight.js';
@@ -50,10 +50,20 @@ const HERO_IMAGES = {
   auditor: { src: '/brand/screen-face-v1/audit.webp', width: 800, height: 800, alt: 'King Credion inspecting a certificate of authenticity with a magnifying glass beside a signed baseball' },
 };
 
-function Modal({ title, children, onClose }) {
+// Gold sparks drifting up behind King Credion on the sign-in box. Fixed numbers (no randomness) so they never jump when the page re-renders;
+// the negative delays start each one part-way through its float, so the box looks alive the moment it opens. Motion is CSS only (see .login-sparks).
+const LOGIN_SPARKS = Array.from({ length: 16 }, (_, i) => ({
+  x: (i * 37 + 11) % 92 + 4,
+  size: 4 + (i * 5) % 5,
+  duration: 7 + (i % 5) * 1.3,
+  delay: -(i * 0.85),
+  drift: (i % 2 ? 1 : -1) * (6 + (i * 7) % 18),
+}));
+
+function Modal({ title, children, onClose, className }) {
   const dialog = useRef(null);
   useEffect(() => { const el = dialog.current; el.showModal(); return () => { if (el.open) el.close(); }; }, []);
-  return <dialog ref={dialog} onCancel={event => { event.preventDefault(); onClose(); }} onClick={event => { if (event.target === dialog.current) onClose(); }} aria-labelledby="modal-title">
+  return <dialog ref={dialog} className={className} onCancel={event => { event.preventDefault(); onClose(); }} onClick={event => { if (event.target === dialog.current) onClose(); }} aria-labelledby="modal-title">
     <header className="dialog-header"><h2 id="modal-title">{title}</h2><button className="icon-button" aria-label="Close" onClick={onClose}><X size={20}/></button></header>{children}
   </dialog>;
 }
@@ -2232,6 +2242,14 @@ export default function App() {
   // loaded `items`/`buyRequests` once they're fetched, below.
   const itemPathId = (() => { const segments = window.location.pathname.split('/').filter(Boolean); return segments.length === 2 && segments[0] === 'item' ? segments[1] : null; })();
   useState(captureListIntent); // runs once: a ?list=1 arrival becomes a stored intent for the effect below
+  // True while someone who clicked "List your first item" is being taken through sign-in to the listing form: a focused screen covers
+  // the marketplace so they never see unrelated content first (see the effect below and .list-handoff).
+  const [listHandoff, setListHandoff] = useState(() => !legalPage && !storefrontSlug && hasFreshListIntent());
+  useEffect(() => { // never leave the cover up if something stalls
+    if (!listHandoff) return;
+    const timer = setTimeout(() => setListHandoff(false), 12000);
+    return () => clearTimeout(timer);
+  }, [listHandoff]);
   const [session, setSession] = useState(null), [authReady, setAuthReady] = useState(false), [profile, setProfile] = useState(null);
   const [workspace, setWorkspace] = useState('collector'), [items, setItems] = useState([]), [audits, setAudits] = useState([]);
   const [category, setCategory] = useState('All items'), [query, setQuery] = useState(''), [selectedId, setSelectedId] = useState(null);
@@ -2457,14 +2475,16 @@ export default function App() {
   // abandoned visit doesn't pop the form open weeks later.
   const loginPrompted = useRef(false);
   useEffect(() => {
-    if (!authReady || loading || storefrontSlug || legalPage) return;
+    if (!authReady || storefrontSlug || legalPage) return;
     let started = null;
-    try { started = Number(localStorage.getItem(LIST_INTENT_KEY)); } catch { return; }
-    if (!started) return;
-    if (Date.now() - started > 24 * 60 * 60 * 1000) { try { localStorage.removeItem(LIST_INTENT_KEY); } catch {} return; }
+    try { started = Number(localStorage.getItem(LIST_INTENT_KEY)); } catch { setListHandoff(false); return; }
+    if (!started) { setListHandoff(false); return; }
+    if (Date.now() - started > 24 * 60 * 60 * 1000) { try { localStorage.removeItem(LIST_INTENT_KEY); } catch {} setListHandoff(false); return; }
+    // Not signed in: ask straight away. There is no reason to wait for the marketplace to finish loading behind it.
     if (!session) { if (!loginPrompted.current) { loginPrompted.current = true; setModal('login'); } return; }
-    if (!profile) return;
+    if (loading || !profile) return; // signed in: the profile has to be loaded to know whether they can sell
     try { localStorage.removeItem(LIST_INTENT_KEY); } catch {}
+    setListHandoff(false);
     if (profile.can_sell) setModal('create'); else setError('Your account does not have selling permission.');
   }, [authReady, loading, session, profile]);
   // /?view=requests (the "Buy Request Received" email's button) opens the seller's Requests tab. Remembered in
@@ -2630,6 +2650,12 @@ export default function App() {
     } catch (err) { setError(err.message); } finally { setBusy(false); }
   }
   return <div className="app">
+    {listHandoff && !error && (!authReady || !session || loading || !profile) && <div className="list-handoff" role="status" aria-live="polite">
+      <span className="brand" aria-label="Credabilia"><Brand/></span>
+      <h1>List your first item</h1>
+      <p>King Credion drafts your listing from your photos. You review it before anything goes live.</p>
+      <p className="list-handoff-note">{authReady && !session ? 'Sign in to continue.' : 'Getting things ready…'}</p>
+    </div>}
     {updateReady && <div className="update-banner" role="status"><span>A new version of Credabilia is ready.</span><button type="button" onClick={() => window.location.reload()}>Refresh</button></div>}
     {service.mode === 'demo' && <div className="demo-banner"><span><span className="live-dot"/> LOCAL PREVIEW <span className="banner-detail">· Sample items and two practice accounts. No real login or purchases.</span></span><button onClick={async () => { await service.reset(); setSelectedId(null); setWorkspace('collector'); refresh(); }}>Reset demo</button></div>}
     <header className="topbar">
@@ -2673,7 +2699,7 @@ export default function App() {
           <button className="back-button" onClick={() => setSelectedId(null)}><ArrowLeft size={17}/>Back to listings</button>
           <div className="detail-grid"><div>{pendingBuy.media?.some(asset=>asset.kind==='item') ? <PhotoGallery service={service} key={pendingBuy.listing_id} media={pendingBuy.media} title={pendingBuy.title}/> : <ItemArt category={pendingBuy.category} large/>}</div><section className="item-info"><span className="pill">{pendingBuy.category}</span><h1>{pendingBuy.title}</h1><p className="detail-price">{money(pendingBuy.price_cents)}</p>{pendingBuy.status === 'confirmed' ? <><p className="field-note">The seller confirmed this is still available.</p><button className="primary" disabled={busy} onClick={()=>setModal('checkout-address')}>Continue to checkout<ArrowRight size={16}/></button></> : <p role="status" className="field-note">Waiting for the seller to confirm this item is still available…</p>}</section></div>
         </> : <>
-          <section className={workspace === 'collector' && !isNativeApp() ? 'hero mobile-launch-hero' : 'hero'}><div className="hero-copy"><p className="eyebrow"><span className="small-line"/>{workspace === 'collector' ? (isNativeApp() ? 'YOUR KINGDOM. IN YOUR POCKET.' : 'YOUR KINGDOM. SOON IN YOUR POCKET.') : workspace === 'seller' ? 'YOUR NEXT GREAT FIND STARTS HERE' : 'OBSERVATION OVER ASSUMPTION'}</p><h1>{workspace === 'collector' ? (isNativeApp() ? <>The Kingdom<br/><em>is in your hands.</em></> : <>The Kingdom<br/><em>is going mobile.</em></>) : workspace === 'seller' ? <>Your collection.<br/><em>A new chapter.</em></> : <>Look closer.<br/><em>Share what you see.</em></>}</h1><p>{workspace === 'collector' ? (isNativeApp() ? 'Discover, collect and sell memorabilia with every piece looked over by King Credion. Browse the collection below.' : 'Coming soon to the App Store and Google Play. We’ll email our registered members when the apps are ready to download. Keep discovering and collecting here in the meantime.') : workspace === 'seller' ? 'Give every piece the context it deserves. Share its story, its condition, and what you know.' : 'Help collectors make informed decisions. Review evidence, explain your reasoning, and keep learning.'}</p><img className="ai-marketplace-badge" src="/brand/ai-powered-marketplace-badge-v2.png" width="2048" height="683" alt="AI powered marketplace"/><button className="primary" onClick={workspace === 'seller' ? openCreate : () => document.getElementById('listings').scrollIntoView({ behavior: 'smooth' })}>{workspace === 'seller' ? 'Create a listing' : workspace === 'auditor' ? 'Explore the audit queue' : 'Explore the collection'}<ArrowUpRight size={18}/></button>{workspace === 'seller' && <button className="text-button" onClick={openBulkCreate}><Layers size={16}/>Bulk list items</button>}</div><div className="hero-mascot"><img key={workspace} src={(workspace === 'collector' && isNativeApp() ? NATIVE_COLLECTOR_HERO : HERO_IMAGES[workspace]).src} width={(workspace === 'collector' && isNativeApp() ? NATIVE_COLLECTOR_HERO : HERO_IMAGES[workspace]).width} height={(workspace === 'collector' && isNativeApp() ? NATIVE_COLLECTOR_HERO : HERO_IMAGES[workspace]).height} alt={(workspace === 'collector' && isNativeApp() ? NATIVE_COLLECTOR_HERO : HERO_IMAGES[workspace]).alt} fetchPriority={workspace === 'collector' ? 'high' : 'auto'} /></div></section>
+          <section className={workspace === 'collector' && !isNativeApp() ? 'hero mobile-launch-hero' : 'hero'}><div className="hero-copy"><p className="eyebrow"><span className="small-line"/>{workspace === 'collector' ? (isNativeApp() ? 'YOUR KINGDOM. IN YOUR POCKET.' : 'YOUR KINGDOM. SOON IN YOUR POCKET.') : workspace === 'seller' ? 'YOUR NEXT GREAT FIND STARTS HERE' : 'OBSERVATION OVER ASSUMPTION'}</p><h1>{workspace === 'collector' ? (isNativeApp() ? <>The Kingdom<br/><em>is in your hands.</em></> : <>The Kingdom<br/><em>is going mobile.</em></>) : workspace === 'seller' ? <>Your collection.<br/><em>A new chapter.</em></> : <>Look closer.<br/><em>Share what you see.</em></>}</h1><p>{workspace === 'collector' ? (isNativeApp() ? 'Discover, collect and sell memorabilia with every piece looked over by King Credion. Browse the collection below.' : 'Coming soon to the App Store and Google Play. We’ll email our registered members when the apps are ready to download. Keep discovering and collecting here in the meantime.') : workspace === 'seller' ? 'Give every piece the context it deserves. Share its story, its condition, and what you know.' : 'Help collectors make informed decisions. Review evidence, explain your reasoning, and keep learning.'}</p><img className="ai-marketplace-badge" src="/brand/ai-powered-marketplace-badge-v3.webp" width="920" height="307" alt="AI powered marketplace"/><button className="primary" onClick={workspace === 'seller' ? openCreate : () => document.getElementById('listings').scrollIntoView({ behavior: 'smooth' })}>{workspace === 'seller' ? 'Create a listing' : workspace === 'auditor' ? 'Explore the audit queue' : 'Explore the collection'}<ArrowUpRight size={18}/></button>{workspace === 'seller' && <button className="text-button" onClick={openBulkCreate}><Layers size={16}/>Bulk list items</button>}</div><div className="hero-mascot"><img key={workspace} src={(workspace === 'collector' && isNativeApp() ? NATIVE_COLLECTOR_HERO : HERO_IMAGES[workspace]).src} width={(workspace === 'collector' && isNativeApp() ? NATIVE_COLLECTOR_HERO : HERO_IMAGES[workspace]).width} height={(workspace === 'collector' && isNativeApp() ? NATIVE_COLLECTOR_HERO : HERO_IMAGES[workspace]).height} alt={(workspace === 'collector' && isNativeApp() ? NATIVE_COLLECTOR_HERO : HERO_IMAGES[workspace]).alt} fetchPriority={workspace === 'collector' ? 'high' : 'auto'} /></div></section>
           <div className="values-strip"><span><Search size={16}/>Discover the details</span><span><ClipboardCheck size={16}/>Share your perspective</span><span><BookOpen size={16}/>Keep learning</span></div>
           <section id="listings" className="listings-section"><div className="section-heading"><div><p className="eyebrow">{workspace === 'auditor' ? 'A FRESH PERSPECTIVE' : 'THE COLLECTION'}</p><h2>{workspace === 'seller' ? (sellerTab === 'sold' ? 'Sold items' : sellerTab === 'requests' ? 'Buy requests' : 'Your listings') : workspace === 'auditor' ? 'Ready for a closer look' : collectionFilter === 'owned' ? 'Items you own' : collectionFilter === 'saved' ? 'Items you saved' : 'Discover something worth keeping'}</h2></div><span className="item-count">{workspace === 'seller' && sellerTab === 'sold' ? sales.length : workspace === 'seller' && sellerTab === 'requests' ? sellerBuyRequests.length : collectionItems.length} {(workspace === 'seller' && sellerTab === 'sold' ? sales.length : workspace === 'seller' && sellerTab === 'requests' ? sellerBuyRequests.length : collectionItems.length) === 1 ? 'item' : 'items'}</span></div>
             {workspace === 'seller' && session && service.mode === 'live' && profile && !profile.stripe_charges_enabled && <div className="evidence-box lock-banner" role="status"><h3><Lock size={16}/> Your listings are locked</h3><p className="field-note">Buyers can see them, but nobody can buy or bid until you connect payouts with Stripe. It takes a couple of minutes, and everything opens automatically when you're done.</p><button type="button" className="primary" onClick={beginPayoutSetup}>{profile.stripe_details_submitted ? 'Check payout status' : 'Set up payouts'}<ArrowRight size={16}/></button></div>}
@@ -2697,7 +2723,7 @@ export default function App() {
       </main>
     </div>
     <BottomNav sellGlow={sellGlow} messagesGlow={messagesGlow} session={session} workspace={workspace} onSwitchWorkspace={switchWorkspace} profile={profile} authReady={authReady} onProfile={() => setModal('profile')} onSignIn={() => setModal('login')}/>
-    {modal === 'login' && <Modal title="Welcome to Credabilia" onClose={() => setModal(null)}><p className="muted">One account to collect, sell, and share your perspective.</p>{service.mode === 'demo' ? <><div className="evidence-box"><h3>Try the local preview</h3><p>These two separate practice accounts stay in this browser. Each can switch between all three workspaces. Real sign-in is available when the Supabase project is connected.</p></div><div className="form-stack">{DEMO_ACCOUNTS.map(account => <button key={account.id} className="primary full-width" onClick={() => signIn(account.id)} disabled={busy}>{busy ? 'Opening…' : `Continue as ${account.display_name}`}<ArrowRight size={18}/></button>)}</div></> : <><button className="primary full-width" onClick={() => signIn()} disabled={busy}>{busy ? 'Opening…' : 'Continue with Google'}<ArrowRight size={18}/></button>{APPLE_SIGNIN_ENABLED && <button type="button" className="apple-signin full-width" onClick={signInApple} disabled={busy}><AppleLogo/> Continue with Apple</button>}<p className="field-note">or</p><EmailLogin/><p className="field-note">By continuing, you agree to Credabilia's <a href="/terms" target="_blank" rel="noreferrer">Terms of Service</a> and <a href="/privacy" target="_blank" rel="noreferrer">Privacy Policy</a>.</p></>}<p className="field-note">Your sign-in method does not determine your workspace. You can switch between all three after signing in.</p></Modal>}
+    {modal === 'login' && <Modal className="login-dialog" title={listHandoff ? 'Sign in to list your item' : <img className="login-title-img" src="/brand/the-memorabilia-kingdom-gold-quill-v1-trimmed.webp" width="1024" height="163" alt="The Memorabilia Kingdom"/>} onClose={() => { setModal(null); setListHandoff(false); }}><div className="login-layout"><div className="login-art"><div className="login-sparks" aria-hidden="true">{LOGIN_SPARKS.map((spark, index) => <i key={index} style={{ '--x': spark.x + '%', '--s': spark.size + 'px', '--d': spark.duration + 's', '--delay': spark.delay + 's', '--drift': spark.drift + 'px' }}/>)}</div><img src="/brand/king-credion-login-welcome-ai-v2.webp" width="640" height="640" alt="King Credion welcomes you through the royal gate"/></div><div className="login-form"><p className="muted login-intro">{listHandoff ? 'One quick sign-in, then King Credion drafts your listing from your photos. You pay a fee only when it sells.' : 'Sign in or join to collect, sell, and explore.'}</p>{service.mode === 'demo' ? <><div className="evidence-box"><h3>Try the local preview</h3><p>These two separate practice accounts stay in this browser. Each can switch between all three workspaces. Real sign-in is available when the Supabase project is connected.</p></div><div className="form-stack">{DEMO_ACCOUNTS.map(account => <button key={account.id} className="primary full-width" onClick={() => signIn(account.id)} disabled={busy}>{busy ? 'Opening…' : `Continue as ${account.display_name}`}<ArrowRight size={18}/></button>)}</div></> : <><button className="primary full-width" onClick={() => signIn()} disabled={busy}>{busy ? 'Opening…' : 'Continue with Google'}<ArrowRight size={18}/></button>{APPLE_SIGNIN_ENABLED && <button type="button" className="apple-signin full-width" onClick={signInApple} disabled={busy}><AppleLogo/> Continue with Apple</button>}<div className="login-divider"><span>or use email</span></div><EmailLogin/><p className="field-note">By continuing, you agree to Credabilia's <a href="/terms" target="_blank" rel="noreferrer">Terms of Service</a> and <a href="/privacy" target="_blank" rel="noreferrer">Privacy Policy</a>.</p></>}</div></div></Modal>}
     {modal === 'checkout-address' && (selected || pendingBuy) && <CheckoutAddress item={selected || pendingBuy} profile={profile} busy={busy} onClose={() => setModal(null)} onConfirm={(address, applyCreditCents, wantInsurance, fulfillmentMethod, shippingChoice, disclosureAck) => { const id = selected?.id || pendingBuy?.listing_id; setModal(null); buyNow(id, address, applyCreditCents, wantInsurance, fulfillmentMethod, shippingChoice, disclosureAck); }}/>}
     {modal === 'create' && <CreateListing onClose={() => setModal(null)} onCreated={(id,fit) => { setModal(null); setNotice(fit ? `Your listing was saved, but it needs a quick review before buyers can see it — ${fit.reason || "it didn't clearly look like a collectible."}` : service.mode === 'live' && profile && !profile.stripe_charges_enabled ? 'Your listing is published, but it is locked until you connect payouts with Stripe. Buyers can see it, and it opens for sale automatically when you are done. Open Sell to set up payouts.' : 'Your listing is published.'); setSelectedId(id); refresh(); }}/>}
     {modal === 'bulk-create' && <BulkListing onClose={() => setModal(null)} onAllDone={() => { setModal(null); setNotice('Bulk listing complete.'); refresh(); }}/>}
