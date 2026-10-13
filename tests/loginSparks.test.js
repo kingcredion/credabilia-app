@@ -9,7 +9,7 @@ const app = readFileSync(new URL('../src/App.jsx', import.meta.url), 'utf8');
 test('login sparks: hidden for reduced motion, never announced to screen readers, and only transform/opacity move', () => {
   assert.match(css, /@media\(prefers-reduced-motion:reduce\)\{[^}]*\.login-sparks\{display:none\}/);
   assert.ok(app.includes('<div className="login-sparks" aria-hidden="true">'));
-  const keyframes = css.match(/@keyframes login-spark\{.*?\}\}\n/s)?.[0] || '';
+  const keyframes = css.match(/@keyframes login-spark\{.*?\}\}\r?\n/s)?.[0] || '';
   assert.ok(keyframes.includes('transform') && keyframes.includes('opacity'));
   assert.ok(!/(top|left|bottom|width|height)\s*:/.test(keyframes), 'sparks must not animate layout properties');
 });

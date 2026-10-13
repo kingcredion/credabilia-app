@@ -71,13 +71,21 @@
   object-fit: contain;
 }
 .storefront-hero .hero-mascot { padding-right: 18px; }
-.hero.mobile-launch-hero { grid-template-columns: minmax(0, 1fr) minmax(0, 1.35fr); align-items: center; }
-.mobile-launch-hero .hero-mascot img { width: 100%; height: auto; }
+.hero.mobile-launch-hero { grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr); align-items: center; }
+.mobile-launch-hero .hero-mascot img { width: 100%; height: auto; max-width: 460px; }
 @media (max-width: 1000px) {
   .hero.mobile-launch-hero { display: flex; flex-direction: column; align-items: stretch; }
   .mobile-launch-hero .hero-mascot { padding: 0 16px 22px; }
-  .mobile-launch-hero .hero-mascot img { width: 100%; height: auto; max-width: 680px; }
+  .mobile-launch-hero .hero-mascot img { width: 100%; height: auto; max-width: 360px; }
 }
+/* Store buttons in the home hero: Google Play is live (a link), the iPhone app is a quiet "coming soon" chip. */
+.store-links { display: flex; flex-wrap: wrap; gap: 10px; margin: 0 0 16px; }
+.store-link { display: inline-flex; flex-direction: column; justify-content: center; min-height: 48px; padding: 6px 18px; border-radius: 10px; text-decoration: none; line-height: 1.15; }
+.store-link span { font-size: 10.5px; letter-spacing: .4px; text-transform: uppercase; }
+.store-link strong { font-size: 16px; }
+.store-link-live { background: #0d3b2e; color: #f3d77a; border: 1px solid #c9a227; }
+.store-link-live:hover { box-shadow: 0 0 0 3px rgba(243, 184, 35, .28); }
+.store-link-soon { background: transparent; color: var(--text-muted); border: 1px dashed var(--border); }
 .storefront-hero .hero-mascot img {
   width: 100%;
   max-width: 620px;
