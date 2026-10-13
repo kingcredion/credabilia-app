@@ -362,3 +362,7 @@ dialog.login-dialog::backdrop{background:radial-gradient(ellipse at 50% 38%,#c9a
 @keyframes login-float{0%,100%{transform:translateY(0)}50%{transform:translateY(-5px)}}
 @media(max-width:640px){.login-art{--rise:150px;padding:10px 0}}
 @media(prefers-reduced-motion:reduce){.login-sparks{display:none}.login-art::before,.login-art img{animation:none}}
+
+/* The sign-in box heading is the gold "The Memorabilia Kingdom" tagline artwork (its alt text is the heading's accessible name). */
+.login-title-img{display:block;width:min(340px,66vw);height:auto}
+.dialog-header:has(.login-title-img){margin-bottom:6px}
