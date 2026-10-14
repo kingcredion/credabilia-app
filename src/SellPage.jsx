@@ -26,7 +26,7 @@ const FAQ = [
   ['How do I get paid?', "When a buyer pays, we hold the payment until tracking confirms delivery, then release it to you. You'll connect a Stripe account for payouts."],
   ['Who handles shipping?', 'You ship the item. Shipping rates and labels are available through the app.'],
   ['Is my item authenticated?', "Community audits are opinions from other members, not professional authentication. Buyers see your photos and details and judge the evidence for themselves."],
-  ['Is there a mobile app?', "Apps for the Apple App Store and Google Play are coming soon. Until then, Credabilia works right in your phone's browser."],
+  ['Is there a mobile app?', "The Credabilia app is now on Google Play, and the iPhone app is coming soon. Either way, Credabilia works right in your phone's browser."],
 ];
 
 export function SellPage() {
