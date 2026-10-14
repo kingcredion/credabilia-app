@@ -37,7 +37,7 @@ export function createDemoService(storage = window.localStorage) {
   state.giveaway ||= { id: 'demo-giveaway', listing_id: 'sample-1', status: 'active', starts_at: new Date(Date.now() - 10 * 86400000).toISOString(), ends_at: new Date(Date.now() + 170 * 86400000).toISOString(), rules_url: '/giveaway-rules' };
   state.giveawayEntries ||= {};
   // "Pat Buyer Jones" -> "Pat J.", the way the real storefront shows reviewers.
-const reviewerLabel = name => { const parts = String(name || '').trim().split(/\s+/).filter(Boolean); return !parts.length ? 'Collector' : parts.length === 1 ? parts[0] : parts[0] + ' ' + parts[parts.length - 1][0].toUpperCase() + '.'; };
+const reviewerLabel = name => { const parts = String(name || '').trim().split(/\s+/).filter(Boolean); return !parts.length ? 'Royal Member' : parts.length === 1 ? parts[0] : parts[0] + ' ' + parts[parts.length - 1][0].toUpperCase() + '.'; };
 const demoReview = r => { const purchase = state.purchases.find(p => p.id === r.purchase_id); const item = state.listings.find(x => x.id === purchase?.listing_id); return { id: r.id, rating: r.rating, comment: r.comment, created_at: r.created_at, reviewer: reviewerLabel(state.names[r.buyer_id] || DEMO_ACCOUNTS.find(u => u.id === r.buyer_id)?.display_name), item_title: item?.title || null }; };
   function sellerRatingStats(sellerId) {
     const ratings=state.sellerRatings.filter(r=>r.seller_id===sellerId);
@@ -335,7 +335,7 @@ const demoReview = r => { const purchase = state.purchases.find(p => p.id === r.
       requireUser();
       const conv=state.conversations.find(c=>c.id===conversationId && (c.buyer_id===state.userId || c.seller_id===state.userId));
       if(!conv) throw new Error('Conversation not found.');
-      return state.messages.filter(m=>m.conversation_id===conversationId).map(m=>({...m,sender_name:state.names[m.sender_id] || DEMO_ACCOUNTS.find(user=>user.id===m.sender_id)?.display_name || 'Collector'}));
+      return state.messages.filter(m=>m.conversation_id===conversationId).map(m=>({...m,sender_name:state.names[m.sender_id] || DEMO_ACCOUNTS.find(user=>user.id===m.sender_id)?.display_name || 'Royal Member'}));
     },
     async sendMessage(conversationId, body) {
       requireUser();
@@ -390,7 +390,7 @@ const demoReview = r => { const purchase = state.purchases.find(p => p.id === r.
           const convMessages=state.messages.filter(m=>m.conversation_id===c.id).sort((a,b)=>a.created_at<b.created_at?-1:1);
           const last=convMessages[convMessages.length-1];
           return {id:c.id,listing_id:item.id,listing_title:item.title,listing_status:item.status,listing_price_cents:item.price_cents,
-            role:mine?'buyer':'seller',counterparty_name:state.names[mine?c.seller_id:c.buyer_id] || DEMO_ACCOUNTS.find(u=>u.id===(mine?c.seller_id:c.buyer_id))?.display_name || 'Collector',
+            role:mine?'buyer':'seller',counterparty_name:state.names[mine?c.seller_id:c.buyer_id] || DEMO_ACCOUNTS.find(u=>u.id===(mine?c.seller_id:c.buyer_id))?.display_name || 'Royal Member',
             last_message_at:last?.created_at || null,last_message_body:last?.body || null,
             unread:!!(last && last.sender_id!==state.userId && (!lastRead || last.created_at>lastRead)),
             media:(item.media||[]).filter(asset=>asset.kind==='item').slice(0,1),
@@ -635,7 +635,7 @@ const demoReview = r => { const purchase = state.purchases.find(p => p.id === r.
     },
     async myBlockedUsers() {
       requireUser();
-      return (state.blocks || []).filter(b=>b.blocker_id===state.userId).map(b=>({user_id:b.blocked_id,display_name:state.names[b.blocked_id] || DEMO_ACCOUNTS.find(u=>u.id===b.blocked_id)?.display_name || 'Collector'}));
+      return (state.blocks || []).filter(b=>b.blocker_id===state.userId).map(b=>({user_id:b.blocked_id,display_name:state.names[b.blocked_id] || DEMO_ACCOUNTS.find(u=>u.id===b.blocked_id)?.display_name || 'Royal Member'}));
     },
     async deleteMyAccount() {
       requireUser();
@@ -674,7 +674,7 @@ const demoReview = r => { const purchase = state.purchases.find(p => p.id === r.
       const slug=state.slugs[listing.seller_id] || null;
       const {avg,count}=sellerRatingStats(listing.seller_id);
       const all=state.sellerRatings.filter(r=>r.seller_id===listing.seller_id).sort((a,b)=>new Date(b.created_at)-new Date(a.created_at));
-      return {seller_name:listing.seller_name || 'Collector',slug,rating_avg:avg,rating_count:count,reviews:all.slice(offset,offset+limit).map(r=>demoReview(r))};
+      return {seller_name:listing.seller_name || 'Royal Member',slug,rating_avg:avg,rating_count:count,reviews:all.slice(offset,offset+limit).map(r=>demoReview(r))};
     },
     async getStorefront(slug) {
       const clean=String(slug || '').trim().toLowerCase();
@@ -684,7 +684,7 @@ const demoReview = r => { const purchase = state.purchases.find(p => p.id === r.
       const sellerListings=state.listings.filter(item=>item.seller_id===userId && item.status==='active');
       const {avg,count}=sellerRatingStats(userId);
       return {
-        display_name:state.names[userId] || account?.display_name || 'Collector',
+        display_name:state.names[userId] || account?.display_name || 'Royal Member',
         slug:clean,
         member_since:new Date().toISOString(),
         sales_count:state.purchases.filter(p=>p.seller_id===userId).length,
