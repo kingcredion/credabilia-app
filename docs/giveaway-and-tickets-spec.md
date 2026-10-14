@@ -28,7 +28,7 @@ A platform-wide ticket system that rewards behavior, plus a pinned "giveaway" it
 - Fixed end date set when the admin switches it on, default 6 months after the start. Rules must state exact start and end dates.
 - Automatic on the end date: server picks one winner at random from valid tickets, records result + timestamp, checks the winner is still eligible and Stripe-ready, notifies them; alternate winner if no response in 14 days.
 - Optional early-draw ticket trigger (off by default). Milestone emails/card updates at 3 months, 1 month, 1 week.
-- Rules must say odds depend on the number of entries. If the prize is over $5,000: New York and Florida registration/bonding. Prizes of $600 or more need tax reporting.
+- Rules must say odds depend on the number of entries. If the prize is over $5,000: New York and Florida registration/bonding. Prize tax reporting (IRS Form 1099-MISC) now starts at $2,000 for 2026 payments (it was $600); a W-9 from the winner is needed.
 - Use Mike Vick's name factually only; no implied endorsement.
 
 ## Referral links (stage 2)

@@ -228,7 +228,7 @@ export function GiveawayRulesPage() {
     </section>
 
     <h2>1. Sponsor</h2>
-    <p>Credabilia LLC, 732 S 6th St, Ste 7531, Las Vegas, NV 89101 ("Sponsor"). This giveaway is not sponsored, endorsed or administered by Apple Inc., Google LLC, Stripe, or any person whose name is used to describe the prize.</p>
+    <p>Credabilia LLC, 732 S 6th St, Ste 7531, Las Vegas, NV 89101 ("Sponsor"). Apple Inc. is not a sponsor of this giveaway and is not involved in the activity in any manner. Google LLC and Stripe are not sponsors either, and no person whose name is used to describe the prize sponsors or endorses it.</p>
 
     <h2>2. Eligibility</h2>
     <p>Open to legal residents of the United States who are 18 or older at entry, hold a Credabilia account in good standing, and have completed Stripe identity verification so that the account can receive payouts. Credabilia operators, employees and their households are not eligible. [COUNSEL: confirm state exclusions and any registration or bonding for the prize value.]</p>
@@ -251,7 +251,7 @@ export function GiveawayRulesPage() {
     <p>One (1) prize: the item named on the giveaway card, with the certificate shown there. Approximate retail value: as stated on the card. The Sponsor pays standard shipping within the United States. One winner is selected at random by computer on the end date from all valid tickets; each ticket has an equal chance. Your odds depend on the number of tickets entered, which is shown on the card. An alternate is selected at the same time.</p>
 
     <h2>7. Winner</h2>
-    <p>The winner is notified by email and in the app and has 14 days to confirm a United States delivery address and remain eligible. If the winner does not respond or is not eligible, the prize passes to the alternate. The prize has no cash value, cannot be transferred, and no substitution is allowed except at the Sponsor's discretion for an item of equal or greater value. The winner is responsible for any taxes. [COUNSEL: tax reporting for prizes of $600 or more and winner information.]</p>
+    <p>The winner is notified by email and in the app and has 14 days to confirm a United States delivery address and remain eligible. If the winner does not respond or is not eligible, the prize passes to the alternate. The prize has no cash value, cannot be transferred, and no substitution is allowed except at the Sponsor's discretion for an item of equal or greater value. The winner is responsible for any taxes, and the Sponsor may require a tax form (W-9) from the winner before delivering the prize. [COUNSEL: tax reporting; the IRS threshold for reporting prizes is now $2,000 for 2026 payments.]</p>
 
     <h2>8. Other terms</h2>
     <p>By entering you allow the Sponsor to use your Credabilia display name to announce the result. Information collected is used under the <a href="/privacy">Privacy Policy</a>. The Sponsor may cancel or change the giveaway if fraud or a technical failure affects its fairness. These rules are governed by Nevada law. [COUNSEL: complete.]</p>
