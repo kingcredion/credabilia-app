@@ -81,7 +81,7 @@ test('the ticket sentence explains where tickets came from, and says when Stripe
 test('the giveaway is wired into the app', () => {
   const app = readFileSync(new URL('../src/App.jsx', import.meta.url), 'utf8');
   assert.ok(app.includes('<GiveawayCard giveaway={giveaway}'));
-  assert.ok(app.includes('giveaway && selected.id === giveaway.listing_id ? <GiveawayPanel'), 'the prize page shows the giveaway panel instead of the buy buttons');
+  assert.ok(app.includes('giveaway && selected.id === giveaway.listing_id && <GiveawayPanel') && app.includes('giveaway && selected.id === giveaway.listing_id ? null : !own && <ItemActions'), 'the giveaway details come first on the prize page and replace the buy buttons');
   assert.ok(app.includes("item.id === giveaway.listing_id && workspace !== 'seller'"), 'the prize is hidden from the normal grid (the admin sees it only under Your listings)');
   assert.ok(app.includes('isAdmin={isAdminUser}') && app.includes("window.location.assign('/item/' + giveaway.listing_id)"), 'admin gets no Enter button; Details always opens the item page');
   assert.ok(app.includes("if (selectedId) window.scrollTo({ top: 0, left: 0, behavior: 'instant' })"), 'opening any item starts at the top of the page');
