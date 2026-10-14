@@ -2261,7 +2261,7 @@ export default function App() {
   const [session, setSession] = useState(null), [authReady, setAuthReady] = useState(false), [profile, setProfile] = useState(null);
   const [workspace, setWorkspace] = useState('collector'), [items, setItems] = useState([]), [audits, setAudits] = useState([]);
   const [category, setCategory] = useState('All items'), [query, setQuery] = useState(''), [selectedId, setSelectedId] = useState(null);
-  const [modal, setModal] = useState(null), [busy, setBusy] = useState(false), [loading, setLoading] = useState(true), [error, setError] = useState(''), [notice, setNotice] = useState('');
+  const [modal, setModal] = useState(null), [createWhenReady, setCreateWhenReady] = useState(null), [busy, setBusy] = useState(false), [loading, setLoading] = useState(true), [error, setError] = useState(''), [notice, setNotice] = useState('');
   const [favoriteIds, setFavoriteIds] = useState([]), [purchases, setPurchases] = useState([]), [collectionFilter, setCollectionFilter] = useState('all');
   const [sales, setSales] = useState([]), [sellerTab, setSellerTab] = useState('active'), [endedListings, setEndedListings] = useState([]);
   const [payoutStatus, setPayoutStatus] = useState([]);
@@ -2655,8 +2655,12 @@ export default function App() {
   const isAdminUser = session?.user?.email === 'kingcredion@credabilia.com'; // same check as the Admin tab in Profile and settings; the database also requires an operator
   async function enterGiveaway(stateCode) { setGiveawayBusy(true); try { const next = await service.enterGiveaway(stateCode); setGiveaway(next); return next; } finally { setGiveawayBusy(false); } }
   function openGiveawayEntry() { if (!session) { rememberGiveawayIntent(); setModal('login'); return; } setModal('giveaway-enter'); }
-  function openCreate() { if (!session) setModal('login'); else if (profile?.can_sell) setModal('create'); else setError('Your account does not have selling permission.'); }
-  function openBulkCreate() { if (!session) setModal('login'); else if (profile?.can_sell) setModal('bulk-create'); else setError('Your account does not have selling permission.'); }
+  // Right after sign-in the profile is still loading; a tap on "Create a listing" then waits for it instead of reporting a missing permission (Clarity: ad visitor's tap did nothing).
+  function openSellForm(which) { if (!session) setModal('login'); else if (!profile) { setNotice('Getting your account ready…'); setCreateWhenReady(which); } else if (profile.can_sell) setModal(which); else setError('Your account does not have selling permission.'); }
+  function openCreate() { openSellForm('create'); }
+  function openBulkCreate() { openSellForm('bulk-create'); }
+  useEffect(() => { if (createWhenReady && profile) { const which = createWhenReady; setCreateWhenReady(null); setNotice(''); if (profile.can_sell) setModal(which); else setError('Your account does not have selling permission.'); } }, [createWhenReady, profile]);
+  useEffect(() => { if (createWhenReady && !session) setCreateWhenReady(null); }, [createWhenReady, session]);
   async function toggleFavorite(listingId) {
     if (!session) { setModal('login'); return; }
     try { const now = await service.toggleFavorite(listingId); setFavoriteIds(ids => now ? [...ids, listingId] : ids.filter(id => id !== listingId)); }
