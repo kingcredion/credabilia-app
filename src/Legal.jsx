@@ -217,3 +217,46 @@ export function PrivacyPage() {
     <p>Credabilia LLC<br/>732 S 6th St, Ste 7531<br/>Las Vegas, NV 89101<br/>Email: <a href="mailto:support@credabilia.com">support@credabilia.com</a></p>
   </LegalShell>;
 }
+
+// DRAFT official rules for a Credabilia giveaway. NOT legal advice and NOT ready to publish: a sweepstakes lawyer must review and finish this before any giveaway is switched on
+// (items marked [COUNSEL] are open legal decisions). The design behind it is in docs/giveaway-and-tickets-spec.md.
+export function GiveawayRulesPage() {
+  return <LegalShell title="Giveaway Official Rules" updated="Draft" current="giveaway">
+    <section>
+      <p><strong>DRAFT. Pending legal review. Do not rely on this text.</strong></p>
+      <p><strong>NO PURCHASE NECESSARY. A purchase or payment of any kind will not increase your chances of winning.</strong> Void where prohibited.</p>
+    </section>
+
+    <h2>1. Sponsor</h2>
+    <p>Credabilia LLC, 732 S 6th St, Ste 7531, Las Vegas, NV 89101 ("Sponsor"). This giveaway is not sponsored, endorsed or administered by Apple Inc., Google LLC, Stripe, or any person whose name is used to describe the prize.</p>
+
+    <h2>2. Eligibility</h2>
+    <p>Open to legal residents of the United States who are 18 or older at entry, hold a Credabilia account in good standing, and have completed Stripe identity verification so that the account can receive payouts. Credabilia operators, employees and their households are not eligible. [COUNSEL: confirm state exclusions and any registration or bonding for the prize value.]</p>
+
+    <h2>3. Entry period</h2>
+    <p>The giveaway starts and ends on the dates shown on the giveaway card and fixed when it begins. Entries must be confirmed before the end of the entry period. If the Sponsor sets an optional ticket goal, the giveaway may end early when it is reached; the card states this if so.</p>
+
+    <h2>4. How to enter</h2>
+    <p>Tap "Enter the giveaway" while signed in and agree to these rules. To keep the giveaway fair and free of fake accounts, your entry is confirmed when Stripe verifies your account. Stripe collects the identification and bank details; Credabilia does not see them. There is no fee to enter or to verify. [COUNSEL: add the free alternate method of entry, for example a mail-in or web form with the same tickets.]</p>
+
+    <h2>5. Tickets</h2>
+    <ul>
+      <li>1 ticket for a confirmed entry.</li>
+      <li>1 additional ticket for each item you list on Credabilia that has been live for 7 days (no limit). Removed, deleted, held or draft listings do not count.</li>
+      <li>1 additional ticket for each member who joins through your invite link during the entry period and whose account is verified with Stripe.</li>
+    </ul>
+    <p>Tickets are counted from your activity during the entry period and are checked again at the draw. No ticket is earned by buying anything. [COUNSEL: confirm that listing and referral tickets are permissible.]</p>
+
+    <h2>6. Prize and drawing</h2>
+    <p>One (1) prize: the item named on the giveaway card, with the certificate shown there. Approximate retail value: as stated on the card. The Sponsor pays standard shipping within the United States. One winner is selected at random by computer on the end date from all valid tickets; each ticket has an equal chance. Your odds depend on the number of tickets entered, which is shown on the card. An alternate is selected at the same time.</p>
+
+    <h2>7. Winner</h2>
+    <p>The winner is notified by email and in the app and has 14 days to confirm a United States delivery address and remain eligible. If the winner does not respond or is not eligible, the prize passes to the alternate. The prize has no cash value, cannot be transferred, and no substitution is allowed except at the Sponsor's discretion for an item of equal or greater value. The winner is responsible for any taxes. [COUNSEL: tax reporting for prizes of $600 or more and winner information.]</p>
+
+    <h2>8. Other terms</h2>
+    <p>By entering you allow the Sponsor to use your Credabilia display name to announce the result. Information collected is used under the <a href="/privacy">Privacy Policy</a>. The Sponsor may cancel or change the giveaway if fraud or a technical failure affects its fairness. These rules are governed by Nevada law. [COUNSEL: complete.]</p>
+
+    <h2>9. Winner list</h2>
+    <p>For the winner's first name and state, write to support@credabilia.com after the end date.</p>
+  </LegalShell>;
+}

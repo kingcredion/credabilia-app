@@ -1,6 +1,6 @@
 # Giveaway + ticket rewards (design agreed in chat 2026-10-14, NOT built yet)
 
-Status: design only. Nothing here is built or live. Needs a sweepstakes lawyer to review the official rules before any giveaway goes live.
+Status: BUILT on branch giveaway-tickets (2026-10-14), NOT merged, NOT applied to production, NOT live. 350 tests pass. Needs a sweepstakes lawyer to review the official rules (draft page at /giveaway-rules, marked [COUNSEL]) before any giveaway goes live. Sales tickets and social-post tickets are not built (waiting on the lawyer).
 
 ## What it is
 A platform-wide ticket system that rewards behavior, plus a pinned "giveaway" item (first prize idea: the Mike Vick signed jersey, which has a certificate number the owner says is fine; verify the number with the issuer through the certificate lookup before announcing it as authenticated).

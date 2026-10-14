@@ -55,6 +55,12 @@ create table public.giveaway_winners(
   unique (giveaway_id, user_id)
 );
 
+-- Indexes for the lookups the ticket counts and member screens make (and for the foreign keys).
+create index giveaway_entries_user on public.giveaway_entries(user_id);
+create index giveaway_winners_user on public.giveaway_winners(user_id);
+create index giveaways_created_by on public.giveaways(created_by);
+create index profiles_referred_by on public.profiles(referred_by) where referred_by is not null;
+
 alter table public.giveaways enable row level security;
 alter table public.giveaway_entries enable row level security;
 alter table public.giveaway_winners enable row level security;
