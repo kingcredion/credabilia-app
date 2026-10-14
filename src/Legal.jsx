@@ -232,7 +232,7 @@ export function GiveawayRulesPage() {
     <p>Credabilia LLC, 732 S 6th St, Ste 7531, Las Vegas, NV 89101 (the "Sponsor"), support@credabilia.com. Apple Inc. is not a sponsor of this giveaway and is not involved in the activity in any manner. Google LLC and Stripe are not sponsors either, and no person whose name is used to describe the prize sponsors or endorses it.</p>
 
     <h2>2. Who can enter</h2>
-    <p>You must be 18 or older. {statesNote()} Credabilia owners, employees, operators and their households cannot enter, and accounts that are banned or deleted are not eligible. The giveaway is open only to people who live in an eligible state on the day they enter, and the prize can only be delivered to an address in an eligible state.</p>
+    <p>You must be at least 18 years old, or the age of majority where you live if that is higher (19 in Alabama and Nebraska, 21 in Mississippi). {statesNote()} Credabilia owners, employees, operators and their households cannot enter, and accounts that are banned or deleted are not eligible. The giveaway is open only to people who live in an eligible state on the day they enter, and the prize can only be delivered to an address in an eligible state.</p>
 
     <h2>3. Entry period</h2>
     <p>The giveaway starts when it appears on Credabilia and ends on the end date shown on the giveaway card. That end date is fixed when the giveaway starts. It will not be moved earlier or later, and the giveaway does not end early. Entries must be confirmed before the end date.</p>
@@ -254,10 +254,10 @@ export function GiveawayRulesPage() {
     <p>Listing an item is free. Buying or selling anything does not earn tickets and will not increase your chances. Tickets are counted from your activity and checked again when the winner is drawn.</p>
 
     <h2>6. Prize</h2>
-    <p>One (1) prize: the item named on the giveaway card, with the certificate shown there. Its approximate retail value is shown on the item page and is under $5,000. There is no cash alternative. The Sponsor pays standard shipping within the United States.</p>
+    <p>One (1) prize: the item named on the giveaway card, with the certificate shown there. Its approximate retail value is shown on the item page and is under $5,000. There is no cash alternative. Number of prizes: one. Nothing has to be paid to receive or use the prize: the Sponsor pays standard shipping within the United States, and there are no other charges. There is no sales presentation, and the Sponsor does not claim that anyone is a winner unless they have won.</p>
 
     <h2>7. Drawing and prize dates</h2>
-    <p>On or within one day after the end date, the winner is chosen at random by computer from all valid tickets. At the same time an alternate winner is chosen. Your odds of winning depend on the number of tickets entered; the card shows the current total.</p>
+    <p>On or within one day after the end date, the winner is chosen at random by computer from all valid tickets. At the same time an alternate winner is chosen. The prize will be awarded unless nobody has a valid entry. The odds of winning cannot be known in advance because they depend on how many tickets are entered. The giveaway card shows the total tickets entered and your own tickets, and your odds are your tickets divided by all tickets, for one prize.</p>
 
     <h2>8. Winner</h2>
     <p>The winner is told by email (and in the app for members) and has 14 days to confirm a delivery address in an eligible state. Members must also have finished Stripe setup. If the winner does not respond in time or is not eligible, the prize goes to the alternate, who also has 14 days. The Sponsor ships the prize within 30 days after the winner confirms an address. The prize cannot be transferred. The winner is responsible for any taxes, and the Sponsor may ask for a tax form (W-9) if the law requires reporting.</p>
@@ -265,7 +265,7 @@ export function GiveawayRulesPage() {
     <h2>9. Other terms</h2>
     <p>The winner agrees that the Sponsor may announce their first name and state. Information collected for the giveaway is used only to run it and under the <a href="/privacy">Privacy Policy</a>. The Sponsor may cancel or change the giveaway if fraud or a technical failure affects its fairness; the end date and these rules will not otherwise change after it starts. The Sponsor is not responsible for entries that are late, lost or not received. These rules are governed by the laws of the State of Nevada.</p>
 
-    <h2>10. Winner's name</h2>
-    <p>After the end date, write to {MAILIN_EMAIL} to ask for the winner's first name and state.</p>
+    <h2>10. Winner list</h2>
+    <p>The winner's first name and state, and the date of the drawing, are available for 90 days after the end date. Write to {MAILIN_EMAIL} to ask for them.</p>
   </LegalShell>;
 }

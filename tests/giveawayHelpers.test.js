@@ -1,7 +1,7 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
-import {GIVEAWAY_EXCLUDED_STATES, US_STATES, eligibleStates, statesNote, GIVEAWAY_INTENT_KEY, REFERRAL_KEY, captureGiveawayParam, captureReferralParam, clearGiveawayIntent, clearReferral, elapsedPercent, hasFreshGiveawayIntent,
+import {minAgeFor, oddsLine, GIVEAWAY_EXCLUDED_STATES, US_STATES, eligibleStates, statesNote, GIVEAWAY_INTENT_KEY, REFERRAL_KEY, captureGiveawayParam, captureReferralParam, clearGiveawayIntent, clearReferral, elapsedPercent, hasFreshGiveawayIntent,
   readReferral, referralLink, rememberGiveawayIntent, rememberReferral, ticketLine, timeLeft} from '../src/giveaway.js';
 
 function fakeWindow(url = 'https://credabilia.com/') {
@@ -126,4 +126,17 @@ test('the giveaway cannot end early and takes free email entries', () => {
   const component = readFileSync(new URL('../src/Giveaway.jsx', import.meta.url), 'utf8');
   assert.ok(!component.includes('early_draw') && !component.includes('Optional: draw early'));
   assert.ok(component.includes('adminAddMailinEntry') && component.includes('adminRecordMailinClaim') && component.includes('State where you live'));
+});
+
+test('minimum age follows the state, and the odds sentence is honest', () => {
+  assert.equal(minAgeFor('TX'), 18); assert.equal(minAgeFor('al'), 19); assert.equal(minAgeFor('NE'), 19); assert.equal(minAgeFor('MS'), 21); assert.equal(minAgeFor(''), 18);
+  assert.match(oddsLine({tickets: 0}), /depend on how many tickets/);
+  assert.match(oddsLine({tickets: 37, me: {tickets: 0}}), /One prize, 37 tickets entered so far/);
+  assert.match(oddsLine({tickets: 1, me: null}), /1 ticket entered/);
+  assert.equal(oddsLine({tickets: 1200, me: {tickets: 3}}), 'Your odds right now: 3 in 1,200 (one prize). They change as others enter.');
+});
+
+test('the rules carry the disclosures the state prize-promotion laws ask for', () => {
+  const rules = readFileSync(new URL('../src/Legal.jsx', import.meta.url), 'utf8');
+  for (const needle of ['19 in Alabama and Nebraska, 21 in Mississippi', 'Number of prizes: one', 'no other charges', 'The odds of winning cannot be known in advance', 'tickets divided by all tickets', 'available for 90 days after the end date', 'no sales presentation'.replace('no','There is no'), 'unless they have won']) assert.ok(rules.includes(needle), needle);
 });

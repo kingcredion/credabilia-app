@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { ArrowRight, Check, Copy, Gift } from 'lucide-react';
 import { ItemArt, money } from './ItemArt.jsx';
-import { GIVEAWAY_REQUIREMENT, MAILIN_EMAIL, eligibleStates, elapsedPercent, referralLink, statesNote, ticketLine, timeLeft } from './giveaway.js';
+import { GIVEAWAY_REQUIREMENT, MAILIN_EMAIL, eligibleStates, elapsedPercent, minAgeFor, oddsLine, referralLink, statesNote, ticketLine, timeLeft } from './giveaway.js';
 import './giveaway.css';
 
 // Gold flakes drifting up behind the giveaway card: the same effect as the sign-in box (.login-sparks in styles.css), fewer of them since it sits on a page full of cards.
@@ -42,11 +42,11 @@ export function GiveawayCard({ giveaway, item, onOpen, onEnter, busy }) {
     <div className="giveaway-body">
       <h3>{giveaway.title}</h3>
       {certificateText(item) && <p className="giveaway-cert">{certificateText(item)}</p>}
-      <p className="giveaway-notfor">Not for sale · prize giveaway</p>
+      <p className="giveaway-notfor">Not for sale · prize giveaway{item?.price_cents ? ` · prize value ${money(item.price_cents)}` : ''}</p>
       <GiveawayProgress giveaway={giveaway}/>
       <EnterButton giveaway={giveaway} onEnter={onEnter} busy={busy}/>
       <p className="giveaway-requirement">{GIVEAWAY_REQUIREMENT}</p>
-      <p className="giveaway-fine">{statesNote(giveaway.excluded_states)}</p>
+      <p className="giveaway-fine">{oddsLine(giveaway)} No account? Enter free by email: {MAILIN_EMAIL}. {statesNote(giveaway.excluded_states)}</p>
       <button type="button" className="text-button giveaway-details" onClick={onOpen}>Details and rules</button>
     </div>
   </article>;
@@ -63,6 +63,7 @@ export function GiveawayPanel({ giveaway, item, referral, onEnter, busy }) {
     <h3>Win this {item?.title || giveaway.title}</h3>
     {item && <p className="giveaway-notfor">Not for sale · a giveaway prize{item.price_cents ? ` · valued at ${money(item.price_cents)}` : ''}</p>}
     <GiveawayProgress giveaway={giveaway} large/>
+    <p className="giveaway-fine giveaway-odds">{oddsLine(giveaway)}</p>
     <EnterButton giveaway={giveaway} onEnter={onEnter} busy={busy}/>
     {ticketLine(giveaway.me) && <p className="field-note giveaway-ticketline">{ticketLine(giveaway.me)}</p>}
     <p className="giveaway-requirement">{GIVEAWAY_REQUIREMENT}</p>
@@ -93,7 +94,7 @@ export function GiveawayEnterForm({ giveaway, onEnter, onConnectStripe, onDone }
     <p className="giveaway-requirement">To keep this giveaway fair and free of fake accounts, every entrant must complete payout setup with Stripe, our payment partner. It's free. Stripe collects the ID and bank details, and Credabilia never sees them. Your entry is confirmed once Stripe verifies your account.</p>
     <p className="field-note">{statesNote(giveaway.excluded_states)} No account? You can enter free by email instead: write to {MAILIN_EMAIL}.</p>
     <label>State where you live<select required value={stateCode} onChange={event => setStateCode(event.target.value)}><option value="">Choose your state</option>{states.map(([code, name]) => <option key={code} value={code}>{name}</option>)}</select></label>
-    <label className="check-row"><input type="checkbox" checked={agreed} onChange={event => setAgreed(event.target.checked)}/> <span>I am 18 or older, live in the state I chose, and agree to the <a href={giveaway.rules_url} target="_blank" rel="noreferrer">official rules</a>.</span></label>
+    <label className="check-row"><input type="checkbox" checked={agreed} onChange={event => setAgreed(event.target.checked)}/> <span>I am {minAgeFor(stateCode)} or older, live in the state I chose, and agree to the <a href={giveaway.rules_url} target="_blank" rel="noreferrer">official rules</a>.</span></label>
     {error && <p role="alert" className="error">{error}</p>}
     <button type="button" className="primary" disabled={!agreed || !stateCode || busy} onClick={confirm}>{busy ? 'Entering…' : 'Confirm my entry'}</button>
   </div>;

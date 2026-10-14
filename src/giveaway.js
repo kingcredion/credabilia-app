@@ -103,3 +103,17 @@ const joinNames = names => names.length < 2 ? names.join('') : names.slice(0, -1
 // "Open to residents of the 50 US states and DC, except Florida, New York and Rhode Island."
 export const statesNote = (excluded = GIVEAWAY_EXCLUDED_STATES) => `Open to residents of the 50 US states and DC, except ${joinNames(stateNames([...excluded]).sort())}.`;
 export const MAILIN_EMAIL = 'support@credabilia.com';
+
+// Age of majority: 18 almost everywhere, 19 in Alabama and Nebraska, 21 in Mississippi (Ala. Code 26-1-1, Neb. Rev. Stat. 43-2101, Miss. Code 1-3-27). Entrants attest to the state's age when they choose their state.
+export const MIN_AGE_BY_STATE = { AL: 19, NE: 19, MS: 21 };
+export const minAgeFor = stateCode => MIN_AGE_BY_STATE[String(stateCode || '').toUpperCase()] || 18;
+
+// "Odds right now: 3 in 37 tickets" for a member, or "1 prize, 37 tickets entered" before they enter. Odds really are tickets divided by total tickets, and that moves as people enter,
+// so the sentence always says it is the current figure (several states want the odds, or the fact that they depend on the number of entries, disclosed).
+export function oddsLine(giveaway) {
+  if (!giveaway) return '';
+  const total = giveaway.tickets || 0, mine = giveaway.me?.tickets || 0;
+  if (total <= 0) return 'Odds depend on how many tickets are entered. One prize.';
+  if (mine > 0) return `Your odds right now: ${mine} in ${total.toLocaleString('en-US')} (one prize). They change as others enter.`;
+  return `One prize, ${total.toLocaleString('en-US')} ${total === 1 ? 'ticket' : 'tickets'} entered so far. Odds depend on how many tickets are entered.`;
+}
