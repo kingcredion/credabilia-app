@@ -1,7 +1,7 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
-import {GIVEAWAY_INTENT_KEY, REFERRAL_KEY, captureGiveawayParam, captureReferralParam, clearGiveawayIntent, clearReferral, elapsedPercent, hasFreshGiveawayIntent,
+import {GIVEAWAY_EXCLUDED_STATES, US_STATES, eligibleStates, statesNote, GIVEAWAY_INTENT_KEY, REFERRAL_KEY, captureGiveawayParam, captureReferralParam, clearGiveawayIntent, clearReferral, elapsedPercent, hasFreshGiveawayIntent,
   readReferral, referralLink, rememberGiveawayIntent, rememberReferral, ticketLine, timeLeft} from '../src/giveaway.js';
 
 function fakeWindow(url = 'https://credabilia.com/') {
@@ -89,7 +89,10 @@ test('the giveaway is wired into the app', () => {
   const storefront = readFileSync(new URL('../src/Storefront.jsx', import.meta.url), 'utf8');
   assert.ok(storefront.includes('EmptyStoreCarousel') && storefront.includes('rememberReferral'));
   const rules = readFileSync(new URL('../src/Legal.jsx', import.meta.url), 'utf8');
-  assert.ok(rules.includes('DRAFT. Pending legal review') && rules.includes('NO PURCHASE NECESSARY'));
+  assert.ok(rules.includes('NO PURCHASE NECESSARY') && rules.includes('is not involved in the activity in any manner') && rules.includes('Apple Inc. is not a sponsor'), 'Apple 5.3.2 wording');
+  assert.ok(rules.includes('within 30 days after the winner confirms') && rules.includes('does not end early') && rules.includes('By email.'));
+  assert.ok(!rules.includes('COUNSEL') && !rules.includes('DRAFT'));
+  assert.ok(rules.includes('is under $5,000.') && !rules.includes('under ,000'), 'the prize-value limit is stated');
   const css = readFileSync(new URL('../src/giveaway.css', import.meta.url), 'utf8');
   assert.match(css, /prefers-reduced-motion/);
 });
@@ -99,4 +102,28 @@ test('the carousel and the item page never present the prize as an ordinary item
   assert.ok(component.includes('item.id !== giveaway?.listing_id'));
   const app = readFileSync(new URL('../src/App.jsx', import.meta.url), 'utf8');
   assert.ok(app.includes("!(giveaway && selected.id === giveaway.listing_id) && <p className=\"detail-price\">"));
+});
+
+// The blocked states and the list of valid states are enforced in the database and shown in the app; a test keeps the two copies identical.
+test('the excluded states and the state list match the database', () => {
+  const sql = readFileSync(new URL('../supabase/migrations/202610140142_giveaways.sql', import.meta.url), 'utf8');
+  const defaults = sql.match(/excluded_states text\[\] not null default array\[([^\]]*)\]/)[1].match(/'([A-Z]{2})'/g).map(x => x.slice(1, 3));
+  assert.deepEqual(defaults, GIVEAWAY_EXCLUDED_STATES);
+  const list = sql.match(/any\(array\[('AL'[^\]]*)\]\)/)[1].match(/'([A-Z]{2})'/g).map(x => x.slice(1, 3));
+  assert.deepEqual(list.slice().sort(), US_STATES.map(([code]) => code).sort());
+  assert.equal(US_STATES.length, 51);
+});
+
+test('the states note names the excluded states and the picker leaves them out', () => {
+  assert.equal(statesNote(), 'Open to residents of the 50 US states and DC, except Florida, New York and Rhode Island.');
+  assert.equal(statesNote(['TX']), 'Open to residents of the 50 US states and DC, except Texas.');
+  const codes = eligibleStates().map(([code]) => code);
+  assert.equal(codes.length, 48);
+  for (const blocked of GIVEAWAY_EXCLUDED_STATES) assert.ok(!codes.includes(blocked));
+});
+
+test('the giveaway cannot end early and takes free email entries', () => {
+  const component = readFileSync(new URL('../src/Giveaway.jsx', import.meta.url), 'utf8');
+  assert.ok(!component.includes('early_draw') && !component.includes('Optional: draw early'));
+  assert.ok(component.includes('adminAddMailinEntry') && component.includes('adminRecordMailinClaim') && component.includes('State where you live'));
 });

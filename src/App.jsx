@@ -2650,7 +2650,7 @@ export default function App() {
   async function signInApple() { setBusy(true); setError(''); try { await service.signInWithApple(); setModal(null); } catch (err) { setError(err.message); } finally { setBusy(false); } }
   async function signOut() { try { await service.signOut(); switchWorkspace('collector'); setNotice('You’re signed out.'); } catch (err) { setError(err.message); } }
   const giveawayItem = giveaway ? items.find(item => item.id === giveaway.listing_id) : null;
-  async function enterGiveaway() { setGiveawayBusy(true); try { const next = await service.enterGiveaway(); setGiveaway(next); return next; } finally { setGiveawayBusy(false); } }
+  async function enterGiveaway(stateCode) { setGiveawayBusy(true); try { const next = await service.enterGiveaway(stateCode); setGiveaway(next); return next; } finally { setGiveawayBusy(false); } }
   function openGiveawayEntry() { if (!session) { rememberGiveawayIntent(); setModal('login'); return; } setModal('giveaway-enter'); }
   function openCreate() { if (!session) setModal('login'); else if (profile?.can_sell) setModal('create'); else setError('Your account does not have selling permission.'); }
   function openBulkCreate() { if (!session) setModal('login'); else if (profile?.can_sell) setModal('bulk-create'); else setError('Your account does not have selling permission.'); }

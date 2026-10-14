@@ -1,6 +1,7 @@
 import React from 'react';
 import { ArrowLeft } from 'lucide-react';
 import { Brand } from './Brand.jsx';
+import { MAILIN_EMAIL, statesNote } from './giveaway.js';
 
 const LAST_UPDATED = 'October 5, 2026';
 const TERMS_UPDATED = 'October 5, 2026';
@@ -218,45 +219,53 @@ export function PrivacyPage() {
   </LegalShell>;
 }
 
-// DRAFT official rules for a Credabilia giveaway. NOT legal advice and NOT ready to publish: a sweepstakes lawyer must review and finish this before any giveaway is switched on
-// (items marked [COUNSEL] are open legal decisions). The design behind it is in docs/giveaway-and-tickets-spec.md.
+// Official rules for a Credabilia giveaway. They describe exactly what the system enforces (see docs/giveaway-and-tickets-spec.md): free entry two ways, a fixed end date with no early end,
+// a prize worth under the $5,000 registration level, and the excluded states from src/giveaway.js. Apple (guideline 5.3.2) wants these rules in the app, so this page is the one the giveaway links to.
+// Written without a lawyer: re-read it before each giveaway and keep it consistent with the card.
 export function GiveawayRulesPage() {
-  return <LegalShell title="Giveaway Official Rules" updated="Draft" current="giveaway">
+  return <LegalShell title="Giveaway Official Rules" updated="October 14, 2026" current="giveaway">
     <section>
-      <p><strong>DRAFT. Pending legal review. Do not rely on this text.</strong></p>
-      <p><strong>NO PURCHASE NECESSARY. A purchase or payment of any kind will not increase your chances of winning.</strong> Void where prohibited.</p>
+      <p><strong>NO PURCHASE NECESSARY. A purchase or payment of any kind will not increase your chances of winning.</strong> Void where prohibited. There are two free ways to enter (section 4).</p>
     </section>
 
     <h2>1. Sponsor</h2>
-    <p>Credabilia LLC, 732 S 6th St, Ste 7531, Las Vegas, NV 89101 ("Sponsor"). Apple Inc. is not a sponsor of this giveaway and is not involved in the activity in any manner. Google LLC and Stripe are not sponsors either, and no person whose name is used to describe the prize sponsors or endorses it.</p>
+    <p>Credabilia LLC, 732 S 6th St, Ste 7531, Las Vegas, NV 89101 (the "Sponsor"), support@credabilia.com. Apple Inc. is not a sponsor of this giveaway and is not involved in the activity in any manner. Google LLC and Stripe are not sponsors either, and no person whose name is used to describe the prize sponsors or endorses it.</p>
 
-    <h2>2. Eligibility</h2>
-    <p>Open to legal residents of the United States who are 18 or older at entry, hold a Credabilia account in good standing, and have completed Stripe identity verification so that the account can receive payouts. Credabilia operators, employees and their households are not eligible. [COUNSEL: confirm state exclusions and any registration or bonding for the prize value.]</p>
+    <h2>2. Who can enter</h2>
+    <p>You must be 18 or older. {statesNote()} Credabilia owners, employees, operators and their households cannot enter, and accounts that are banned or deleted are not eligible. The giveaway is open only to people who live in an eligible state on the day they enter, and the prize can only be delivered to an address in an eligible state.</p>
 
     <h2>3. Entry period</h2>
-    <p>The giveaway starts and ends on the dates shown on the giveaway card and fixed when it begins. Entries must be confirmed before the end of the entry period. If the Sponsor sets an optional ticket goal, the giveaway may end early when it is reached; the card states this if so.</p>
+    <p>The giveaway starts when it appears on Credabilia and ends on the end date shown on the giveaway card. That end date is fixed when the giveaway starts. It will not be moved earlier or later, and the giveaway does not end early. Entries must be confirmed before the end date.</p>
 
-    <h2>4. How to enter</h2>
-    <p>Tap "Enter the giveaway" while signed in and agree to these rules. To keep the giveaway fair and free of fake accounts, your entry is confirmed when Stripe verifies your account. Stripe collects the identification and bank details; Credabilia does not see them. There is no fee to enter or to verify. [COUNSEL: add the free alternate method of entry, for example a mail-in or web form with the same tickets.]</p>
+    <h2>4. How to enter (free)</h2>
+    <ul>
+      <li><strong>In Credabilia.</strong> Sign in, tap "Enter the giveaway", choose the state where you live and agree to these rules. To keep the giveaway fair and free of fake accounts, your entry is confirmed when Stripe, our payment partner, verifies your account (payout setup). It costs nothing. Stripe collects the identification and bank details, and Credabilia never sees them.</li>
+      <li><strong>By email.</strong> No account and no Stripe setup needed. Before the end date, email {MAILIN_EMAIL} with your full name, your email address, the state where you live, and the words "Enter giveaway". Each email address can enter once this way.</li>
+    </ul>
+    <p>Each person may enter once. If someone is found to have entered more than once, or with a false name or state, their entries do not count.</p>
 
     <h2>5. Tickets</h2>
+    <p>The drawing uses tickets. Each ticket has an equal chance, so more tickets mean better odds.</p>
     <ul>
-      <li>1 ticket for a confirmed entry.</li>
-      <li>1 additional ticket for each item you list on Credabilia that has been live for 7 days (no limit). Removed, deleted, held or draft listings do not count.</li>
-      <li>1 additional ticket for each member who joins through your invite link during the entry period and whose account is verified with Stripe.</li>
+      <li>1 ticket for a confirmed entry, whether made in Credabilia or by email.</li>
+      <li>In Credabilia, 1 extra ticket for each item you list on Credabilia that has been live for 7 days during the entry period (no limit). Removed, deleted, held or draft listings do not count.</li>
+      <li>In Credabilia, 1 extra ticket for each person who joins through your invite link during the entry period and whose account Stripe has verified.</li>
     </ul>
-    <p>Tickets are counted from your activity during the entry period and are checked again at the draw. No ticket is earned by buying anything. [COUNSEL: confirm that listing and referral tickets are permissible.]</p>
+    <p>Listing an item is free. Buying or selling anything does not earn tickets and will not increase your chances. Tickets are counted from your activity and checked again when the winner is drawn.</p>
 
-    <h2>6. Prize and drawing</h2>
-    <p>One (1) prize: the item named on the giveaway card, with the certificate shown there. Approximate retail value: as stated on the card. The Sponsor pays standard shipping within the United States. One winner is selected at random by computer on the end date from all valid tickets; each ticket has an equal chance. Your odds depend on the number of tickets entered, which is shown on the card. An alternate is selected at the same time.</p>
+    <h2>6. Prize</h2>
+    <p>One (1) prize: the item named on the giveaway card, with the certificate shown there. Its approximate retail value is shown on the item page and is under $5,000. There is no cash alternative. The Sponsor pays standard shipping within the United States.</p>
 
-    <h2>7. Winner</h2>
-    <p>The winner is notified by email and in the app and has 14 days to confirm a United States delivery address and remain eligible. If the winner does not respond or is not eligible, the prize passes to the alternate. The prize has no cash value, cannot be transferred, and no substitution is allowed except at the Sponsor's discretion for an item of equal or greater value. The winner is responsible for any taxes, and the Sponsor may require a tax form (W-9) from the winner before delivering the prize. [COUNSEL: tax reporting; the IRS threshold for reporting prizes is now $2,000 for 2026 payments.]</p>
+    <h2>7. Drawing and prize dates</h2>
+    <p>On or within one day after the end date, the winner is chosen at random by computer from all valid tickets. At the same time an alternate winner is chosen. Your odds of winning depend on the number of tickets entered; the card shows the current total.</p>
 
-    <h2>8. Other terms</h2>
-    <p>By entering you allow the Sponsor to use your Credabilia display name to announce the result. Information collected is used under the <a href="/privacy">Privacy Policy</a>. The Sponsor may cancel or change the giveaway if fraud or a technical failure affects its fairness. These rules are governed by Nevada law. [COUNSEL: complete.]</p>
+    <h2>8. Winner</h2>
+    <p>The winner is told by email (and in the app for members) and has 14 days to confirm a delivery address in an eligible state. Members must also have finished Stripe setup. If the winner does not respond in time or is not eligible, the prize goes to the alternate, who also has 14 days. The Sponsor ships the prize within 30 days after the winner confirms an address. The prize cannot be transferred. The winner is responsible for any taxes, and the Sponsor may ask for a tax form (W-9) if the law requires reporting.</p>
 
-    <h2>9. Winner list</h2>
-    <p>For the winner's first name and state, write to support@credabilia.com after the end date.</p>
+    <h2>9. Other terms</h2>
+    <p>The winner agrees that the Sponsor may announce their first name and state. Information collected for the giveaway is used only to run it and under the <a href="/privacy">Privacy Policy</a>. The Sponsor may cancel or change the giveaway if fraud or a technical failure affects its fairness; the end date and these rules will not otherwise change after it starts. The Sponsor is not responsible for entries that are late, lost or not received. These rules are governed by the laws of the State of Nevada.</p>
+
+    <h2>10. Winner's name</h2>
+    <p>After the end date, write to {MAILIN_EMAIL} to ask for the winner's first name and state.</p>
   </LegalShell>;
 }

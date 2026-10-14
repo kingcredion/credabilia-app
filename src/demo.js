@@ -568,13 +568,20 @@ const demoReview = r => { const purchase = state.purchases.find(p => p.id === r.
       const me = !state.userId ? null : (() => { const entered = !!state.giveawayEntries[state.userId]; const listings = entered ? listingsOf(state.userId) : 0; return { entered, ready: entered, signup: entered ? 1 : 0, listings, referrals: 0, tickets: entered ? 1 + listings : 0 }; })();
       return { id: g.id, listing_id: g.listing_id, title: state.listings.find(item => item.id === g.listing_id)?.title || 'Prize', starts_at: g.starts_at, ends_at: g.ends_at, rules_url: g.rules_url, early_draw_tickets: null, entrants, pending_entrants: 0, tickets, me };
     },
-    async enterGiveaway() { requireUser(); state.giveawayEntries[state.userId] = true; save(); return this.currentGiveaway(); },
+    async enterGiveaway(stateCode) {
+      requireUser();
+      if (!String(stateCode || '').trim()) throw new Error('Choose the state where you live.');
+      if (['NY', 'FL', 'RI'].includes(String(stateCode).trim().toUpperCase())) throw new Error('This giveaway is not open to residents of that state.');
+      state.giveawayEntries[state.userId] = true; save(); return this.currentGiveaway();
+    },
     async myGiveawayWin() { requireUser(); return null; },
     async claimGiveawayPrize() { throw new Error('Claiming a prize requires the connected app. Not available in this practice preview.'); },
     async claimReferral() { requireUser(); return false; },
     async myReferralInfo() { requireUser(); const slug = state.slugs[state.userId] || null; return { code: 'demo1234', slug, signed_up: 0, verified: 0 }; },
     async adminGiveawayOverview() { throw new Error('The admin dashboard requires the connected app. Not available in this practice preview.'); },
     async adminStartGiveaway() { throw new Error('The admin dashboard requires the connected app. Not available in this practice preview.'); },
+    async adminAddMailinEntry() { throw new Error('The admin dashboard requires the connected app. Not available in this practice preview.'); },
+    async adminRecordMailinClaim() { throw new Error('The admin dashboard requires the connected app. Not available in this practice preview.'); },
     async adminCancelGiveaway() { throw new Error('The admin dashboard requires the connected app. Not available in this practice preview.'); },
     async adminListReports() { requireUser(); return []; },
     async adminResolveReport() { throw new Error('The admin dashboard requires the connected app. Not available in this practice preview.'); },

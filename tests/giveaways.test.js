@@ -74,7 +74,7 @@ async function ticketsOf(raw, giveaway, user) {
   const r = await raw('select * from public.giveaway_ticket_rows($1,$2)', [giveaway, user]);
   return r.rows[0];
 }
-async function enter(db, as, uid) { await as(uid); return (await db.query('select public.enter_giveaway() as g')).rows[0].g; }
+async function enter(db, as, uid, state = 'TX') { await as(uid); return (await db.query('select public.enter_giveaway($1) as g', [state])).rows[0].g; }
 
 test('only an operator can start a giveaway, only on a King\'s Collection item, and only one at a time', async () => {
   const {db, as, raw, king, prize} = await world();
@@ -147,9 +147,9 @@ test('entering: needs a member in good standing, is idempotent, and an entry onl
   const review = await member(raw, {email: 'appreview@credabilia.com'});
   const banned = await member(raw, {email: 'banned@example.test'});
   await raw('update public.profiles set banned_at=now() where id=$1', [banned]);
-  for (const who of [king, review, banned]) { await as(who); await assert.rejects(db.query('select public.enter_giveaway()'), /cannot enter/); }
+  for (const who of [king, review, banned]) { await as(who); await assert.rejects(db.query("select public.enter_giveaway('TX')"), /cannot enter/); }
   await as(null, 'anon');
-  await assert.rejects(db.query('select public.enter_giveaway()'), /permission denied/);
+  await assert.rejects(db.query("select public.enter_giveaway('TX')"), /permission denied/);
 });
 
 test('tickets: 1 for entering, +1 per listing live 7 days (no cap), nothing for new, held, archived or earlier listings, +1 per Stripe-ready referral', async () => {
@@ -214,9 +214,9 @@ test('the draw is weighted by tickets', async () => {
   await enter(db, as, heavy); await enter(db, as, light);
   for (let i = 0; i < 8; i++) await listing(raw, heavy, {ageDays: 9 + i}); // heavy: 9 tickets, light: 1
   let heavyWins = 0; const runs = 400;
-  for (let i = 0; i < runs; i++) if ((await raw('select public.giveaway_pick($1) as w', [giveaway])).rows[0].w === heavy) heavyWins++;
+  for (let i = 0; i < runs; i++) if ((await raw('select public.giveaway_pick($1) as w', [giveaway])).rows[0].w.id === heavy) heavyWins++;
   assert.ok(heavyWins > runs * 0.8 && heavyWins < runs, `expected about 90% for the heavy entrant, got ${heavyWins}/${runs}`);
-  assert.equal((await raw('select public.giveaway_pick($1,$2) as w', [giveaway, heavy])).rows[0].w, light); // alternate excludes the winner
+  assert.equal((await raw('select public.giveaway_pick($1,$2) as w', [giveaway, heavy])).rows[0].w.id, light); // alternate excludes the winner
 });
 
 test('the automatic draw: picks a ready winner and an alternate, ignores members who lost Stripe readiness, emails them, and closes the giveaway', async () => {
@@ -249,20 +249,6 @@ test('a draw with no valid entries closes quietly', async () => {
   await raw('select public.run_giveaway_maintenance()');
   assert.equal((await raw('select count(*)::int as c from public.giveaway_winners')).rows[0].c, 0);
   assert.equal((await raw('select status from public.giveaways where id=$1', [giveaway])).rows[0].status, 'drawn');
-});
-
-test('the optional ticket target ends the giveaway early', async () => {
-  const {raw, db, as, king, prize} = await world();
-  await as(king);
-  const g = (await db.query('select public.admin_start_giveaway($1,null,3) as id', [prize])).rows[0].id;
-  const a = await member(raw, {email: 'a@example.test', ready: true});
-  const b = await member(raw, {email: 'b@example.test', ready: true});
-  await enter(db, as, a);
-  assert.equal((await raw('select public.run_giveaway_maintenance() as r')).rows[0].r.drawn, 0);
-  await enter(db, as, b);
-  await raw("update public.giveaways set starts_at=now()-interval '30 days' where id=$1", [g]);
-  await listing(raw, a, {ageDays: 9});
-  assert.equal((await raw('select public.run_giveaway_maintenance() as r')).rows[0].r.drawn, 1); // 1 + 1 + 1 = 3 tickets reached the target
 });
 
 test('an unclaimed prize passes to the alternate, then is forfeited; a winner claims with an address once Stripe-ready', async () => {
@@ -348,4 +334,103 @@ test('the schedule migration runs the maintenance sweep every 30 minutes', async
   const sql = await readFile(new URL('../supabase/migrations/202610140143_giveaway_schedule.sql', import.meta.url), 'utf8');
   assert.match(sql, /cron\.schedule\('giveaway-maintenance', '\*\/30 \* \* \* \*'/);
   assert.match(sql, /public\.run_giveaway_maintenance\(\)/);
+});
+
+test('there is no early end: a giveaway is only drawn on its fixed end date, however many tickets it has', async () => {
+  const {raw, db, as, giveaway} = await world({started: true});
+  for (let i = 0; i < 4; i++) { const m = await member(raw, {email: 'm' + i + '@example.test', ready: true}); await enter(db, as, m); for (let j = 0; j < 3; j++) await listing(raw, m, {ageDays: 9 + j}); }
+  assert.equal((await raw('select public.run_giveaway_maintenance() as r')).rows[0].r.drawn, 0);
+  await raw("update public.giveaways set ends_at=now()-interval '1 minute' where id=$1", [giveaway]);
+  assert.equal((await raw('select public.run_giveaway_maintenance() as r')).rows[0].r.drawn, 1);
+});
+
+test('a prize worth $5,000 or more cannot be a giveaway (that needs state registration and a bond), and is not offered as a candidate', async () => {
+  const {db, as, raw, king} = await world();
+  const insert = (title, cents) => raw("insert into public.listings(seller_id,title,description,category,price_cents,status) values($1,$2,'A fictional listing for testing only.','Sports',$3,'active') returning id", [king, title, cents]);
+  const pricey = (await insert('Expensive jersey', 500000)).rows[0].id;
+  const fine = (await insert('Cheaper jersey', 499900)).rows[0].id;
+  await as(king);
+  await assert.rejects(db.query('select public.admin_start_giveaway($1)', [pricey]), /\$5,000 or more/);
+  const o = (await db.query('select public.admin_giveaway_overview() as o')).rows[0].o;
+  assert.ok(!o.candidates.some(c => c.id === pricey) && o.candidates.some(c => c.id === fine));
+  await assert.rejects(db.query("select public.admin_start_giveaway($1, now() + interval '2 hours')", [fine]), /at least a day/);
+  await db.query('select public.admin_start_giveaway($1)', [fine]);
+});
+
+test('entrants and prize addresses must be in the 50 states or DC, and not in an excluded state (NY, FL, RI)', async () => {
+  const {db, as, raw, giveaway} = await world({started: true});
+  const m = await member(raw, {email: 'm@example.test', ready: true});
+  await as(m);
+  await assert.rejects(db.query('select public.enter_giveaway()'), /Choose the state/);
+  await assert.rejects(db.query("select public.enter_giveaway('  ')"), /Choose the state/);
+  for (const bad of ['NY', 'fl', 'RI', 'PR', 'ZZ', 'Texas']) { await as(m); await assert.rejects(db.query('select public.enter_giveaway($1)', [bad]), /not open to residents/); }
+  assert.equal((await raw('select count(*)::int as c from public.giveaway_entries')).rows[0].c, 0);
+  await enter(db, as, m, 'tx');
+  assert.equal((await raw('select state from public.giveaway_entries')).rows[0].state, 'TX');
+  for (const ok of ['DC', 'CA', 'AK']) { const other = await member(raw, {email: ok + '@example.test', ready: true}); await enter(db, as, other, ok); }
+  // a winner cannot have the prize delivered to an excluded state
+  await raw("update public.giveaways set ends_at=now()-interval '1 minute' where id=$1", [giveaway]);
+  await raw('select public.run_giveaway_maintenance()');
+  const winner = (await raw('select user_id from public.giveaway_winners where place=1')).rows[0].user_id;
+  await as(winner);
+  await assert.rejects(db.query('select public.claim_giveaway_prize($1)', [{...ADDRESS, state: 'NY'}]), /eligible state/);
+  await db.query('select public.claim_giveaway_prize($1)', [{...ADDRESS, state: 'tx'}]);
+  assert.equal((await raw("select shipping_address->>'state' as s from public.giveaway_winners where place=1")).rows[0].s, 'TX');
+});
+
+test('free email entries: operator-only, one ticket each, counted on the card, never twice for one email, state rules apply', async () => {
+  const {db, as, raw, king, giveaway} = await world({started: true});
+  const m = await member(raw, {email: 'm@example.test'});
+  await as(m);
+  await assert.rejects(db.query("select public.admin_add_mailin_entry('Pat','pat@example.test','TX')"), /Only an operator/);
+  await as(king);
+  await db.query("select public.admin_add_mailin_entry('  Pat Mailer ',' pat@example.test ','tx')");
+  await assert.rejects(db.query("select public.admin_add_mailin_entry('Pat again','PAT@example.test','TX')"), /already has an entry/);
+  await assert.rejects(db.query("select public.admin_add_mailin_entry('Nia','nia@example.test','NY')"), /not open to residents/);
+  await assert.rejects(db.query("select public.admin_add_mailin_entry('Nia','not-an-email','TX')"), /violates check constraint/);
+  const row = (await raw('select name, email, state from public.giveaway_mailin_entries')).rows[0];
+  assert.deepEqual(row, {name: 'Pat Mailer', email: 'pat@example.test', state: 'TX'});
+  await as(null, 'anon');
+  const card = (await db.query('select public.current_giveaway() as g')).rows[0].g;
+  assert.equal(card.mailin_entrants, 1); assert.equal(card.tickets, 1); assert.equal(card.entrants, 1);
+  await as(king); await db.query('select public.admin_cancel_giveaway($1)', [giveaway]);
+  await assert.rejects(db.query("select public.admin_add_mailin_entry('Late','late@example.test','TX')"), /no giveaway open/);
+});
+
+test('a mail-in entry can win: the operator is told to write to them, records their address, and the draw never emails a member', async () => {
+  const {db, as, raw, king, giveaway} = await world({started: true});
+  const alt = await member(raw, {email: 'alt@example.test', name: 'Alt', ready: true});
+  await enter(db, as, alt);
+  await as(king); await db.query("select public.admin_add_mailin_entry('Pat Mailer','pat@example.test','TX')");
+  await raw('delete from net._http_calls');
+  await raw('update public.stripe_accounts set charges_enabled=false where user_id=$1', [alt]); // the member has no valid ticket at draw time, so the mail-in entry wins
+  await raw("update public.giveaways set ends_at=now()-interval '1 minute' where id=$1", [giveaway]);
+  await raw('select public.run_giveaway_maintenance()');
+  const w = (await raw('select id, user_id, mailin_id, status from public.giveaway_winners where place=1')).rows[0];
+  assert.ok(w.mailin_id && !w.user_id && w.status === 'notified');
+  const alerts = (await raw("select body->'data'->'attributes'->'properties'->>'winner' as winner from net._http_calls where body->'data'->'attributes'->'metric'->'data'->'attributes'->>'name'='Admin Alert: Giveaway Drawn'")).rows.map(r => r.winner).join(' | ');
+  assert.match(alerts, /Pat Mailer \(mail-in entry, write to pat@example\.test/);
+  assert.ok(!(await events(raw)).includes('Giveaway Won'));
+  await as(king);
+  await assert.rejects(db.query('select public.admin_record_mailin_claim($1,$2)', [w.id, {...ADDRESS, state: 'FL'}]), /eligible state/);
+  const overview = (await db.query('select public.admin_giveaway_overview() as o')).rows[0].o;
+  assert.equal(overview.history[0].winners[0].kind, 'mail-in'); assert.equal(overview.history[0].winners[0].email, 'pat@example.test');
+  await db.query('select public.admin_record_mailin_claim($1,$2)', [w.id, ADDRESS]);
+  assert.equal((await raw('select status from public.giveaway_winners where id=$1', [w.id])).rows[0].status, 'claimed');
+  assert.equal((await raw("select shipping_address->>'city' as c from public.giveaway_winners where id=$1", [w.id])).rows[0].c, 'Austin');
+});
+
+test('a winner who never answers (member or mail-in) loses the prize to the alternate', async () => {
+  const {db, as, raw, king, giveaway} = await world({started: true});
+  const member1 = await member(raw, {email: 'm1@example.test', ready: true});
+  await enter(db, as, member1);
+  await as(king); await db.query("select public.admin_add_mailin_entry('Pat Mailer','pat@example.test','TX')");
+  await raw("update public.giveaways set ends_at=now()-interval '1 minute' where id=$1", [giveaway]);
+  await raw('select public.run_giveaway_maintenance()');
+  const first = (await raw('select user_id, mailin_id from public.giveaway_winners where place=1')).rows[0];
+  await raw("update public.giveaway_winners set claim_deadline=now()-interval '1 minute' where place=1");
+  assert.equal((await raw('select public.run_giveaway_maintenance() as r')).rows[0].r.passed_to_alternate, 1);
+  const second = (await raw('select user_id, mailin_id, status from public.giveaway_winners where place=2')).rows[0];
+  assert.equal(second.status, 'notified');
+  assert.notDeepEqual([first.user_id, first.mailin_id], [second.user_id, second.mailin_id]);
 });

@@ -88,3 +88,18 @@ export function ticketLine(me) {
   return `You have ${me.tickets} ${me.tickets === 1 ? 'ticket' : 'tickets'}${parts.length ? ': ' + parts.join(', ') : ''}.`;
 }
 export const GIVEAWAY_REQUIREMENT = 'Free to enter. Requires a verified Credabilia seller account, set up through Stripe. No purchase necessary.';
+
+// Where the giveaway is open: the 50 states and DC, minus these. The same default is in the database (giveaways.excluded_states) and a test keeps the two in step.
+// NY, FL and RI are the states with promotion-registration rules; the giveaway also refuses any prize worth $5,000 or more, so they are belt and braces.
+export const GIVEAWAY_EXCLUDED_STATES = ['NY', 'FL', 'RI'];
+export const US_STATES = [['AL', 'Alabama'], ['AK', 'Alaska'], ['AZ', 'Arizona'], ['AR', 'Arkansas'], ['CA', 'California'], ['CO', 'Colorado'], ['CT', 'Connecticut'], ['DE', 'Delaware'], ['DC', 'District of Columbia'],
+  ['FL', 'Florida'], ['GA', 'Georgia'], ['HI', 'Hawaii'], ['ID', 'Idaho'], ['IL', 'Illinois'], ['IN', 'Indiana'], ['IA', 'Iowa'], ['KS', 'Kansas'], ['KY', 'Kentucky'], ['LA', 'Louisiana'], ['ME', 'Maine'],
+  ['MD', 'Maryland'], ['MA', 'Massachusetts'], ['MI', 'Michigan'], ['MN', 'Minnesota'], ['MS', 'Mississippi'], ['MO', 'Missouri'], ['MT', 'Montana'], ['NE', 'Nebraska'], ['NV', 'Nevada'], ['NH', 'New Hampshire'],
+  ['NJ', 'New Jersey'], ['NM', 'New Mexico'], ['NY', 'New York'], ['NC', 'North Carolina'], ['ND', 'North Dakota'], ['OH', 'Ohio'], ['OK', 'Oklahoma'], ['OR', 'Oregon'], ['PA', 'Pennsylvania'], ['RI', 'Rhode Island'],
+  ['SC', 'South Carolina'], ['SD', 'South Dakota'], ['TN', 'Tennessee'], ['TX', 'Texas'], ['UT', 'Utah'], ['VT', 'Vermont'], ['VA', 'Virginia'], ['WA', 'Washington'], ['WV', 'West Virginia'], ['WI', 'Wisconsin'], ['WY', 'Wyoming']];
+export const eligibleStates = (excluded = GIVEAWAY_EXCLUDED_STATES) => US_STATES.filter(([code]) => !excluded.includes(code));
+const stateNames = codes => codes.map(code => US_STATES.find(([c]) => c === code)?.[1] || code);
+const joinNames = names => names.length < 2 ? names.join('') : names.slice(0, -1).join(', ') + ' and ' + names[names.length - 1];
+// "Open to residents of the 50 US states and DC, except Florida, New York and Rhode Island."
+export const statesNote = (excluded = GIVEAWAY_EXCLUDED_STATES) => `Open to residents of the 50 US states and DC, except ${joinNames(stateNames([...excluded]).sort())}.`;
+export const MAILIN_EMAIL = 'support@credabilia.com';
