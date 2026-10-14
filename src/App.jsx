@@ -2650,6 +2650,8 @@ export default function App() {
   async function signInApple() { setBusy(true); setError(''); try { await service.signInWithApple(); setModal(null); } catch (err) { setError(err.message); } finally { setBusy(false); } }
   async function signOut() { try { await service.signOut(); switchWorkspace('collector'); setNotice('You’re signed out.'); } catch (err) { setError(err.message); } }
   const giveawayItem = giveaway ? items.find(item => item.id === giveaway.listing_id) : null;
+  // Opening an item replaces the list on the same page, so the browser keeps the old scroll position and the item page used to appear part-way down. Always start at the top.
+  useEffect(() => { if (selectedId) window.scrollTo({ top: 0, left: 0, behavior: 'instant' }); }, [selectedId]);
   const isAdminUser = session?.user?.email === 'kingcredion@credabilia.com'; // same check as the Admin tab in Profile and settings; the database also requires an operator
   async function enterGiveaway(stateCode) { setGiveawayBusy(true); try { const next = await service.enterGiveaway(stateCode); setGiveaway(next); return next; } finally { setGiveawayBusy(false); } }
   function openGiveawayEntry() { if (!session) { rememberGiveawayIntent(); setModal('login'); return; } setModal('giveaway-enter'); }
