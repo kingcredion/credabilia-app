@@ -74,12 +74,15 @@ test('a member who signed up a day ago and has not listed gets exactly one nudge
   assert.deepEqual(again.events, []);
 });
 
-test('the default display name "Collector" is not used as a first name', async () => {
+test('the automatic display names ("Royal Member", and the older "Collector") are not used as a first name', async () => {
   const {raw} = await world();
-  await member(raw, {email: 'someone@example.test'}); // no full_name -> display name "Collector"
+  const fresh = await member(raw, {email: 'someone@example.test'}); // no full_name -> display name "Royal Member"
+  assert.equal((await raw('select display_name from public.profiles where id=$1', [fresh])).rows[0].display_name, 'Royal Member');
+  const legacy = await member(raw, {email: 'legacy@example.test'});
+  await raw("update public.profiles set display_name='Collector' where id=$1", [legacy]); // a member from before the rename
   const {events} = await sweep(raw);
-  assert.equal(events.length, 1);
-  assert.equal(events[0].props.first_name ?? null, null);
+  assert.equal(events.length, 2);
+  for (const e of events) assert.equal(e.props.first_name ?? null, null);
 });
 
 test('too new, too old, already listed, banned, deleted, operators, the App Review account and no-selling accounts are skipped', async () => {
