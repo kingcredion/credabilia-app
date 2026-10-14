@@ -68,6 +68,8 @@ function GalleryPhoto({asset,service,title,kind,index,onOpen}) {
   const [url,setUrl]=useState(asset.url);
   const [failed,setFailed]=useState(!asset.url);
   const [retrying,setRetrying]=useState(false);
+  // The photo's box is reserved (3:4, the usual phone shot) until it loads, then takes its real shape, so the page below it does not jump when the photo arrives.
+  const [ratio,setRatio]=useState(null);
   async function retry() {
     setRetrying(true);
     try {
@@ -79,7 +81,7 @@ function GalleryPhoto({asset,service,title,kind,index,onOpen}) {
     finally { setRetrying(false); }
   }
   if (failed) return <div role="status"><p>This photo couldn’t load.</p>{service?.signMediaUrls && <button type="button" className="text-button" disabled={retrying} onClick={retry}>{retrying ? 'Retrying…' : 'Retry photo'}</button>}</div>;
-  return <button type="button" className="gallery-open" onClick={onOpen} aria-label={`View ${kind} photo ${index+1} full screen`}><img className="gallery-main" src={url} decoding="async" fetchPriority={kind==='item' ? 'high' : 'auto'} loading={kind==='item' ? 'eager' : 'lazy'} onError={()=>setFailed(true)} alt={`${title} · ${kind} photo ${index+1}`}/></button>;
+  return <button type="button" className="gallery-open" onClick={onOpen} aria-label={`View ${kind} photo ${index+1} full screen`}><img className="gallery-main" src={url} decoding="async" fetchPriority={kind==='item' ? 'high' : 'auto'} loading={kind==='item' ? 'eager' : 'lazy'} onLoad={e=>{ const {naturalWidth:w,naturalHeight:h}=e.currentTarget; if(w&&h) setRatio(`${w} / ${h}`); }} style={{aspectRatio:ratio||'3 / 4'}} onError={()=>setFailed(true)} alt={`${title} · ${kind} photo ${index+1}`}/></button>;
 }
 
 export function PhotoGallery({media=[],kind='item',title,service}) {
