@@ -214,3 +214,28 @@ export function GiveawayAdmin({ service }) {
         {w.kind === 'mail-in' && w.status === 'notified' && <MailinClaim winner={w} service={service} onDone={load}/>}</div>)}</div>)}
   </div>;
 }
+
+// Admin only (the caller shows it only to the operator, and only on a King's Collection item; the database still checks): switch THIS item on or off as the giveaway
+// right from its page. Starting needs an active, fixed-price item worth under $5,000 and no other giveaway running.
+export function GiveawayItemControl({ item, giveaway, service, onChanged }) {
+  const [endsAt, setEndsAt] = useState(''), [busy, setBusy] = useState(false), [error, setError] = useState('');
+  const sixMonths = new Date(Date.now() + 182 * 86400000).toISOString().slice(0, 10);
+  async function run(action) { setBusy(true); setError(''); try { await action(); onChanged?.(); } catch (err) { setError(err.message); } finally { setBusy(false); } }
+  const running = giveaway && giveaway.listing_id === item.id;
+  let body;
+  if (running) {
+    body = <><p className="field-note"><strong>This item is the giveaway.</strong> {timeLeft(giveaway.ends_at)} · {giveaway.entrants} {giveaway.entrants === 1 ? 'entrant' : 'entrants'} · {giveaway.tickets} tickets. It cannot be bought while it runs.</p>
+      <button type="button" className="text-button" disabled={busy} onClick={() => window.confirm('Switch the giveaway off? This item goes back to normal and can be bought again.') && run(() => service.adminCancelGiveaway(giveaway.id))}>Switch the giveaway off</button></>;
+  } else if (giveaway) {
+    body = <p className="field-note">A giveaway is already running ({giveaway.title}). Switch that one off first.</p>;
+  } else if (item.listing_type !== 'fixed' || item.status !== 'active') {
+    body = <p className="field-note">Only an active fixed-price item can be the giveaway.</p>;
+  } else if (item.price_cents >= 500000) {
+    body = <p className="field-note">A prize worth $5,000 or more needs state registration, so it cannot be the giveaway. Choose one under $5,000.</p>;
+  } else {
+    body = <><p className="field-note">Make this the pinned giveaway. While it runs nobody can buy it, bid on it or request it. The automatic draw is on the last day below, or six months from now if you leave it empty.</p>
+      <label>Last day (optional)<input type="date" value={endsAt} min={new Date(Date.now() + 2 * 86400000).toISOString().slice(0, 10)} placeholder={sixMonths} onChange={event => setEndsAt(event.target.value)}/></label>
+      <button type="button" className="primary compact" disabled={busy} onClick={() => window.confirm(`Make "${item.title}" the giveaway? It can no longer be bought while it runs.`) && run(() => service.adminStartGiveaway(item.id, endsAt ? new Date(endsAt + 'T23:59:00').toISOString() : null))}>{busy ? 'Starting…' : 'Make this the giveaway'}</button></>;
+  }
+  return <section className="evidence-box giveaway-item-control" aria-label="Giveaway (admin only)"><p className="eyebrow">ADMIN ONLY · GIVEAWAY</p>{body}{error && <p role="alert" className="error">{error}</p>}</section>;
+}
