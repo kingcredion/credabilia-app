@@ -30,7 +30,7 @@
 .giveaway-enter:disabled { opacity: .6; cursor: wait; }
 .giveaway-entered { display: inline-flex; align-items: center; gap: 6px; margin: 0; font-weight: 700; color: #f3d77a; }
 .giveaway-card .giveaway-details { align-self: flex-start; color: #f3d77a; padding: 0; }
-.giveaway-panel { padding: 8px 20px 22px; margin: 6px 0 18px; display: flex; flex-direction: column; gap: 10px; }
+.giveaway-panel { padding: 8px 20px 22px; margin: 10px 0 22px; max-width: 760px; display: flex; flex-direction: column; gap: 10px; }
 .giveaway-panel .giveaway-ribbon { margin-top: 0; margin-bottom: 4px; width: 62%; }
 .giveaway-panel p.giveaway-ticketline, .giveaway-panel p.field-note { margin: 0; color: #f6f1de; font-size: 13.5px; }
 .giveaway-earn h4 { margin: 10px 0 4px; color: #f3d77a; font-size: 14px; }
