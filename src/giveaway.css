@@ -1,0 +1,49 @@
+/* The giveaway: one emerald card with a gold border and drifting gold flakes (the flakes are the sign-in box's .login-sparks, in styles.css),
+   topped by the "WIN THIS" ribbon whose crown overlaps the photo's top edge. Only transform and opacity move; reduced motion hides the flakes. */
+.giveaway-card, .giveaway-panel {
+  --rise: 260px;
+  position: relative; isolation: isolate; overflow: hidden;
+  background: radial-gradient(circle at 50% 30%, #1f7455 0%, #0d3b2c 55%, #06231a 100%);
+  border: 1px solid #c9a227; border-radius: 16px;
+  box-shadow: 0 0 0 1px #f3b8232e, 0 10px 30px #0d3b2c40, 0 0 34px #f3b82333;
+  color: #f6f1de;
+}
+.giveaway-card { display: flex; flex-direction: column; margin-bottom: 22px; max-width: 460px; }
+.giveaway-ribbon { display: block; position: relative; z-index: 2; width: 74%; max-width: 380px; height: auto; margin: 6px auto -34px; filter: drop-shadow(0 3px 8px #00000066); pointer-events: none; }
+.giveaway-photo { position: relative; z-index: 1; display: block; width: 100%; padding: 40px 14px 6px; background: none; border: 0; cursor: pointer; }
+.giveaway-photo .item-art, .giveaway-photo img { border-radius: 10px; }
+.giveaway-body, .giveaway-panel > *:not(.login-sparks):not(.giveaway-ribbon) { position: relative; z-index: 1; }
+.giveaway-body { padding: 8px 18px 18px; display: flex; flex-direction: column; gap: 8px; }
+.giveaway-card h3, .giveaway-panel h3 { margin: 0; color: #f3d77a; font-family: Georgia, 'Times New Roman', serif; font-weight: normal; font-size: 22px; line-height: 1.2; }
+.giveaway-cert { margin: 0; color: #e9dfb8; font-size: 13px; }
+.giveaway-notfor { margin: 0; font-size: 11px; letter-spacing: 1.4px; text-transform: uppercase; color: #f3b823; }
+.giveaway-requirement { margin: 0; font-size: 12.5px; line-height: 1.5; color: #d9e6dc; }
+.giveaway-requirement a, .giveaway-fine a, .giveaway-card a, .giveaway-panel a { color: #f3d77a; }
+.giveaway-progress p { margin: 6px 0 0; font-size: 13px; color: #e9dfb8; }
+.giveaway-progress strong { color: #f3d77a; }
+.giveaway-nudge { font-style: italic; }
+.giveaway-bar { height: 8px; border-radius: 999px; background: #ffffff22; overflow: hidden; border: 1px solid #c9a22766; }
+.giveaway-bar span { display: block; height: 100%; border-radius: inherit; background: linear-gradient(90deg, #c9a227, #f3d77a); box-shadow: 0 0 10px #f3b823aa; }
+.giveaway-progress.large .giveaway-bar { height: 12px; }
+.giveaway-enter { align-self: flex-start; display: inline-flex; align-items: center; gap: 8px; padding: 12px 22px; border-radius: 10px; border: 1px solid #c9a227; background: linear-gradient(180deg, #f3d77a, #d4a72c); color: #0d3b2c; font-weight: 800; cursor: pointer; }
+.giveaway-enter:hover:not(:disabled) { box-shadow: 0 0 0 3px #f3b82340; }
+.giveaway-enter:disabled { opacity: .6; cursor: wait; }
+.giveaway-entered { display: inline-flex; align-items: center; gap: 6px; margin: 0; font-weight: 700; color: #f3d77a; }
+.giveaway-card .giveaway-details { align-self: flex-start; color: #f3d77a; padding: 0; }
+.giveaway-panel { padding: 8px 20px 22px; margin: 6px 0 18px; display: flex; flex-direction: column; gap: 10px; }
+.giveaway-panel .giveaway-ribbon { margin-top: 0; margin-bottom: 4px; width: 62%; }
+.giveaway-panel p.giveaway-ticketline, .giveaway-panel p.field-note { margin: 0; color: #f6f1de; font-size: 13.5px; }
+.giveaway-earn h4 { margin: 10px 0 4px; color: #f3d77a; font-size: 14px; }
+.giveaway-earn ul { margin: 0; padding-left: 18px; font-size: 13.5px; line-height: 1.55; }
+.giveaway-link { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-top: 8px; }
+.giveaway-link code { padding: 6px 10px; border-radius: 8px; background: #00000033; color: #f6f1de; font-size: 12.5px; word-break: break-all; }
+.giveaway-panel .text-button { color: #f3d77a; }
+.giveaway-fine { margin: 0; font-size: 12px; color: #c7d6cb; }
+.giveaway-form .giveaway-requirement { color: inherit; }
+.giveaway-win { border-color: #c9a227; background: linear-gradient(180deg, #0d3b2c, #06231a); color: #f6f1de; }
+.giveaway-win h3 { color: #f3d77a; }
+.referral-card .giveaway-link code { background: var(--surface-2); color: var(--text); }
+.store-carousel { display: flex; gap: 14px; overflow-x: auto; padding: 4px 2px 14px; scroll-snap-type: x proximity; }
+.store-carousel .item-card { flex: 0 0 220px; scroll-snap-align: start; }
+@media (max-width: 600px) { .giveaway-card { max-width: none; } .giveaway-ribbon { width: 80%; } .store-carousel .item-card { flex-basis: 180px; } }
+@media (prefers-reduced-motion: reduce) { .giveaway-card, .giveaway-panel { box-shadow: 0 0 0 1px #f3b8232e, 0 10px 30px #0d3b2c40; } }

@@ -33,6 +33,9 @@ export function createDemoService(storage = window.localStorage) {
   let state;
   try { const saved = JSON.parse(storage.getItem(key)); state = saved && Array.isArray(saved.listings) && Array.isArray(saved.audits) ? saved : fresh(); } catch { state = fresh(); }
   state.uploads ||= {}; state.names ||= {}; state.favorites ||= {}; state.purchases ||= []; state.revisions ||= []; state.slugs ||= {}; state.shippingAddresses ||= {}; state.phones ||= {}; state.smsOptIns ||= {}; state.messages ||= []; state.conversations ||= []; state.credits ||= []; state.supportMessages ||= []; state.refundRequests ||= []; state.buyRequests ||= []; state.sellerRatings ||= []; state.bids ||= []; state.reports ||= []; state.blocks ||= [];
+  // The practice preview always has a giveaway running so the pinned card can be tried without the connected app.
+  state.giveaway ||= { id: 'demo-giveaway', listing_id: 'sample-1', status: 'active', starts_at: new Date(Date.now() - 10 * 86400000).toISOString(), ends_at: new Date(Date.now() + 170 * 86400000).toISOString(), rules_url: '/giveaway-rules' };
+  state.giveawayEntries ||= {};
   // "Pat Buyer Jones" -> "Pat J.", the way the real storefront shows reviewers.
 const reviewerLabel = name => { const parts = String(name || '').trim().split(/\s+/).filter(Boolean); return !parts.length ? 'Collector' : parts.length === 1 ? parts[0] : parts[0] + ' ' + parts[parts.length - 1][0].toUpperCase() + '.'; };
 const demoReview = r => { const purchase = state.purchases.find(p => p.id === r.purchase_id); const item = state.listings.find(x => x.id === purchase?.listing_id); return { id: r.id, rating: r.rating, comment: r.comment, created_at: r.created_at, reviewer: reviewerLabel(state.names[r.buyer_id] || DEMO_ACCOUNTS.find(u => u.id === r.buyer_id)?.display_name), item_title: item?.title || null }; };
@@ -555,6 +558,31 @@ const demoReview = r => { const purchase = state.purchases.find(p => p.id === r.
     async isOperator() { requireUser(); return false; },
     async adminListRefundRequests() { requireUser(); return []; },
     async adminResolveRefundRequest() { throw new Error('The admin dashboard requires the connected app. Not available in this practice preview.'); },
+    // Giveaway: in the practice preview a signed-in member who enters counts as Stripe-ready, so the whole flow can be tried.
+    async currentGiveaway() {
+      const g = state.giveaway;
+      if (!g || g.status !== 'active') return null;
+      const entrants = Object.keys(state.giveawayEntries).length;
+      const listingsOf = uid => state.listings.filter(item => item.seller_id === uid && item.status === 'active').length;
+      const tickets = Object.keys(state.giveawayEntries).reduce((sum, uid) => sum + 1 + listingsOf(uid), 0);
+      const me = !state.userId ? null : (() => { const entered = !!state.giveawayEntries[state.userId]; const listings = entered ? listingsOf(state.userId) : 0; return { entered, ready: entered, signup: entered ? 1 : 0, listings, referrals: 0, tickets: entered ? 1 + listings : 0 }; })();
+      return { id: g.id, listing_id: g.listing_id, title: state.listings.find(item => item.id === g.listing_id)?.title || 'Prize', starts_at: g.starts_at, ends_at: g.ends_at, rules_url: g.rules_url, early_draw_tickets: null, entrants, pending_entrants: 0, tickets, me };
+    },
+    async enterGiveaway(stateCode) {
+      requireUser();
+      if (!String(stateCode || '').trim()) throw new Error('Choose the state where you live.');
+      if (['NY', 'FL', 'RI'].includes(String(stateCode).trim().toUpperCase())) throw new Error('This giveaway is not open to residents of that state.');
+      state.giveawayEntries[state.userId] = true; save(); return this.currentGiveaway();
+    },
+    async myGiveawayWin() { requireUser(); return null; },
+    async claimGiveawayPrize() { throw new Error('Claiming a prize requires the connected app. Not available in this practice preview.'); },
+    async claimReferral() { requireUser(); return false; },
+    async myReferralInfo() { requireUser(); const slug = state.slugs[state.userId] || null; return { code: 'demo1234', slug, signed_up: 0, verified: 0 }; },
+    async adminGiveawayOverview() { throw new Error('The admin dashboard requires the connected app. Not available in this practice preview.'); },
+    async adminStartGiveaway() { throw new Error('The admin dashboard requires the connected app. Not available in this practice preview.'); },
+    async adminAddMailinEntry() { throw new Error('The admin dashboard requires the connected app. Not available in this practice preview.'); },
+    async adminRecordMailinClaim() { throw new Error('The admin dashboard requires the connected app. Not available in this practice preview.'); },
+    async adminCancelGiveaway() { throw new Error('The admin dashboard requires the connected app. Not available in this practice preview.'); },
     async adminListReports() { requireUser(); return []; },
     async adminResolveReport() { throw new Error('The admin dashboard requires the connected app. Not available in this practice preview.'); },
     async adminListSupportConversations() { requireUser(); return []; },
