@@ -84,6 +84,8 @@ test('the giveaway is wired into the app', () => {
   assert.ok(app.includes('giveaway && selected.id === giveaway.listing_id ? <GiveawayPanel'), 'the prize page shows the giveaway panel instead of the buy buttons');
   assert.ok(app.includes('item.id === giveaway.listing_id && item.seller_id !== session?.user.id'), 'the prize is hidden from the normal grid');
   assert.ok(app.includes("<GiveawayAdmin service={service}/>"));
+  assert.ok(app.includes('isAdminUser && selected.king_collection && <GiveawayItemControl'), 'the item page gives the admin (only) a switch for a King\'s Collection item');
+  assert.ok(app.includes("const isAdminUser = session?.user?.email === 'kingcredion@credabilia.com'"));
   assert.ok(app.includes("setModal('giveaway-enter')") && app.includes("rememberGiveawayIntent(); setModal('login')"));
   assert.ok(app.includes("'/giveaway-rules' ? 'giveaway-rules'"));
   const storefront = readFileSync(new URL('../src/Storefront.jsx', import.meta.url), 'utf8');
