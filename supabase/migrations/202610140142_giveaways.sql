@@ -342,7 +342,8 @@ language plpgsql security definer set search_path='' as $$
 declare m public.giveaway_mailin_entries;
 begin
   if p_user is not null then
-    perform public.notify_klaviyo_user(p_user,'Giveaway Won',jsonb_build_object('title',p_title,'claim_deadline',now()+interval '14 days','action_url','https://credabilia.com/'));
+    perform public.notify_klaviyo_user(p_user,'Giveaway Won',jsonb_build_object('title',p_title,'claim_deadline',now()+interval '14 days',
+      'claim_deadline_display',to_char((now()+interval '14 days') at time zone 'America/Los_Angeles','FMMonth FMDD, YYYY'),'action_url','https://credabilia.com/'));
   else
     select * into m from public.giveaway_mailin_entries where id=p_mailin;
     perform public.notify_klaviyo('kingcredion@credabilia.com','Admin Alert: Giveaway Drawn',jsonb_build_object('title',p_title,'winner',m.name||' (mail-in entry, write to '||m.email||' within 14 days)'));

@@ -243,6 +243,21 @@ test('the automatic draw: picks a ready winner and an alternate, ignores members
   assert.equal(win.title, 'Mike Vick signed jersey'); assert.equal(win.status, 'notified'); assert.equal(win.listing_id, prize);
 });
 
+test('the winner email event carries the prize title, a readable claim date and the app link', async () => {
+  const {raw, db, as, giveaway} = await world({started: true});
+  const m = await member(raw, {email: 'win@example.test', ready: true});
+  await enter(db, as, m);
+  await raw('delete from net._http_calls');
+  await raw("update public.giveaways set ends_at=now()-interval '1 minute' where id=$1", [giveaway]);
+  await raw('select public.run_giveaway_maintenance()');
+  const e = (await raw("select body->'data'->'attributes'->'properties' as p, body->'data'->'attributes'->'profile'->'data'->'attributes'->>'email' as email from net._http_calls where body->'data'->'attributes'->'metric'->'data'->'attributes'->>'name'='Giveaway Won'")).rows;
+  assert.equal(e.length, 1);
+  assert.equal(e[0].email, 'win@example.test');
+  assert.equal(e[0].p.title, 'Mike Vick signed jersey');
+  assert.match(e[0].p.claim_deadline_display, /^[A-Z][a-z]+ \d{1,2}, \d{4}$/);
+  assert.equal(e[0].p.action_url, 'https://credabilia.com/');
+});
+
 test('a draw with no valid entries closes quietly', async () => {
   const {raw, giveaway} = await world({started: true});
   await raw("update public.giveaways set ends_at=now()-interval '1 minute' where id=$1", [giveaway]);
