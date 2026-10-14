@@ -84,6 +84,7 @@ test('the giveaway is wired into the app', () => {
   assert.ok(app.includes('giveaway && selected.id === giveaway.listing_id ? <GiveawayPanel'), 'the prize page shows the giveaway panel instead of the buy buttons');
   assert.ok(app.includes("item.id === giveaway.listing_id && workspace !== 'seller'"), 'the prize is hidden from the normal grid (the admin sees it only under Your listings)');
   assert.ok(app.includes('isAdmin={isAdminUser}') && app.includes("window.location.assign('/item/' + giveaway.listing_id)"), 'admin gets no Enter button; Details always opens the item page');
+  assert.ok(app.includes("if (selectedId) window.scrollTo({ top: 0, left: 0, behavior: 'instant' })"), 'opening any item starts at the top of the page');
   assert.ok(app.includes("<GiveawayAdmin service={service}/>"));
   assert.ok(app.includes('isAdminUser && selected.king_collection && <GiveawayItemControl'), 'the item page gives the admin (only) a switch for a King\'s Collection item');
   assert.ok(app.includes("const isAdminUser = session?.user?.email === 'kingcredion@credabilia.com'"));
