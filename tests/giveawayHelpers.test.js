@@ -82,7 +82,8 @@ test('the giveaway is wired into the app', () => {
   const app = readFileSync(new URL('../src/App.jsx', import.meta.url), 'utf8');
   assert.ok(app.includes('<GiveawayCard giveaway={giveaway}'));
   assert.ok(app.includes('giveaway && selected.id === giveaway.listing_id ? <GiveawayPanel'), 'the prize page shows the giveaway panel instead of the buy buttons');
-  assert.ok(app.includes('item.id === giveaway.listing_id && item.seller_id !== session?.user.id'), 'the prize is hidden from the normal grid');
+  assert.ok(app.includes("item.id === giveaway.listing_id && workspace !== 'seller'"), 'the prize is hidden from the normal grid (the admin sees it only under Your listings)');
+  assert.ok(app.includes('isAdmin={isAdminUser}') && app.includes("window.location.assign('/item/' + giveaway.listing_id)"), 'admin gets no Enter button; Details always opens the item page');
   assert.ok(app.includes("<GiveawayAdmin service={service}/>"));
   assert.ok(app.includes('isAdminUser && selected.king_collection && <GiveawayItemControl'), 'the item page gives the admin (only) a switch for a King\'s Collection item');
   assert.ok(app.includes("const isAdminUser = session?.user?.email === 'kingcredion@credabilia.com'"));
@@ -128,6 +129,7 @@ test('the giveaway cannot end early and takes free email entries', () => {
   const component = readFileSync(new URL('../src/Giveaway.jsx', import.meta.url), 'utf8');
   assert.ok(!component.includes('early_draw') && !component.includes('Optional: draw early'));
   assert.ok(component.includes('adminAddMailinEntry') && component.includes('adminRecordMailinClaim') && component.includes('State where you live'));
+  assert.ok(component.includes('if (isAdmin) return <p className="giveaway-entered" role="status">Admin view: operators cannot enter</p>;'), 'operators are never offered the Enter button');
 });
 
 test('minimum age follows the state, and the odds sentence is honest', () => {

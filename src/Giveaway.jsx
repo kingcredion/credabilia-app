@@ -25,14 +25,15 @@ export function GiveawayProgress({ giveaway, large = false }) {
   </div>;
 }
 
-function EnterButton({ giveaway, onEnter, busy }) {
+function EnterButton({ giveaway, onEnter, busy, isAdmin }) {
   const me = giveaway.me;
+  if (isAdmin) return <p className="giveaway-entered" role="status">Admin view: operators cannot enter</p>;
   if (me?.entered) return <p className="giveaway-entered" role="status"><Check size={16}/> {me.ready ? "You're in" : 'Entry saved'}{me.ready ? ` · ${me.tickets} ${me.tickets === 1 ? 'ticket' : 'tickets'}` : ''}</p>;
   return <button type="button" className="giveaway-enter" disabled={busy} onClick={onEnter}>Enter the giveaway <ArrowRight size={16}/></button>;
 }
 
 // The pinned card at the top of Discover.
-export function GiveawayCard({ giveaway, item, onOpen, onEnter, busy }) {
+export function GiveawayCard({ giveaway, item, onOpen, onEnter, busy, isAdmin }) {
   return <article className="giveaway-card" aria-label="Current giveaway">
     <Sparks/>
     <GiveawayRibbon/>
@@ -44,7 +45,7 @@ export function GiveawayCard({ giveaway, item, onOpen, onEnter, busy }) {
       {certificateText(item) && <p className="giveaway-cert">{certificateText(item)}</p>}
       <p className="giveaway-notfor">Not for sale · prize giveaway{item?.price_cents ? ` · prize value ${money(item.price_cents)}` : ''}</p>
       <GiveawayProgress giveaway={giveaway}/>
-      <EnterButton giveaway={giveaway} onEnter={onEnter} busy={busy}/>
+      <EnterButton giveaway={giveaway} onEnter={onEnter} busy={busy} isAdmin={isAdmin}/>
       <p className="giveaway-requirement">{GIVEAWAY_REQUIREMENT}</p>
       <p className="giveaway-fine">{oddsLine(giveaway)} No account? Enter free by email: {MAILIN_EMAIL}. {statesNote(giveaway.excluded_states)}</p>
       <button type="button" className="text-button giveaway-details" onClick={onOpen}>Details and rules</button>
@@ -53,7 +54,7 @@ export function GiveawayCard({ giveaway, item, onOpen, onEnter, busy }) {
 }
 
 // Replaces the buy buttons on the prize's own item page.
-export function GiveawayPanel({ giveaway, item, referral, onEnter, busy }) {
+export function GiveawayPanel({ giveaway, item, referral, onEnter, busy, isAdmin }) {
   const [copied, setCopied] = useState(false);
   const link = referralLink(referral);
   async function copy() { try { await navigator.clipboard.writeText(link); setCopied(true); setTimeout(() => setCopied(false), 2000); } catch { /* the link is also shown to copy by hand */ } }
@@ -64,7 +65,7 @@ export function GiveawayPanel({ giveaway, item, referral, onEnter, busy }) {
     {item && <p className="giveaway-notfor">Not for sale · a giveaway prize{item.price_cents ? ` · valued at ${money(item.price_cents)}` : ''}</p>}
     <GiveawayProgress giveaway={giveaway} large/>
     <p className="giveaway-fine giveaway-odds">{oddsLine(giveaway)}</p>
-    <EnterButton giveaway={giveaway} onEnter={onEnter} busy={busy}/>
+    <EnterButton giveaway={giveaway} onEnter={onEnter} busy={busy} isAdmin={isAdmin}/>
     {ticketLine(giveaway.me) && <p className="field-note giveaway-ticketline">{ticketLine(giveaway.me)}</p>}
     <p className="giveaway-requirement">{GIVEAWAY_REQUIREMENT}</p>
     <div className="giveaway-earn"><h4>Earn more tickets</h4><ul>
