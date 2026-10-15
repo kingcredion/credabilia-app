@@ -449,3 +449,15 @@ test('a winner who never answers (member or mail-in) loses the prize to the alte
   assert.equal(second.status, 'notified');
   assert.notDeepEqual([first.user_id, first.mailin_id], [second.user_id, second.mailin_id]);
 });
+
+test('the Merchant Center feed never offers the giveaway prize, and takes it back if the giveaway is switched off', async () => {
+  const {db, as, raw, prize, giveaway} = await world({started: true});
+  const ids = async () => (await raw('select public.merchant_feed_listings() as f')).rows[0].f.map(x => x.id);
+  assert.ok(!(await ids()).includes(prize), 'a running giveaway prize is not in the feed');
+  await raw("update public.giveaways set status='drawn' where id=$1", [giveaway]);
+  assert.ok(!(await ids()).includes(prize), 'a drawn prize is not in the feed');
+  await raw("update public.giveaways set status='active' where id=$1", [giveaway]);
+  await as((await raw('select user_id from public.operators limit 1')).rows[0].user_id);
+  await db.query('select public.admin_cancel_giveaway($1)', [giveaway]);
+  assert.ok((await ids()).includes(prize), 'once switched off it is a normal King\'s Collection item again');
+});
