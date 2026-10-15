@@ -29,5 +29,5 @@ test('the hero photo is requested early and fonts are linked from the page head,
 
 test('the home hero offers a smaller photo to phones', () => {
   const app = read('../src/App.jsx');
-  assert.ok(app.includes("mobile-launch-hero-v3-560.webp 560w, /brand/mobile-launch-hero-v3.webp 960w") && app.includes('sizes="(max-width: 720px) 360px, 460px"'));
+  assert.ok(app.includes("mobile-launch-hero-v3-560.webp 560w, /brand/mobile-launch-hero-v3-720.webp 720w, /brand/mobile-launch-hero-v3.webp 960w") && app.includes('sizes="(max-width: 720px) 360px, 460px"'));
 });

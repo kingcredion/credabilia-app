@@ -50,7 +50,7 @@ const NATIVE_COLLECTOR_HERO = { src: '/brand/screen-face-v1/collect.webp', width
 // The referrer lets Play Console's acquisition reports attribute installs to this button.
 const PLAY_STORE_URL = 'https://play.google.com/store/apps/details?id=com.credabilia.app&referrer=utm_source%3Dcredabilia_web%26utm_medium%3Dhome_hero';
 const HERO_IMAGES = {
-  collector: { src: '/brand/mobile-launch-hero-v3.webp', srcSet: '/brand/mobile-launch-hero-v3-560.webp 560w, /brand/mobile-launch-hero-v3.webp 960w', width: 960, height: 960, alt: 'King Credion holding up a phone showing the Credabilia app, beside a signed baseball and a framed signed jersey' },
+  collector: { src: '/brand/mobile-launch-hero-v3.webp', srcSet: '/brand/mobile-launch-hero-v3-560.webp 560w, /brand/mobile-launch-hero-v3-720.webp 720w, /brand/mobile-launch-hero-v3.webp 960w', width: 960, height: 960, alt: 'King Credion holding up a phone showing the Credabilia app, beside a signed baseball and a framed signed jersey' },
   seller: { src: '/brand/screen-face-v1/sell.webp', width: 800, height: 800, alt: 'King Credion welcoming shoppers to a royal market stall with a signed baseball, trading card, and framed jersey' },
   auditor: { src: '/brand/screen-face-v1/audit.webp', width: 800, height: 800, alt: 'King Credion inspecting a certificate of authenticity with a magnifying glass beside a signed baseball' },
 };
