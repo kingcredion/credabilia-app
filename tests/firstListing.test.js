@@ -7,17 +7,17 @@ const DAY = 86400000;
 const fakeWindow = () => { const store = new Map(); return {localStorage: {getItem: k => store.has(k) ? store.get(k) : null, setItem: (k, v) => store.set(k, String(v))}, store}; };
 const base = {live: true, session: {user: {id: 'me'}}, profile: {can_sell: true}, isAdmin: false, workspace: 'collector', hasListed: false, dismissedUntil: 0, now: 1000};
 
-test('the first-listing card shows to a signed-in member who has never listed, on Discover', () => {
-  assert.equal(shouldShowFirstListing(base), true);
+test('the first-listing card shows to a signed-in member who has never listed, on Discover, Sell and Audit', () => {
+  for (const workspace of ['collector', 'seller', 'auditor']) assert.equal(shouldShowFirstListing({...base, workspace}), true, workspace);
 });
 
-test('it never shows to the operator, a signed-out visitor, someone who cannot sell, or in other workspaces', () => {
+test('it never shows to the operator, a signed-out visitor, someone who cannot sell, or in the Messages inbox', () => {
   assert.equal(shouldShowFirstListing({...base, isAdmin: true}), false);
   assert.equal(shouldShowFirstListing({...base, session: null}), false);
   assert.equal(shouldShowFirstListing({...base, profile: null}), false);
   assert.equal(shouldShowFirstListing({...base, profile: {can_sell: false}}), false);
   assert.equal(shouldShowFirstListing({...base, live: false}), false);
-  for (const workspace of ['seller', 'auditor', 'messages']) assert.equal(shouldShowFirstListing({...base, workspace}), false);
+  assert.equal(shouldShowFirstListing({...base, workspace: 'messages'}), false);
 });
 
 test('anyone who has listed, had a listing end, or made a sale is not shown it', () => {
@@ -48,6 +48,8 @@ test('the payout intro tells people what Stripe asks for and that nothing is cha
 test('the card and the payout intro are wired into the app', () => {
   const app = readFileSync(new URL('../src/App.jsx', import.meta.url), 'utf8');
   assert.ok(app.includes('showFirstListing && <FirstListingCard onStart={openCreate}'), 'the card opens the listing form');
+  assert.equal(app.split('showFirstListing && <FirstListingCard').length - 1, 2, 'on Discover and Sell, and on its own at the top of the Audit tab');
+  assert.ok(app.indexOf('showFirstListing && <FirstListingCard') < app.indexOf('OBSERVATION OVER ASSUMPTION') || app.lastIndexOf('showFirstListing && <FirstListingCard') < app.indexOf('OBSERVATION OVER ASSUMPTION'), 'above the Audit tab header');
   assert.ok(app.includes("setModal('payout-intro')") && app.includes('async function startPayoutOnboarding()'), 'Stripe opens only after the intro');
   assert.ok(app.includes("modal === 'payout-intro'") && app.includes('onContinue={() => { setModal(null); startPayoutOnboarding(); }}'));
   assert.ok(app.indexOf('const isAdminUser') < app.indexOf('const showFirstListing'), 'declared before it is used');

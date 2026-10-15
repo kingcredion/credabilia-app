@@ -1,4 +1,4 @@
-// "List your first item": a card at the top of Discover for a member who has never listed, and the plain-language intro shown before the Stripe payout setup.
+// "List your first item": a card at the top of Discover, Sell and Audit for a member who has never listed, and the plain-language intro shown before the Stripe payout setup.
 // Everything that decides WHO sees it lives here so it can be tested without the app.
 export const FIRST_LISTING_DISMISS_KEY = 'credabilia.firstListingDismissedUntil';
 const DAY = 86400000;
@@ -16,9 +16,12 @@ export function hasEverListed({ items = [], endedListings = [], sales = [], user
   return items.some(item => item.seller_id === userId) || endedListings.length > 0 || sales.length > 0;
 }
 
+// Discover (collector), Sell (seller) and Audit (auditor); not the Messages inbox.
+export const FIRST_LISTING_WORKSPACES = ['collector', 'seller', 'auditor'];
+
 export function shouldShowFirstListing({ live, session, profile, isAdmin, workspace, hasListed, dismissedUntil = 0, now = Date.now() }) {
   if (!live || !session || !profile || isAdmin) return false;
-  if (workspace !== 'collector') return false;
+  if (!FIRST_LISTING_WORKSPACES.includes(workspace)) return false;
   if (profile.can_sell === false) return false;
   if (hasListed) return false;
   return dismissedUntil <= now;
