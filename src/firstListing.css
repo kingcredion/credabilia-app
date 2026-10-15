@@ -1,5 +1,5 @@
 .first-listing-card { display: flex; align-items: center; gap: 20px; margin: 0 0 20px; padding: 20px 24px; background: var(--surface); border: 1px solid var(--border); border-left: 4px solid #17695f; border-radius: 14px; }
-.first-listing-card > img { flex: 0 0 auto; width: 96px; height: 96px; object-fit: contain; }
+.first-listing-card > img { flex: 0 0 auto; width: 176px; height: auto; object-fit: contain; }
 .first-listing-copy { min-width: 0; }
 .first-listing-copy h2 { margin: 4px 0 8px; font-size: 22px; line-height: 1.25; }
 .first-listing-copy p { margin: 0 0 12px; }
@@ -10,6 +10,6 @@
 .payout-intro-list { margin: 4px 0 8px 18px; padding: 0; display: grid; gap: 8px; }
 @media (max-width: 640px) {
   .first-listing-card { flex-direction: column; align-items: flex-start; gap: 12px; padding: 16px; }
-  .first-listing-card > img { width: 72px; height: 72px; }
+  .first-listing-card > img { width: 130px; }
   .first-listing-copy h2 { font-size: 19px; }
 }

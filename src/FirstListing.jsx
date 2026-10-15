@@ -6,7 +6,7 @@ import './firstListing.css';
 // Shown at the top of Discover to a signed-in member who has never listed. One clear step; payouts come later.
 export function FirstListingCard({ onStart, onDismiss, payoutsReady }) {
   return <section className="first-listing-card" aria-labelledby="first-listing-title">
-    <img src="/brand/screen-face-v1/sell.webp" width="96" height="96" alt="" loading="lazy" decoding="async"/>
+    <img src="/brand/king-credion-photographing-jersey-360.webp" srcSet="/brand/king-credion-photographing-jersey-360.webp 360w, /brand/king-credion-photographing-jersey-540.webp 540w" sizes="(max-width: 640px) 130px, 176px" width="176" height="178" alt="King Credion photographing a signed jersey on a gold display stand" decoding="async"/>
     <div className="first-listing-copy">
       <p className="eyebrow"><span className="small-line"/>YOUR FIRST LISTING</p>
       <h2 id="first-listing-title">Turn one piece into your first sale</h2>
