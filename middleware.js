@@ -9,7 +9,7 @@ import { next } from '@vercel/functions';
 const SUPABASE_URL = process.env.VITE_SUPABASE_URL;
 const SUPABASE_KEY = process.env.VITE_SUPABASE_PUBLISHABLE_KEY;
 const DEFAULT_IMAGE = 'https://credabilia.com/brand/app-icons/crown-c/web/icon-512.png';
-const RESERVED_SLUGS = new Set(['terms', 'privacy', 'help', 'auth', 'item', 'sell', 'certificate']);
+const RESERVED_SLUGS = new Set(['terms', 'privacy', 'help', 'auth', 'item', 'sell', 'certificate', 'giveaway-rules']);
 const BOT_UA = /bot|facebookexternalhit|facebookcatalog|twitterbot|slackbot|discordbot|linkedinbot|whatsapp|telegrambot|applebot|pinterest|redditbot|vkshare|skypeuripreview|embedly|quora|outbrain|iframely|w3c_validator/i;
 
 export const config = {
@@ -70,6 +70,7 @@ const STATIC_PAGES = {
   terms: { title: 'Terms of Service | Credabilia', description: 'The terms for buying and selling on Credabilia, including payment holds, refunds, shipping and certificates.', heading: 'Credabilia Terms of Service', text: 'The terms for buying and selling on Credabilia, including how payments are held until delivery, refunds, shipping and certificates.' },
   privacy: { title: 'Privacy Policy | Credabilia', description: 'How Credabilia collects, uses and protects your information.', heading: 'Credabilia Privacy Policy', text: 'How Credabilia collects, uses and protects your information.' },
   certificate: { title: 'Certificate lookup | Credabilia', description: 'Search a certificate number from PSA/DNA, JSA, Beckett (BAS) and other issuers to see whether it appears on a Credabilia listing.', heading: 'Certificate lookup', text: 'Search a certificate number from PSA/DNA, JSA, Beckett (BAS) and other issuers to see whether it appears on a Credabilia listing.' },
+  'giveaway-rules': { title: 'Giveaway Official Rules | Credabilia', description: 'Official rules for the Credabilia giveaway: no purchase necessary, how to enter, how tickets and odds work, eligibility and how the winner is chosen.', heading: 'Credabilia Giveaway Official Rules', text: 'Official rules for the Credabilia giveaway. No purchase necessary. Includes how to enter, free email entry, how tickets and odds work, eligibility, the prize and how the winner is chosen.' },
   sell: { title: 'Sell your memorabilia | Credabilia', description: 'List signed memorabilia and collectibles on Credabilia. Get paid through Stripe after delivery, with item credibility scores that help buyers trust your listing.', heading: 'Sell your memorabilia on Credabilia', text: 'List signed memorabilia and collectibles. You are paid through Stripe after delivery, and item credibility scores help buyers trust your listing.' },
 };
 
@@ -81,7 +82,7 @@ export function shorten(text, max) {
   return cut.slice(0, Math.max(cut.lastIndexOf(' '), 40)).replace(/[\s,.;:-]+$/, '') + '…';
 }
 
-const NAV_LINKS = '<nav><a href="/">Credabilia</a> · <a href="/help">Help</a> · <a href="/terms">Terms</a> · <a href="/privacy">Privacy</a> · <a href="/certificate">Certificate lookup</a> · <a href="/sell">Sell</a></nav>';
+const NAV_LINKS = '<nav><a href="/">Credabilia</a> · <a href="/help">Help</a> · <a href="/terms">Terms</a> · <a href="/privacy">Privacy</a> · <a href="/certificate">Certificate lookup</a> · <a href="/sell">Sell</a> · <a href="/giveaway-rules">Giveaway rules</a></nav>';
 
 // schema.org Product for one listing, so Google can show price and availability. Only facts the listing already states publicly.
 export function productJsonLd(item, pageUrl, image) {
@@ -154,7 +155,7 @@ async function buildMeta(pathname) {
 // so every real listing and storefront was invisible to search engines). Served to every
 // requester, not just BOT_UA, since this is a machine-readable endpoint by definition, not an
 // HTML page needing bot-only treatment.
-const STATIC_URLS = ['/', '/help', '/terms', '/privacy', '/certificate', '/sell'];
+const STATIC_URLS = ['/', '/help', '/terms', '/privacy', '/certificate', '/sell', '/giveaway-rules'];
 
 async function buildSitemap(origin) {
   const data = await callRpc('sitemap_entries', {});
