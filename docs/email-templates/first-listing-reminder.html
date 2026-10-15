@@ -2,7 +2,7 @@
      Trigger metric: "First Listing Reminder", sent by the daily send_first_listing_reminders() sweep (migration 202610150147): a member who got the
      first nudge at least 48 hours ago (and no more than 8 days ago) and still has no listing; one reminder per member, ever.
      Event properties: first_name (only when the member gave a real name; otherwise absent, so the greeting falls back to "there").
-     Art: reuses public/brand/email/first-listing-nudge-art.png.
+     Art: public/brand/email/first-listing-reminder-art.png (King Credion photographing a jersey, user-supplied; PNG because email apps cannot show WebP).
      Subject: One photo is all it takes to start   |   Preview: King Credion drafts it. You review it before it goes live.
      Flow: trigger on the metric, one email, no delay. Do NOT schedule the cron job (migration 202610150148) until this flow is LIVE: the sweep marks a member
      as reminded as soon as it sends the event, so running it before the flow exists would use up everyone's one reminder with no email going out. -->
@@ -13,7 +13,7 @@
     <h1 style="margin:10px 0 0 0;font-size:30px;line-height:36px;color:#0d3b2e;font-weight:normal;">One photo is all it takes to start</h1>
   </td></tr>
   <tr><td align="center" style="padding:16px 16px 0 16px;">
-    <img src="https://credabilia.com/brand/email/first-listing-nudge-art.png" width="280" alt="King Credion presenting a signed baseball in a golden display case" style="display:block;width:280px;max-width:100%;height:auto;margin:0 auto;">
+    <img src="https://credabilia.com/brand/email/first-listing-reminder-art.png" width="280" alt="King Credion taking a photo of a signed jersey on a gold display stand" style="display:block;width:280px;max-width:100%;height:auto;margin:0 auto;">
   </td></tr>
   <tr><td style="padding:18px 24px 6px 24px;font-family:Arial,Helvetica,sans-serif;font-size:15px;line-height:23px;color:#33423b;">
     Hi {{ event.first_name|default:'there' }},<br><br>
