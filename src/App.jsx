@@ -231,6 +231,13 @@ function CreateListing({ onClose, onCreated, relistFrom, bulkPhoto, bulkProgress
   const [fit,setFit]=useState(null); // {fit:'clear'|'unsure'|'unrelated', reason} from the last AI draft, or null if never drafted
   const formRef=useRef(null);
   const working=busy||uploading||analyzing||drafting||copyingPhotos||reviewingSignature||processingPhoto||resuming||discarding;
+  // While something is still running the publish button is off. Say what, so a click that does nothing is never a mystery.
+  const waitingReason=busy?'':uploading?'Photos are still uploading':processingPhoto?'King Credion is reading your photo':drafting?'AI is drafting the details':copyingPhotos?'Photos are being copied':reviewingSignature?'The signature is being reviewed':analyzing?'The certificate is being read':(resuming||discarding)?'One moment':'';
+  const [tried,setTried]=useState(false), errorRef=useRef(null);
+  // A form error appears next to the publish button, which can be off screen after scrolling: bring it into view, and put the cursor on the field it is about.
+  useEffect(()=>{ if(error) errorRef.current?.scrollIntoView?.({block:'center',behavior:'smooth'}); },[error]);
+  const errorField={'Choose the issuer':'certificate_issuer','Confirm the certificate details':'cert-confirm-check','Confirm the statement':'attest-check','Enter who signed it':'attribute:subject'};
+  function pointAtField(message){ const key=Object.keys(errorField).find(prefix=>message.startsWith(prefix)); if(!key) return; const target=document.getElementById(errorField[key])||formRef.current?.elements?.namedItem(errorField[key]); target?.focus?.({preventScroll:false}); }
   const certificates=media.filter(asset=>asset.kind==='certificate');
   const signaturePhoto=media.find(asset=>asset.kind==='signature');
   const [subjectTick,setSubjectTick]=useState(0); // bumps when the signed-by name is entered or filled in, so the signature review can start
@@ -490,7 +497,7 @@ function CreateListing({ onClose, onCreated, relistFrom, bulkPhoto, bulkProgress
       // Best-effort: the listing is already published, so a failure here shouldn't block the seller — but it should be visible for debugging.
       if (relistFrom?.purchase_id) service.markListingRelisted(id, relistFrom.purchase_id).catch(err => console.warn('Could not record relist provenance:', err.message));
       onCreated(id, fit);
-    } catch (err) { setError(err.message); setBusy(false); }
+    } catch (err) { setError(err.message); setBusy(false); pointAtField(err.message); }
   }
   if (!relistFrom && !bulkPhoto && draftPrompt) return <Modal title="Resume your listing?" onClose={close}>
     <div className="ai-photo-step">
@@ -525,7 +532,7 @@ function CreateListing({ onClose, onCreated, relistFrom, bulkPhoto, bulkProgress
     {copyingPhotos && <p role="status" className="field-note">Copying photos to your own listing…</p>}
     {draftApplied && <p className="field-note bg-removed-ok">AI filled in the details from your photo — review everything before publishing. <button type="button" className="text-button" onClick={()=>setDraftApplied(false)}>Dismiss</button></p>}
     {draftNote && <p className="field-note">{draftNote} <button type="button" className="text-button" onClick={()=>setDraftNote('')}>Dismiss</button></p>}
-    <form ref={formRef} onSubmit={submit} className="form-stack">
+    <form ref={formRef} onSubmit={submit} onInvalidCapture={()=>{ setTried(true); setError(current=>current||'Some details are missing. Fill in the highlighted fields, then publish again.'); }} className={`form-stack${tried?' tried':''}`}>
       <div className="bulk-form-wrap">
       {bulkPhoto && processingPhoto && <div className="bulk-scan-overlay" role="status" aria-label="King Credion is drafting this listing"><div className="bulk-scan-card"><img src="/brand/screen-face-v1/scan.webp" alt=""/><p>Reading this photo…</p></div></div>}
       <label>Item title<input name="title" placeholder="What are you sharing?" minLength={4} maxLength={120} required autoFocus/></label>
@@ -570,11 +577,12 @@ function CreateListing({ onClose, onCreated, relistFrom, bulkPhoto, bulkProgress
       {certificates.length>0 && <><button type="button" className="text-button" onClick={analyze} disabled={working}>{analyzing?'Reading certificate…':'Read certificate with AI'}</button><p className="field-note">Sends the first certificate photo to our AI provider to suggest the company and number. Review the suggestions before publishing.</p></>}
       {suggestion && <div className="evidence-box"><h3>Suggested certificate details</h3><p>Issuer: {suggestion.certificate_issuer} · Number: {suggestion.certificate_number || 'Not readable'}</p><button type="button" className="text-button" onClick={()=>{setCertificate(suggestion);setConfirmed(false);setSuggestion(null);}}>Use these details and review</button><button type="button" className="text-button" onClick={()=>setSuggestion(null)}>Dismiss suggestion</button></div>}
       <CertificateFields value={certificate} onChange={value=>{setCertificate(value);setConfirmed(false);}} disabled={working}/>
-      {certificate.certificate_issuer && <label className="certificate-confirm"><input type="checkbox" checked={confirmed} onChange={event=>setConfirmed(event.target.checked)} required disabled={working}/>I checked the company and number against my certificate.</label>}
-      <label className="certificate-confirm"><input type="checkbox" checked={attested} onChange={event=>setAttested(event.target.checked)} required disabled={working}/>I own this item, it is what this listing says it is, and any certificate I attached is genuine. I understand that misleading buyers can lead to removal and a ban.</label>
-      {error && <p role="alert" className="error">{error}</p>}
+      {certificate.certificate_issuer && <label className="certificate-confirm"><input id="cert-confirm-check" type="checkbox" checked={confirmed} onChange={event=>setConfirmed(event.target.checked)} required disabled={working}/>I checked the company and number against my certificate.</label>}
+      <label className="certificate-confirm"><input id="attest-check" type="checkbox" checked={attested} onChange={event=>setAttested(event.target.checked)} required disabled={working}/>I own this item, it is what this listing says it is, and any certificate I attached is genuine. I understand that misleading buyers can lead to removal and a ban.</label>
+      {error && <p role="alert" className="error" ref={errorRef}>{error}</p>}
+      {working && !busy && waitingReason && <p role="status" className="field-note publish-wait">{waitingReason}…  The publish button turns on when it is done.</p>}
       <div className="submit-row">
-        <button className="primary" disabled={working}>{busy ? 'Publishing…' : relistFrom ? 'Publish relisted item' : bulkPhoto ? 'Publish and next' : 'Publish listing'}<ArrowRight size={17}/></button>
+        <button className="primary" disabled={working} aria-busy={busy}>{busy ? 'Publishing…' : relistFrom ? 'Publish relisted item' : bulkPhoto ? 'Publish and next' : 'Publish listing'}<ArrowRight size={17}/></button>
         {bulkPhoto && onPause && <button type="button" className="text-button" disabled={working} onClick={()=>onPause(bulkPhoto)}>Save and exit</button>}
       </div>
     </form>
