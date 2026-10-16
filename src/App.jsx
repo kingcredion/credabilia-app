@@ -2619,7 +2619,7 @@ export default function App() {
     setLoadingMore(true);
     try {
       const last = items[items.length - 1];
-      const more = await service.listings({ created_at: last.created_at, id: last.id });
+      const more = await service.listings({ created_at: last.sort_at || last.created_at, id: last.id }); // sort_at is the paging key: placeholder items sort after real sellers' items
       setItems(list => [...list, ...more]);
       setItemsHasMore(more.length >= LISTINGS_PAGE_SIZE);
     } catch (err) { setError(err.message); } finally { setLoadingMore(false); }
