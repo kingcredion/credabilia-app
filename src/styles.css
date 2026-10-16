@@ -70,10 +70,11 @@
 .bulk-progress-fill{height:100%;background:var(--brand-teal);transition:width .3s ease}
 .bulk-back-nav{display:flex;flex-wrap:wrap;align-items:center;gap:6px;margin-bottom:12px}
 .bulk-form-wrap{position:relative}
-.bulk-scan-overlay{position:absolute;inset:0;z-index:5;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px}
-.bulk-scan-overlay img{width:450px;height:450px;max-width:90%;object-fit:contain;animation:scan-pulse 1.6s ease-in-out infinite;filter:drop-shadow(0 6px 16px rgba(0,0,0,.35))}
-.bulk-scan-overlay p{font-size:13px;font-weight:600;color:var(--text);background:var(--surface);padding:4px 10px;border-radius:20px;margin:0;box-shadow:0 2px 8px rgba(0,0,0,.15)}
-@media(prefers-reduced-motion:reduce){.bulk-scan-overlay img{animation:none}}
+.bulk-scan-overlay{position:absolute;inset:0;z-index:5;display:flex;justify-content:center;align-items:flex-start;border-radius:12px;background:rgba(255,255,255,.9);background:color-mix(in srgb,var(--surface) 90%,transparent);-webkit-backdrop-filter:blur(3px);backdrop-filter:blur(3px)}
+.bulk-scan-card{position:sticky;top:12px;display:flex;flex-direction:column;align-items:center;gap:8px;margin-top:12px;max-height:calc(100vh - 140px)}
+.bulk-scan-card img{width:240px;height:auto;max-width:70vw;max-height:calc(100vh - 220px);object-fit:contain;animation:scan-pulse 1.6s ease-in-out infinite;filter:drop-shadow(0 6px 16px rgba(0,0,0,.3))}
+.bulk-scan-card p{font-size:13px;font-weight:600;color:var(--text);background:var(--surface);padding:4px 12px;border-radius:20px;margin:0;box-shadow:0 2px 8px rgba(0,0,0,.15);text-align:center}
+@media(prefers-reduced-motion:reduce){.bulk-scan-card img{animation:none}}
 .inspection-box{display:flex;flex-direction:column;gap:10px;margin:12px 0;padding:14px;border:1px solid var(--border);border-radius:12px}.inspection-box h4{margin:0}.inspection-box .check-row{display:flex;flex-direction:row;gap:10px;align-items:flex-start;font-size:14px;font-weight:500;line-height:1.35;padding:0;border:0}.inspection-box .check-row input{margin-top:3px;flex:none;width:auto}.order-card{margin:0 0 14px}
 .handoff-code{display:flex;flex-direction:column;align-items:center;gap:6px;margin:12px 0;padding:16px;border:1px solid var(--border);border-radius:12px;text-align:center}.handoff-code span{font-size:.8rem;letter-spacing:.12em;text-transform:uppercase;opacity:.75}.handoff-code strong{font-size:2rem;letter-spacing:.18em;font-variant-numeric:tabular-nums}.handoff-code small{opacity:.8}
 .admin-signature-photo{width:100%;height:160px;object-fit:contain;background:var(--surface-2);border-radius:6px;margin-bottom:10px}

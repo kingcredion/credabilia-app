@@ -525,7 +525,7 @@ function CreateListing({ onClose, onCreated, relistFrom, bulkPhoto, bulkProgress
     {draftNote && <p className="field-note">{draftNote} <button type="button" className="text-button" onClick={()=>setDraftNote('')}>Dismiss</button></p>}
     <form ref={formRef} onSubmit={submit} className="form-stack">
       <div className="bulk-form-wrap">
-      {bulkPhoto && processingPhoto && <div className="bulk-scan-overlay" role="status" aria-label="King Credion is drafting this listing"><img src="/brand/screen-face-v1/scan.webp" alt=""/><p>Reading this photo…</p></div>}
+      {bulkPhoto && processingPhoto && <div className="bulk-scan-overlay" role="status" aria-label="King Credion is drafting this listing"><div className="bulk-scan-card"><img src="/brand/screen-face-v1/scan.webp" alt=""/><p>Reading this photo…</p></div></div>}
       <label>Item title<input name="title" placeholder="What are you sharing?" minLength={4} maxLength={120} required autoFocus/></label>
       <label>Signed by <span className="optional">{signaturePhoto?'required':'optional'}</span><SignedByInput required={!!signaturePhoto} onCommit={()=>setSubjectTick(t=>t+1)}/></label>
       <MediaPicker service={service} media={media} onChange={next=>{setMedia(next);setSuggestion(null);setConfirmed(false);setSignatureAi(null);}} busy={working} onBusy={setUploading} onError={setError}/>
