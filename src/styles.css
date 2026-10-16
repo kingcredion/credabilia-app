@@ -374,6 +374,3 @@ dialog.login-dialog::backdrop{background:radial-gradient(ellipse at 50% 38%,#c9a
 .marketplace-photo>.listing-cover{display:block}
 .marketplace-photo-trim{padding:12px;background:var(--marketplace-photo-bg)}
 .marketplace-photo-trim>.listing-cover,.marketplace-photo-trim>.item-art{background:var(--marketplace-photo-bg);border-radius:14px}
-.marketplace-photo-trim::after{content:'';position:absolute;inset:3px;background:url('/brand/marketplace-gold-trim-v1.webp') center/100% 100% no-repeat;pointer-events:none;z-index:1;opacity:.65}
-:root[data-theme="dark"] .marketplace-photo-trim::after{opacity:.8}
-@media(prefers-color-scheme:dark){:root:not([data-theme="light"]) .marketplace-photo-trim::after{opacity:.8}}
