@@ -33,6 +33,7 @@ import { SellPage } from './SellPage.jsx';
 import { LIST_INTENT_KEY, captureListIntent, hasFreshListIntent, isSellHost } from './listIntent.js';
 import { captureGiveawayParam, captureReferralParam, clearGiveawayIntent, clearReferral, hasFreshGiveawayIntent, readReferral, rememberGiveawayIntent } from './giveaway.js';
 import { FirstListingCard, FirstListingCelebration, PayoutIntro } from './FirstListing.jsx';
+import { SaveButton, showSavedThen, useSavedFlash } from './SaveButton.jsx';
 import { categoryFromPath, categoryPageTitle, pathForBrowse } from './seoRoutes.js';
 import { dismissFirstListing, firstListingDismissedUntil, hasEverListed, shouldCelebrateFirstListing, shouldShowFirstListing } from './firstListing.js';
 import { GiveawayAdmin, GiveawayCard, GiveawayClaimForm, GiveawayEnterForm, GiveawayItemControl, GiveawayPanel, GiveawayWinBanner, ReferralCard } from './Giveaway.jsx';
@@ -712,7 +713,7 @@ function BulkListing({ onClose, onAllDone }) {
 
 function EditListing({item:currentItem,onClose,onSaved}) {
   const item=useRef(currentItem).current;
-  const [saving,setSaving]=useState(false),[error,setError]=useState(''),[uploading,setUploading]=useState(false);
+  const [saving,setSaving]=useState(false),[saved,setSaved]=useState(false),[error,setError]=useState(''),[uploading,setUploading]=useState(false);
   const [media,setMedia]=useState(item.media||[]),[mediaTouched,setMediaTouched]=useState(false);
   const [certificate,setCertificate]=useState({certificate_issuer:item.certificate_issuer||'',certificate_number:item.certificate_number||'',certificate_company:item.certificate_company||''});
   const [confirmed,setConfirmed]=useState(true);
@@ -771,7 +772,7 @@ function EditListing({item:currentItem,onClose,onSaved}) {
         } catch { /* AI unavailable -- leave it exactly as held as it already was rather than guessing. */ }
       }
       await service.editListing(item,{...form,attributes,...certificate,media:finalMedia,price_cents:priceInCents(form.price)},mediaTouched,fit);
-      onSaved();
+      setSaving(false); await showSavedThen(setSaved,onSaved);
     }
     catch(err){setError(err.message);setSaving(false);}
   }
@@ -797,7 +798,7 @@ function EditListing({item:currentItem,onClose,onSaved}) {
       <CertificateFields value={certificate} onChange={value=>{setCertificate(value);setConfirmed(false);}} disabled={working}/>
       {certificate.certificate_issuer && certificateChanged && <label className="certificate-confirm"><input type="checkbox" checked={confirmed} onChange={event=>setConfirmed(event.target.checked)} required disabled={working}/>I checked the company and number against my certificate.</label>}
       {error&&<p role="alert" className="error">{error}</p>}
-      <button className="primary" disabled={working}>{saving?'Saving…':'Save changes'}</button>
+      <SaveButton saving={saving} saved={saved} disabled={working||saved}>Save changes</SaveButton>
     </form>
   </Modal>;
 }
@@ -826,11 +827,11 @@ function StorefrontSettings({ profile }) {
   // Tracked locally (not just re-read from `profile`) so saving shows the new link immediately
   // without closing the surrounding modal — the parent's onSaved is for the display-name form only.
   const [savedSlug, setSavedSlug] = useState(profile?.slug || '');
-  const [saving, setSaving] = useState(false), [error, setError] = useState(''), [copied, setCopied] = useState(false);
+  const [saving, setSaving] = useState(false), [error, setError] = useState(''), [copied, setCopied] = useState(false), [saved, flashSaved] = useSavedFlash();
   async function submit(event) {
     event.preventDefault(); if (saving) return;
     setSaving(true); setError('');
-    try { await service.updateStoreSlug(slug); setSavedSlug(slug.trim().toLowerCase()); }
+    try { await service.updateStoreSlug(slug); setSavedSlug(slug.trim().toLowerCase()); flashSaved(); }
     catch (err) { setError(err.message); } finally { setSaving(false); }
   }
   async function copyLink() {
@@ -843,7 +844,7 @@ function StorefrontSettings({ profile }) {
     {link && <p><a href={link} target="_blank" rel="noreferrer">{link}</a> <button type="button" className="text-button" onClick={copyLink}>{copied ? 'Copied!' : 'Copy link'}</button></p>}
     <form className="form-row" onSubmit={submit}>
       <label>{profile?.slug ? 'Change store name' : 'Choose a store name'}<input value={slug} onChange={event=>setSlug(event.target.value)} minLength={3} maxLength={30} placeholder="mystore" required/></label>
-      <button className="primary" disabled={saving}>{saving ? 'Saving…' : 'Save'}</button>
+      <SaveButton saving={saving} saved={saved}>Save</SaveButton>
     </form>
     {error && <p role="alert" className="error">{error}</p>}
   </div>;
@@ -945,7 +946,7 @@ function ShippingSettings({ profile }) {
     <form className="form-stack" onSubmit={submit}>
       <ShippingAddressFields value={address} onChange={value => { setAddress(value); setSaved(false); }} disabled={saving} onVerifiedChange={setVerified}/>
       {error && <p role="alert" className="error">{error}</p>}
-      <button className="primary" disabled={saving || !verified}>{saving ? 'Saving…' : saved ? 'Saved' : 'Save address'}</button>
+      <SaveButton saving={saving} saved={saved} disabled={!verified}>Save address</SaveButton>
     </form>
   </div>;
 }
@@ -1519,6 +1520,7 @@ function NotificationSettings() {
   }
   if (!status || !status.supported) return null;
   return <div className="evidence-box"><h3>Notifications</h3>
+    {status.subscribed && <p className="saved-note" role="status"><Check size={15} aria-hidden="true"/>Notifications are on for this device</p>}
     <p className="field-note">{status.subscribed ? 'You’ll get a push notification here for new messages and refund updates.' : 'Turn on push notifications for new messages and refund updates on this device.'}</p>
     {error && <p role="alert" className="error">{error}</p>}
     <button type="button" className="text-button" onClick={toggle} disabled={busy}>{busy ? 'Working…' : status.subscribed ? 'Turn off notifications' : 'Enable notifications'}</button>
@@ -1544,7 +1546,7 @@ function SmsNotificationSettings({ profile }) {
       <label>Phone number<input type="tel" value={phone} onChange={event => setPhone(event.target.value)} placeholder="+1 555 555 5555" disabled={busy} required={optIn}/></label>
       <label className="certificate-confirm"><input type="checkbox" checked={optIn} onChange={event => setOptIn(event.target.checked)} disabled={busy}/>Text me about my orders and bids. Message frequency varies. Msg &amp; data rates may apply. Reply STOP to opt out, HELP for help.</label>
       {error && <p role="alert" className="error">{error}</p>}
-      <button className="primary" disabled={busy}>{busy ? 'Saving…' : saved ? 'Saved!' : 'Save'}</button>
+      <SaveButton saving={busy} saved={saved}>Save</SaveButton>
     </form>
   </div>;
 }
@@ -2058,12 +2060,12 @@ function ProfileSettings({ profile, session, onSaved, onSignOut, onConnectPayout
   const payoutBox = useRef(null);
   useEffect(() => { if (payoutPending && tab === 'settings') payoutBox.current?.scrollIntoView({ block: 'center', behavior: 'smooth' }); }, [tab]); // eslint-disable-line react-hooks/exhaustive-deps
   const [name, setName] = useState(profile?.display_name || '');
-  const [saving, setSaving] = useState(false), [error, setError] = useState('');
+  const [saving, setSaving] = useState(false), [saved, setSaved] = useState(false), [error, setError] = useState('');
   const [stripeBusy, setStripeBusy] = useState(false), [stripeError, setStripeError] = useState('');
   async function submit(event) {
     event.preventDefault(); if (saving) return;
     setSaving(true); setError('');
-    try { await service.updateProfile(name); onSaved(); }
+    try { await service.updateProfile(name); setSaving(false); await showSavedThen(setSaved, onSaved); }
     catch (err) { setError(err.message); } finally { setSaving(false); }
   }
   async function connectStripe() {
@@ -2088,7 +2090,7 @@ function ProfileSettings({ profile, session, onSaved, onSignOut, onConnectPayout
         <label>Display name<input value={name} onChange={event=>setName(event.target.value)} minLength={1} maxLength={100} required/></label>
         <label>Email<input value={session?.user?.email || ''} readOnly disabled/></label>
         {error && <p role="alert" className="error">{error}</p>}
-        <button className="primary" disabled={saving}>{saving ? 'Saving…' : 'Save name'}</button>
+        <SaveButton saving={saving} saved={saved} disabled={saved}>Save name</SaveButton>
       </form>
       <StorefrontSettings profile={profile}/>
       <ShippingSettings profile={profile}/>

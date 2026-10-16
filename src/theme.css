@@ -12,7 +12,7 @@
   --text-muted:#596e78;
   --border:#dce5e7;--border-soft:#dce3d3;--border-faint:#e5e9df;
 
-  --green:#205d78;--green-hover:#16475e;--on-brand:#fff;
+  --green:#205d78;--green-hover:#16475e;--on-brand:#fff;--saved:#0f7a52;--on-saved:#fff;
   --brand-teal:#17695f;--brand-gold:#bd8b32;
   --focus-ring:#205d78;--focus-ring-input:#17695f;
 
@@ -39,7 +39,7 @@
   --text-muted:#9db0b8;
   --border:#2c3a40;--border-soft:#33434a;--border-faint:#26333a;
 
-  --green:#5aa3c9;--green-hover:#7fb9d8;--on-brand:#06171d;
+  --green:#5aa3c9;--green-hover:#7fb9d8;--on-brand:#06171d;--saved:#34b983;--on-saved:#04140d;
   --brand-teal:#4fb3a0;--brand-gold:#e0ae57;
   --focus-ring:#5aa3c9;--focus-ring-input:#4fb3a0;
 
@@ -66,7 +66,7 @@
   --text-muted:#9db0b8;
   --border:#2c3a40;--border-soft:#33434a;--border-faint:#26333a;
 
-  --green:#5aa3c9;--green-hover:#7fb9d8;--on-brand:#06171d;
+  --green:#5aa3c9;--green-hover:#7fb9d8;--on-brand:#06171d;--saved:#34b983;--on-saved:#04140d;
   --brand-teal:#4fb3a0;--brand-gold:#e0ae57;
   --focus-ring:#5aa3c9;--focus-ring-input:#4fb3a0;
 

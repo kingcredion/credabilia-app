@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { Camera, Copy, Share2, ShieldCheck } from 'lucide-react';
 import { Sparks } from './Giveaway.jsx';
+import { SaveButton } from './SaveButton.jsx';
 import { PAYOUT_INTRO_POINTS, PAYOUT_INTRO_NOTE, cleanStoreName, isValidStoreName, shareLinkFor } from './firstListing.js';
 import './firstListing.css';
 
@@ -52,7 +53,7 @@ export function FirstListingCelebration({ service, slug, itemId, giveawayActive,
       {giveawayActive && <p className="field-note">Everyone who joins through it and finishes payout setup earns you a giveaway ticket.</p>}
       <form className="celebrate-name" onSubmit={saveName}>
         <label htmlFor="celebrate-store-name">{savedSlug ? 'Change your store name' : 'Pick a store name for a shorter link'}</label>
-        <div className="celebrate-name-row"><span aria-hidden="true">credabilia.com/</span><input id="celebrate-store-name" value={nameInput} onChange={event => { setNameInput(event.target.value); setNameError(''); setNameSaved(false); }} maxLength={30} placeholder="mystore" autoCapitalize="none" autoCorrect="off" spellCheck="false"/><button type="submit" className="text-button" disabled={savingName}>{savingName ? 'Saving…' : 'Save'}</button></div>
+        <div className="celebrate-name-row"><span aria-hidden="true">credabilia.com/</span><input id="celebrate-store-name" value={nameInput} onChange={event => { setNameInput(event.target.value); setNameError(''); setNameSaved(false); }} maxLength={30} placeholder="mystore" autoCapitalize="none" autoCorrect="off" spellCheck="false"/><SaveButton type="submit" className="primary compact" saving={savingName} saved={nameSaved}>Save</SaveButton></div>
         {nameError && <p className="error" role="alert">{nameError}</p>}
         {nameSaved && <p className="field-note" role="status">Saved. Your link is now {share.url.replace('https://', '')}.</p>}
       </form>
