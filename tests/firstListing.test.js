@@ -75,3 +75,10 @@ test('the celebration is wired in and reuses the sign-in stage and flakes', () =
   const css = readFileSync(new URL('../src/firstListing.css', import.meta.url), 'utf8');
   assert.ok(css.includes('animation: login-glow') && css.includes('animation: login-float') && /prefers-reduced-motion: reduce[^}]*celebrate-stage/.test(css), 'same animation as the login box, and calm for reduced motion');
 });
+
+test('the payout intro has the King Credion Stripe art, and the Profile settings button opens it too', () => {
+  const comp = readFileSync(new URL('../src/FirstListing.jsx', import.meta.url), 'utf8');
+  assert.ok(comp.includes('king-credion-stripe-payout-setup-360.webp') && comp.includes('payout-intro-stage'));
+  const app = readFileSync(new URL('../src/App.jsx', import.meta.url), 'utf8');
+  assert.ok(app.includes("onConnectPayouts={() => setModal('payout-intro')}") && app.includes('onClick={onConnectPayouts || connectStripe}'), 'Profile settings no longer skips the intro');
+});

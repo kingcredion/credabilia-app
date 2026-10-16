@@ -2038,7 +2038,7 @@ function DeleteAccount({ onDeleted }) {
   </div>;
 }
 
-function ProfileSettings({ profile, session, onSaved, onSignOut }) {
+function ProfileSettings({ profile, session, onSaved, onSignOut, onConnectPayouts }) {
   // A seller who hasn't connected payouts yet needs to see that prompt first, not a wall of zeros.
   const needsPayoutSetup = service.mode === 'live' && !profile?.stripe_charges_enabled && !profile?.stripe_details_submitted;
   const [tab, setTab] = useState(needsPayoutSetup ? 'settings' : 'dashboard');
@@ -2087,7 +2087,7 @@ function ProfileSettings({ profile, session, onSaved, onSignOut }) {
         {service.mode !== 'live' ? <p className="field-note">Coming soon. You'll be able to add bank details here before real checkout launches — nothing is collected yet.</p>
           : profile?.stripe_charges_enabled ? <><p className="field-note">Payments are connected. Your sales pay out to your own Stripe account.</p><button type="button" className="text-button" onClick={openDashboard} disabled={stripeBusy}>{stripeBusy ? 'Opening…' : 'Open your Stripe dashboard'}</button></>
           : profile?.stripe_details_submitted ? <p className="field-note">Stripe is still reviewing your account. Check back soon.</p>
-          : <><p className="field-note">Connect a Stripe account to receive payouts before buyers can purchase your listings.</p><button type="button" className="text-button" onClick={connectStripe} disabled={stripeBusy}>{stripeBusy ? 'Opening…' : 'Connect payouts with Stripe'}</button></>}
+          : <><p className="field-note">Connect a Stripe account to receive payouts before buyers can purchase your listings.</p><button type="button" className="text-button" onClick={onConnectPayouts || connectStripe} disabled={stripeBusy}>{stripeBusy ? 'Opening…' : 'Connect payouts with Stripe'}</button></>}
         {stripeError && <p role="alert" className="error">{stripeError}</p>}
       </div>
       <DeleteAccount onDeleted={onSignOut}/>
@@ -2790,7 +2790,7 @@ export default function App() {
     {modal === 'first-listing-celebrate' && <Modal className="celebrate-dialog" title="Your first listing is live!" onClose={() => setModal(null)}><FirstListingCelebration onSetUpPayouts={() => { setModal(null); beginPayoutSetup(); }} onLater={() => { setModal(null); setNotice('Your listing is published, but it is locked until you connect payouts with Stripe. You can set it up any time from Sell.'); }}/></Modal>}
     {modal === 'payout-intro' && <Modal title="Set up payouts" onClose={() => setModal(null)}><PayoutIntro onContinue={() => { setModal(null); startPayoutOnboarding(); }} onLater={() => setModal(null)}/></Modal>}
     {modal === 'giveaway-claim' && giveawayWin && <Modal title="Claim your prize" onClose={() => setModal(null)}><GiveawayClaimForm onSubmit={async address => { await service.claimGiveawayPrize(address); setGiveawayWin(await service.myGiveawayWin()); }} onDone={() => setModal(null)}/></Modal>}
-    {modal === 'profile' && <Modal title="Profile and settings" onClose={() => setModal(null)}><ProfileSettings profile={profile} session={session} onSaved={() => { setModal(null); setNotice('Your profile is saved.'); refresh(); }} onSignOut={() => { setModal(null); signOut(); }}/></Modal>}
+    {modal === 'profile' && <Modal title="Profile and settings" onClose={() => setModal(null)}><ProfileSettings profile={profile} session={session} onSaved={() => { setModal(null); setNotice('Your profile is saved.'); refresh(); }} onSignOut={() => { setModal(null); signOut(); }} onConnectPayouts={() => setModal('payout-intro')}/></Modal>}
     {modal === 'support' && <Modal title="Ask King Credion" onClose={() => setModal(null)}><SupportChat service={service}/></Modal>}
     {modal === 'learn' && <Modal title="Start with the evidence" onClose={() => setModal(null)}><ol className="guide"><li><strong>Observe before deciding.</strong><p>Look at condition, markings, materials, and the description. Record what you can actually see.</p></li><li><strong>Check the story.</strong><p>Provenance and certificates need verification. A familiar name alone does not prove authenticity.</p></li><li><strong>Say what is missing.</strong><p>Ask for clearer photos or documentation. Uncertainty is more useful than unsupported confidence.</p></li></ol><p className="field-note">Participation XP does not certify expertise.</p></Modal>}
   </div>;
