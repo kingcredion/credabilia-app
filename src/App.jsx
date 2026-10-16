@@ -32,6 +32,7 @@ import { SellPage } from './SellPage.jsx';
 import { LIST_INTENT_KEY, captureListIntent, hasFreshListIntent, isSellHost } from './listIntent.js';
 import { captureGiveawayParam, captureReferralParam, clearGiveawayIntent, clearReferral, hasFreshGiveawayIntent, readReferral, rememberGiveawayIntent } from './giveaway.js';
 import { FirstListingCard, FirstListingCelebration, PayoutIntro } from './FirstListing.jsx';
+import { categoryFromPath, categoryPageTitle, pathForBrowse } from './seoRoutes.js';
 import { dismissFirstListing, firstListingDismissedUntil, hasEverListed, shouldCelebrateFirstListing, shouldShowFirstListing } from './firstListing.js';
 import { GiveawayAdmin, GiveawayCard, GiveawayClaimForm, GiveawayEnterForm, GiveawayItemControl, GiveawayPanel, GiveawayWinBanner, ReferralCard } from './Giveaway.jsx';
 const SupportChat = React.lazy(() => import('./SupportChat.jsx').then(module => ({ default: module.SupportChat })));
@@ -2262,7 +2263,7 @@ export default function App() {
   }, [listHandoff]);
   const [session, setSession] = useState(null), [authReady, setAuthReady] = useState(false), [profile, setProfile] = useState(null);
   const [workspace, setWorkspace] = useState('collector'), [items, setItems] = useState([]), [audits, setAudits] = useState([]);
-  const [category, setCategory] = useState('All items'), [query, setQuery] = useState(''), [selectedId, setSelectedId] = useState(null);
+  const [category, setCategory] = useState(() => categoryFromPath(window.location.pathname) || 'All items'), [query, setQuery] = useState(''), [selectedId, setSelectedId] = useState(null);
   const [modal, setModal] = useState(null), [createWhenReady, setCreateWhenReady] = useState(null), [busy, setBusy] = useState(false), [loading, setLoading] = useState(true), [error, setError] = useState(''), [notice, setNotice] = useState('');
   const [favoriteIds, setFavoriteIds] = useState([]), [purchases, setPurchases] = useState([]), [collectionFilter, setCollectionFilter] = useState('all');
   const [sales, setSales] = useState([]), [sellerTab, setSellerTab] = useState('active'), [endedListings, setEndedListings] = useState([]);
@@ -2484,21 +2485,23 @@ export default function App() {
     // selectedId still null and immediately overwrites the good incoming URL with '/'.
     if (itemPathId && !appliedItemParam.current) return;
     if (soldPreview) return;
-    const target = selectedId ? `/item/${selectedId}` : '/';
+    // A category has its own address (/category/sports), so a filtered view can be shared and opened directly.
+    const target = selectedId ? `/item/${selectedId}` : pathForBrowse(category);
     if (window.location.pathname !== target) window.history.pushState(null, '', target);
-  }, [selectedId, authReady, items, soldPreview]);
+  }, [selectedId, category, authReady, items, soldPreview]);
   // Share-link previews (crawlers) get real per-page meta from the Vercel routing middleware --
   // this just keeps the browser tab title honest for an actual visitor, who never sees that HTML.
   useEffect(() => {
     if (legalPage === 'sell') return; // the seller landing page sets its own title
     const item = selectedId && items.find(x => x.id === selectedId);
-    document.title = item ? `${item.title} | Credabilia` : 'Credabilia | The Memorabilia Kingdom';
-  }, [selectedId, items]);
+    document.title = item ? `${item.title} | Credabilia` : category !== 'All items' ? categoryPageTitle(category) : 'Credabilia | The Memorabilia Kingdom';
+  }, [selectedId, items, category]);
   // Restores native browser back/forward support for item views.
   useEffect(() => {
     const onPopState = () => {
       const segments = window.location.pathname.split('/').filter(Boolean);
       setSelectedId(segments.length === 2 && segments[0] === 'item' ? segments[1] : null);
+      setCategory(categoryFromPath(window.location.pathname) || 'All items'); // back/forward restores the category view too
     };
     window.addEventListener('popstate', onPopState);
     return () => window.removeEventListener('popstate', onPopState);
