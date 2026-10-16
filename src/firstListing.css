@@ -13,3 +13,19 @@
   .first-listing-card > img { width: 130px; }
   .first-listing-copy h2 { font-size: 19px; }
 }
+
+/* The first-listing celebration: the sign-in box's emerald stage, gold glow and drifting gold flakes (.login-sparks, keyframes login-glow / login-float / login-spark in
+   styles.css). Only transform and opacity move; reduced motion turns the movement off. */
+dialog.celebrate-dialog { width: min(520px, calc(100vw - 24px)); border-color: #c9a22780; box-shadow: 0 25px 100px var(--shadow-dialog), 0 0 0 1px #c9a22733, 0 0 60px #c9a2271f; }
+dialog.celebrate-dialog::backdrop { background: radial-gradient(ellipse at 50% 38%, #c9a22729, transparent 62%), #05180ed1; backdrop-filter: blur(5px); }
+.celebrate { display: grid; gap: 12px; text-align: center; }
+.celebrate h3 { margin: 4px 0 0; font-size: 21px; line-height: 1.25; }
+.celebrate p { margin: 0; }
+.celebrate-stage { position: relative; overflow: hidden; isolation: isolate; display: flex; justify-content: center; align-items: flex-end; border-radius: 12px; padding: 22px 18px 10px; --rise: 280px;
+  background: radial-gradient(circle at 50% 46%, #1f7455 0%, #0d3b2c 52%, #06231a 100%); }
+.celebrate-stage::before { content: ""; position: absolute; z-index: -1; left: 50%; top: 48%; width: 78%; aspect-ratio: 1; transform: translate(-50%, -50%); border-radius: 50%;
+  background: radial-gradient(circle, #ffd96a59 0%, #c9a22724 45%, transparent 70%); animation: login-glow 5.5s ease-in-out infinite; }
+.celebrate-stage img { position: relative; z-index: 1; display: block; width: 220px; max-width: 100%; height: auto; animation: login-float 6.5s ease-in-out infinite; }
+.celebrate-actions { justify-content: center; margin-top: 4px; }
+@media (max-width: 640px) { .celebrate-stage { --rise: 170px; padding: 16px 10px 8px; } .celebrate-stage img { width: 170px; } .celebrate h3 { font-size: 19px; } }
+@media (prefers-reduced-motion: reduce) { .celebrate-stage .login-sparks { display: none; } .celebrate-stage::before, .celebrate-stage img { animation: none; } }
