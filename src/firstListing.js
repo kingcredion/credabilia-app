@@ -33,6 +33,18 @@ export function shouldCelebrateFirstListing({ live, profile, held, hadListedBefo
   return !!live && !!profile && !profile.stripe_charges_enabled && !held && !hadListedBefore;
 }
 
+// The link a member is nudged to share from the congratulations popup. A member with a store name shares their store (that link already credits them as the
+// inviter); everyone else shares their new listing, tagged with their invite code when they have one so a member who joins through it counts toward the giveaway.
+export function shareLinkFor({ slug, itemId, code, origin = 'https://credabilia.com' }) {
+  if (slug) return { url: origin + '/' + slug, label: 'your store link' };
+  if (itemId) return { url: origin + '/item/' + itemId + (code ? '?ref=' + encodeURIComponent(code) : ''), label: 'your listing link' };
+  return { url: '', label: '' };
+}
+
+// A store name is 3-30 lowercase letters, numbers or hyphens, starting with a letter or number (the database enforces the same rule and the reserved names).
+export const cleanStoreName = value => String(value || '').trim().toLowerCase();
+export const isValidStoreName = value => /^[a-z0-9][a-z0-9-]{2,29}$/.test(cleanStoreName(value));
+
 // What Stripe asks for, in plain words, so nobody is surprised when the Stripe page opens. Stripe collects and stores all of it; Credabilia never sees it.
 export const PAYOUT_INTRO_POINTS = [
   'Stripe, our payment partner, runs this step. Credabilia never sees or stores your bank or ID details.',

@@ -1,7 +1,7 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
-import {FIRST_LISTING_DISMISS_KEY, FIRST_LISTING_SNOOZE_DAYS, PAYOUT_INTRO_NOTE, PAYOUT_INTRO_POINTS, dismissFirstListing, firstListingDismissedUntil, hasEverListed, shouldCelebrateFirstListing, shouldShowFirstListing} from '../src/firstListing.js';
+import {FIRST_LISTING_DISMISS_KEY, FIRST_LISTING_SNOOZE_DAYS, PAYOUT_INTRO_NOTE, PAYOUT_INTRO_POINTS, dismissFirstListing, firstListingDismissedUntil, hasEverListed, cleanStoreName, isValidStoreName, shareLinkFor, shouldCelebrateFirstListing, shouldShowFirstListing} from '../src/firstListing.js';
 
 const DAY = 86400000;
 const fakeWindow = () => { const store = new Map(); return {localStorage: {getItem: k => store.has(k) ? store.get(k) : null, setItem: (k, v) => store.set(k, String(v))}, store}; };
@@ -81,4 +81,32 @@ test('the payout intro has the King Credion Stripe art, and the Profile settings
   assert.ok(comp.includes('king-credion-stripe-payout-setup-360.webp') && comp.includes('payout-intro-stage'));
   const app = readFileSync(new URL('../src/App.jsx', import.meta.url), 'utf8');
   assert.ok(app.includes("onConnectPayouts={() => setModal('payout-intro')}") && app.includes('onClick={onConnectPayouts || connectStripe}'), 'Profile settings no longer skips the intro');
+});
+
+test('the popup shares the store link when there is one, otherwise the new listing (tagged with the invite code)', () => {
+  assert.deepEqual(shareLinkFor({slug: 'alexshop', itemId: 'abc', code: 'zz9'}), {url: 'https://credabilia.com/alexshop', label: 'your store link'});
+  assert.deepEqual(shareLinkFor({slug: null, itemId: 'abc', code: 'zz9'}), {url: 'https://credabilia.com/item/abc?ref=zz9', label: 'your listing link'});
+  assert.equal(shareLinkFor({slug: null, itemId: 'abc'}).url, 'https://credabilia.com/item/abc', 'no code yet: a plain listing link');
+  assert.equal(shareLinkFor({}).url, '', 'nothing to share: the section is hidden');
+});
+
+test('the congratulations popup carries the share section and gets the data it needs', () => {
+  const comp = readFileSync(new URL('../src/FirstListing.jsx', import.meta.url), 'utf8');
+  assert.ok(comp.includes('celebrate-share') && comp.includes('navigator.clipboard.writeText(share.url)') && comp.includes('navigator.share'));
+  const app = readFileSync(new URL('../src/App.jsx', import.meta.url), 'utf8');
+  assert.ok(app.includes('slug={profile?.slug} itemId={celebratedItemId} giveawayActive={!!giveaway}') && app.includes('setCelebratedItemId(celebrate ? id : null)'));
+});
+
+test('store names: 3 to 30 lowercase letters, numbers or hyphens, as the database requires', () => {
+  assert.equal(cleanStoreName('  MyShop '), 'myshop');
+  for (const ok of ['abc', 'my-shop', 'Shop2', 'a'.repeat(30)]) assert.equal(isValidStoreName(ok), true, ok);
+  for (const bad of ['', 'ab', '-shop', 'my shop', 'shop!', 'a'.repeat(31), 'shöp']) assert.equal(isValidStoreName(bad), false, bad);
+});
+
+test('the popup lets a member choose a store name and uses it for the link straight away', () => {
+  const comp = readFileSync(new URL('../src/FirstListing.jsx', import.meta.url), 'utf8');
+  assert.ok(comp.includes('await service.updateStoreSlug(clean); setSavedSlug(clean)') && comp.includes("shareLinkFor({ slug: savedSlug, itemId, code })"));
+  assert.ok(comp.includes('isValidStoreName(nameInput)') && comp.includes('role="alert"'));
+  const app = readFileSync(new URL('../src/App.jsx', import.meta.url), 'utf8');
+  assert.ok(app.includes('onStoreNameSaved={() => refresh()}'));
 });

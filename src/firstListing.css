@@ -33,3 +33,17 @@ dialog.celebrate-dialog::backdrop { background: radial-gradient(ellipse at 50% 3
 .payout-intro-stage { padding: 18px 14px 8px; --rise: 220px; }
 .payout-intro-stage img { width: 230px; }
 @media (max-width: 640px) { .payout-intro-stage img { width: 190px; } }
+
+.celebrate-share { display: grid; gap: 8px; margin: 2px 0 4px; padding: 12px; border: 1px solid var(--border); border-radius: 10px; background: var(--surface-3, transparent); text-align: left; }
+.celebrate-share-title { font-weight: 600; font-size: 14px; }
+.celebrate-link { display: flex; align-items: center; justify-content: space-between; gap: 10px; min-width: 0; }
+.celebrate-link code { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 13px; }
+.celebrate-link .text-button, .celebrate-native-share { display: inline-flex; align-items: center; gap: 6px; flex: 0 0 auto; }
+.celebrate-share .field-note { margin: 0; }
+
+.celebrate-name { display: grid; gap: 6px; margin-top: 4px; }
+.celebrate-name label { font-size: 13px; color: var(--text-muted); }
+.celebrate-name-row { display: flex; align-items: center; gap: 6px; min-width: 0; }
+.celebrate-name-row span { flex: 0 0 auto; font-size: 13px; color: var(--text-muted); }
+.celebrate-name-row input { flex: 1 1 auto; min-width: 0; }
+.celebrate-name .error { margin: 0; }
