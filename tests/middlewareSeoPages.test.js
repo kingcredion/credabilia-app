@@ -111,3 +111,18 @@ test('descriptions are cut at a word, never mid-word', () => {
   assert.equal(text[kept.length], ' ', 'the cut falls on a space');
   assert.equal(shorten('short', 60), 'short');
 });
+
+test('an item page for a crawler shows the AI tags as plain related terms, without repeating the title or escaping badly', async () => {
+  const f = withFetch({get_listing_preview: () => ({body: {...ITEM, title: 'Ken Griffey Jr. Framed Display', tags: ['ken griffey jr.', 'seattle mariners', 'Seattle Mariners', 'baseball <b>', '']}})});
+  try {
+    const html = await (await middleware(request('/item/' + ITEM_ID, GOOGLEBOT))).text();
+    assert.match(html, /<p>Related terms: seattle mariners, baseball &lt;b&gt;<\/p>/);
+  } finally { f.restore(); }
+});
+
+test('no tags, no related terms line', async () => {
+  const f = withFetch({get_listing_preview: () => ({body: ITEM})});
+  try {
+    assert.doesNotMatch(await (await middleware(request('/item/' + ITEM_ID, GOOGLEBOT))).text(), /Related terms/);
+  } finally { f.restore(); }
+});

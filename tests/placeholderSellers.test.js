@@ -89,3 +89,12 @@ test('no signed-in member can read or change who is a placeholder', async () => 
   await assert.rejects(() => db.query("select * from public.placeholder_sellers"), /permission denied/);
   await assert.rejects(() => db.query("insert into public.placeholder_sellers(seller_id) values($1)", [someone]), /permission denied/);
 });
+
+test('the listing preview carries the listing\'s tags for the crawler page', async () => {
+  const {raw} = await freshDb();
+  const seller = await member(raw, 'tagger@example.test');
+  const l = await listing(raw, seller, 'Tagged item', 1);
+  await raw("update public.listings set tags=$2::jsonb where id=$1", [l, JSON.stringify(['seattle mariners', 'baseball'])]);
+  const preview = (await raw('select public.get_listing_preview($1) as p', [l])).rows[0].p;
+  assert.deepEqual(preview.tags, ['seattle mariners', 'baseball']);
+});

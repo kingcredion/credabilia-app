@@ -185,6 +185,17 @@ function breadcrumbHtml(trail) {
 }
 const listItems = (entries, withPrice = true) => entries.filter(l => l.id && l.title).map(l => '<li><a href="/item/' + escapeHtml(l.id) + '">' + escapeHtml(l.title) + '</a>' + (withPrice && money(l.price_cents) ? ' · ' + escapeHtml(money(l.price_cents)) : '') + '</li>').join('');
 
+// The AI-written tags, shown as plain text. A tag already in the title is left out (no repeating), and at most eight are shown.
+export function relatedTerms(item) {
+  const title = String(item.title || '').toLowerCase();
+  const seen = new Set();
+  return (Array.isArray(item.tags) ? item.tags : []).map(tag => String(tag || '').trim()).filter(tag => {
+    const key = tag.toLowerCase();
+    if (!key || key.length > 40 || title.includes(key) || seen.has(key)) return false;
+    seen.add(key); return true;
+  }).slice(0, 8);
+}
+
 function itemBody(item, image, related) {
   const crumbs = [['Home', '/'], ...(CATEGORIES.includes(item.category) && !item.giveaway_prize ? [[item.category, categoryPath(item.category)]] : []), [item.title, null]];
   const details = detailPairs(item);
@@ -196,6 +207,7 @@ function itemBody(item, image, related) {
     '<p>' + escapeHtml(item.description || '').replace(/\n/g, '<br />') + '</p>' +
     (details.length ? '<h2>Details</h2><ul>' + details.map(([k, v]) => '<li>' + escapeHtml(k) + ': ' + escapeHtml(v) + '</li>').join('') + '</ul>' : '') +
     (cert ? '<p>Certificate issuer listed: ' + escapeHtml(cert) + '</p>' : '') +
+    (relatedTerms(item).length ? '<p>Related terms: ' + relatedTerms(item).map(escapeHtml).join(', ') + '</p>' : '') +
     (item.seller_slug ? '<p>Listed by <a href="/' + escapeHtml(item.seller_slug) + '">' + escapeHtml(item.seller_name || item.seller_slug) + '</a></p>' : '') +
     (related?.length ? '<h2>More ' + escapeHtml(item.category || '') + ' memorabilia</h2><ul>' + listItems(related) + '</ul>' : '') +
     CATEGORY_LINKS + NAV_LINKS + '</main>';
