@@ -29,3 +29,7 @@ dialog.celebrate-dialog::backdrop { background: radial-gradient(ellipse at 50% 3
 .celebrate-actions { justify-content: center; margin-top: 4px; }
 @media (max-width: 640px) { .celebrate-stage { --rise: 170px; padding: 16px 10px 8px; } .celebrate-stage img { width: 170px; } .celebrate h3 { font-size: 19px; } }
 @media (prefers-reduced-motion: reduce) { .celebrate-stage .login-sparks { display: none; } .celebrate-stage::before, .celebrate-stage img { animation: none; } }
+
+.payout-intro-stage { padding: 18px 14px 8px; --rise: 220px; }
+.payout-intro-stage img { width: 230px; }
+@media (max-width: 640px) { .payout-intro-stage img { width: 190px; } }

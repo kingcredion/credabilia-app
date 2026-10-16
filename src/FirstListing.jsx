@@ -41,6 +41,10 @@ export function FirstListingCelebration({ onSetUpPayouts, onLater }) {
 // The short, plain-language screen shown before the Stripe payout page opens.
 export function PayoutIntro({ onContinue, onLater }) {
   return <div className="form-stack payout-intro">
+    <div className="celebrate-stage payout-intro-stage">
+      <Sparks/>
+      <img src="/brand/king-credion-stripe-payout-setup-360.webp" srcSet="/brand/king-credion-stripe-payout-setup-360.webp 360w, /brand/king-credion-stripe-payout-setup-540.webp 540w" sizes="(max-width: 640px) 190px, 230px" width="230" height="210" alt="King Credion holding a gold coin beside the Stripe payout card and a crowned padlock"/>
+    </div>
     <p><ShieldCheck size={16} aria-hidden="true"/> Getting paid takes one step with Stripe.</p>
     <ul className="payout-intro-list">{PAYOUT_INTRO_POINTS.map(point => <li key={point}>{point}</li>)}</ul>
     <p className="field-note">{PAYOUT_INTRO_NOTE}</p>
