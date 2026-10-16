@@ -25,3 +25,9 @@ test('a save that closes its window shows the green "Saved" for a moment first, 
   assert.ok(app.includes('await showSavedThen(setSaved,onSaved)'), 'listing edit');
   assert.ok(app.includes('await showSavedThen(setSaved, onSaved)'), 'display name');
 });
+
+test('submitting an audit shows a green "Audit recorded" before the next item appears, and a rating shows it is saved', () => {
+  assert.ok(app.includes('savedLabel="Audit recorded"'));
+  assert.ok(app.includes('await showSavedThen(setRecorded, advance)'), 'the item stays visible for a moment');
+  assert.ok(app.includes('Rating saved'));
+});

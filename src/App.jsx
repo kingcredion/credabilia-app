@@ -1338,6 +1338,7 @@ function SellerRatingForm({ item, onRated }) {
   }
   if (!editing) return <div className="evidence-box">
     <h3><Star size={18}/>Your rating</h3>
+    <p className="saved-note" role="status"><Check size={15} aria-hidden="true"/>Rating saved</p>
     <RatingStars value={item.my_rating} size={18}/>
     {item.my_rating_comment && <p>{item.my_rating_comment}</p>}
     <button type="button" className="text-button" onClick={() => setEditing(true)}>Edit your rating</button>
@@ -2135,7 +2136,7 @@ function AuditQueue({ items, session, profile, onNeedLogin, onAudited, focusItem
   useEffect(() => { if (focusItemId) onFocused?.(); }, []);
   const [verdict, setVerdict] = useState(null);
   const [explanation, setExplanation] = useState('');
-  const [busy, setBusy] = useState(false);
+  const [busy, setBusy] = useState(false), [recorded, setRecorded] = useState(false);
   const [error, setError] = useState('');
   const [signatureBusy, setSignatureBusy] = useState(false);
   const [signatureError, setSignatureError] = useState('');
@@ -2145,14 +2146,14 @@ function AuditQueue({ items, session, profile, onNeedLogin, onAudited, focusItem
   function pickChip(value) { setVerdict(value); setExplanation(VERDICT_NOTES[value]); setError(''); }
 
   async function submit(event) {
-    event.preventDefault(); if (busy) return;
+    event.preventDefault(); if (busy || recorded) return;
     if (!session) { onNeedLogin(); return; }
     if (!profile?.can_audit) { setError("Auditing isn't enabled for your account."); return; }
     if (!verdict) { setError('Choose a quick take below.'); return; }
     const clean = explanation.trim();
     if (clean.length < 20 || clean.length > 2000) { setError('Explain your reasoning in 20–2,000 characters.'); return; }
     setBusy(true); setError('');
-    try { const result = await service.submitAudit(current.id, { verdict, explanation: clean }); onAudited(result); advance(); }
+    try { const result = await service.submitAudit(current.id, { verdict, explanation: clean }); onAudited(result); setBusy(false); await showSavedThen(setRecorded, advance); setRecorded(false); }
     catch (err) { setError(err.message); } finally { setBusy(false); }
   }
 
@@ -2207,8 +2208,8 @@ function AuditQueue({ items, session, profile, onNeedLogin, onAudited, focusItem
           <label>Explain your reasoning<textarea value={explanation} onChange={event => setExplanation(event.target.value)} rows={3} maxLength={2000} placeholder="Point to a specific detail, explain your concern, or describe what evidence is missing…" disabled={busy}/></label>
           {error && <p role="alert" className="error">{error}</p>}
           <div className="submit-row">
-            <button type="button" className="text-button" disabled={busy} onClick={advance}>Pass</button>
-            <button className="primary" disabled={busy}>{busy ? 'Recording…' : 'Submit and next'}<ArrowRight size={16}/></button>
+            <button type="button" className="text-button" disabled={busy || recorded} onClick={advance}>Pass</button>
+            <SaveButton saving={busy} saved={recorded} savingLabel="Recording…" savedLabel="Audit recorded" disabled={recorded}>Submit and next<ArrowRight size={16}/></SaveButton>
           </div>
         </form>}
   </div>;
