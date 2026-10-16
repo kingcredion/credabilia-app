@@ -27,6 +27,12 @@ export function shouldShowFirstListing({ live, session, profile, isAdmin, worksp
   return dismissedUntil <= now;
 }
 
+// The congratulations popup after a member's FIRST listing, when payouts are not connected yet: it puts the "set up payouts" button in front of them at the
+// moment they are most motivated. Not for a listing held for review, not for later listings (those keep the plain notice), not for someone already payable.
+export function shouldCelebrateFirstListing({ live, profile, held, hadListedBefore }) {
+  return !!live && !!profile && !profile.stripe_charges_enabled && !held && !hadListedBefore;
+}
+
 // What Stripe asks for, in plain words, so nobody is surprised when the Stripe page opens. Stripe collects and stores all of it; Credabilia never sees it.
 export const PAYOUT_INTRO_POINTS = [
   'Stripe, our payment partner, runs this step. Credabilia never sees or stores your bank or ID details.',

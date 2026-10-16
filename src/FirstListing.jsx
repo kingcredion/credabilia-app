@@ -1,5 +1,6 @@
 import React from 'react';
 import { Camera, ShieldCheck } from 'lucide-react';
+import { Sparks } from './Giveaway.jsx';
 import { PAYOUT_INTRO_POINTS, PAYOUT_INTRO_NOTE } from './firstListing.js';
 import './firstListing.css';
 
@@ -18,6 +19,23 @@ export function FirstListingCard({ onStart, onDismiss, payoutsReady }) {
       {!payoutsReady && <p className="field-note">Payouts come after your listing is up: you connect Stripe once, and your listings open to buyers.</p>}
     </div>
   </section>;
+}
+
+// Shown the first time a member publishes a listing without payouts set up: King Credion on the emerald stage with drifting gold flakes (the sign-in box's look).
+export function FirstListingCelebration({ onSetUpPayouts, onLater }) {
+  return <div className="celebrate">
+    <div className="celebrate-stage">
+      <Sparks/>
+      <img src="/brand/king-credion-first-listing-celebration-440.webp" srcSet="/brand/king-credion-first-listing-celebration-440.webp 440w, /brand/king-credion-first-listing-celebration-660.webp 660w" sizes="(max-width: 640px) 170px, 220px" width="220" height="251" alt="King Credion celebrating with a check mark and a payout card"/>
+    </div>
+    <h3>Congratulations, you're a seller!</h3>
+    <p>Buyers can see your listing now. One step left before they can buy it: connect payouts with Stripe so you get paid when it sells.</p>
+    <p className="field-note">It takes about five minutes, and you can stop and finish later. Your listing stays saved.</p>
+    <div className="first-listing-actions celebrate-actions">
+      <button type="button" className="primary" onClick={onSetUpPayouts}>Set up payouts</button>
+      <button type="button" className="text-button" onClick={onLater}>Maybe later</button>
+    </div>
+  </div>;
 }
 
 // The short, plain-language screen shown before the Stripe payout page opens.

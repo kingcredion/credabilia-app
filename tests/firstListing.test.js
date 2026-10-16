@@ -1,7 +1,7 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
-import {FIRST_LISTING_DISMISS_KEY, FIRST_LISTING_SNOOZE_DAYS, PAYOUT_INTRO_NOTE, PAYOUT_INTRO_POINTS, dismissFirstListing, firstListingDismissedUntil, hasEverListed, shouldShowFirstListing} from '../src/firstListing.js';
+import {FIRST_LISTING_DISMISS_KEY, FIRST_LISTING_SNOOZE_DAYS, PAYOUT_INTRO_NOTE, PAYOUT_INTRO_POINTS, dismissFirstListing, firstListingDismissedUntil, hasEverListed, shouldCelebrateFirstListing, shouldShowFirstListing} from '../src/firstListing.js';
 
 const DAY = 86400000;
 const fakeWindow = () => { const store = new Map(); return {localStorage: {getItem: k => store.has(k) ? store.get(k) : null, setItem: (k, v) => store.set(k, String(v))}, store}; };
@@ -53,4 +53,25 @@ test('the card and the payout intro are wired into the app', () => {
   assert.ok(app.includes("setModal('payout-intro')") && app.includes('async function startPayoutOnboarding()'), 'Stripe opens only after the intro');
   assert.ok(app.includes("modal === 'payout-intro'") && app.includes('onContinue={() => { setModal(null); startPayoutOnboarding(); }}'));
   assert.ok(app.indexOf('const isAdminUser') < app.indexOf('const showFirstListing'), 'declared before it is used');
+});
+
+test('the congratulations popup: first listing, payouts not connected, not held for review', () => {
+  const ok = {live: true, profile: {stripe_charges_enabled: false}, held: false, hadListedBefore: false};
+  assert.equal(shouldCelebrateFirstListing(ok), true);
+  assert.equal(shouldCelebrateFirstListing({...ok, profile: {}}), true, 'a brand-new profile has no Stripe flag yet');
+  assert.equal(shouldCelebrateFirstListing({...ok, profile: {stripe_charges_enabled: true}}), false, 'already able to be paid');
+  assert.equal(shouldCelebrateFirstListing({...ok, hadListedBefore: true}), false, 'only the first listing is celebrated');
+  assert.equal(shouldCelebrateFirstListing({...ok, held: true}), false, 'a listing held for review is not live yet');
+  assert.equal(shouldCelebrateFirstListing({...ok, live: false}), false);
+  assert.equal(shouldCelebrateFirstListing({...ok, profile: null}), false);
+});
+
+test('the celebration is wired in and reuses the sign-in stage and flakes', () => {
+  const app = readFileSync(new URL('../src/App.jsx', import.meta.url), 'utf8');
+  assert.ok(app.includes("setModal(celebrate ? 'first-listing-celebrate' : null)") && app.includes("modal === 'first-listing-celebrate'"));
+  assert.ok(app.includes('onSetUpPayouts={() => { setModal(null); beginPayoutSetup(); }}'), 'the button goes to the payout intro');
+  const comp = readFileSync(new URL('../src/FirstListing.jsx', import.meta.url), 'utf8');
+  assert.ok(comp.includes('<Sparks/>') && comp.includes('king-credion-first-listing-celebration-440.webp'));
+  const css = readFileSync(new URL('../src/firstListing.css', import.meta.url), 'utf8');
+  assert.ok(css.includes('animation: login-glow') && css.includes('animation: login-float') && /prefers-reduced-motion: reduce[^}]*celebrate-stage/.test(css), 'same animation as the login box, and calm for reduced motion');
 });

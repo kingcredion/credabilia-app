@@ -6,7 +6,7 @@ import './giveaway.css';
 
 // Gold flakes drifting up behind the giveaway card: the same effect as the sign-in box (.login-sparks in styles.css), fewer of them since it sits on a page full of cards.
 const SPARKS = Array.from({ length: 12 }, (_, i) => ({ x: (i * 41 + 9) % 90 + 5, size: 3 + (i * 5) % 4, duration: 6 + (i % 5) * 1.4, delay: -(i * 0.9), drift: (i % 2 ? 1 : -1) * (5 + (i * 7) % 16) }));
-function Sparks() {
+export function Sparks() {
   return <div className="login-sparks" aria-hidden="true">{SPARKS.map((spark, index) => <i key={index} style={{ '--x': spark.x + '%', '--s': spark.size + 'px', '--d': spark.duration + 's', '--delay': spark.delay + 's', '--drift': spark.drift + 'px' }}/>)}</div>;
 }
 export function GiveawayRibbon() { return <img className="giveaway-ribbon" src="/brand/sweepstakes-win-this-badge-v1.webp" width="900" height="265" alt="Win this"/>; }
