@@ -2,7 +2,7 @@
 export const ISSUERS = [
   { id:'psa', name:'PSA/DNA', rating:95, aliases:['PSA','PSA DNA','PSA/DNA Authentication Services','PSA DNA Authentication Services'], lookup:'https://www.psacard.com/cert' },
   { id:'jsa', name:'JSA', rating:92, aliases:['James Spence Authentication'], lookup:'https://www.spenceloa.com/verify-authenticity' },
-  { id:'bas', name:'Beckett (BAS)', rating:93, aliases:['BAS','Beckett','Beckett Authentication','Beckett Authentication Services','Beckett Authentication Services (BAS)'], lookup:'https://www.beckett-authentication.com/verify-certificate', outage:true },
+  { id:'bas', name:'Beckett (BAS)', rating:93, aliases:['BAS','Beckett','Beckett Authentication','Beckett Authentication Services','Beckett Authentication Services (BAS)'], lookup:'https://www.beckett-authentication.com/verify-certificate' },
   { id:'sgc', name:'SGC', rating:90, aliases:[], lookup:null },
   { id:'cgc', name:'CGC', rating:91, aliases:[], lookup:null },
   { id:'uda', name:'Upper Deck Authenticated', rating:88, aliases:[], lookup:null },
