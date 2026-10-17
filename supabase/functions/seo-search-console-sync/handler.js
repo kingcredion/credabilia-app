@@ -66,16 +66,22 @@ export function createHandler({ createClient, env, fetchFn = fetch, now = () => 
       const start = new Date(today.getTime() - backDays * 86400000), end = new Date(today.getTime() - DAYS_BACK_END * 86400000);
       const token = useLogin ? await refreshAccessToken(login, fetchFn) : await accessToken(account, fetchFn, Math.floor(today.getTime() / 1000));
 
+      // Two reads. By phrase (Google hides rarely used phrases, so these rows undercount a small site), and by page alone (never hidden), saved with an
+      // empty phrase so the report can take true totals from them.
       const rows = [];
-      for (let startRow = 0; rows.length < MAX_ROWS; startRow += ROW_LIMIT) {
-        const response = await fetchFn('https://www.googleapis.com/webmasters/v3/sites/' + encodeURIComponent(site) + '/searchAnalytics/query', {
-          method: 'POST', headers: { Authorization: 'Bearer ' + token, 'Content-Type': 'application/json' },
-          body: JSON.stringify({ startDate: isoDay(start), endDate: isoDay(end), dimensions: ['date', 'page', 'query'], rowLimit: ROW_LIMIT, startRow }) });
-        const body = await response.json().catch(() => ({}));
-        if (!response.ok) throw new Error('Search Console said: ' + (body.error?.message || response.status));
-        const page = body.rows || [];
-        for (const row of page) rows.push({ day: row.keys[0], page: row.keys[1], query: row.keys[2], clicks: row.clicks, impressions: row.impressions, position: row.position });
-        if (page.length < ROW_LIMIT) break;
+      for (const dimensions of [['date', 'page', 'query'], ['date', 'page']]) {
+        const byPage = dimensions.length === 2;
+        for (let startRow = 0, got = 0; got < MAX_ROWS; startRow += ROW_LIMIT) {
+          const response = await fetchFn('https://www.googleapis.com/webmasters/v3/sites/' + encodeURIComponent(site) + '/searchAnalytics/query', {
+            method: 'POST', headers: { Authorization: 'Bearer ' + token, 'Content-Type': 'application/json' },
+            body: JSON.stringify({ startDate: isoDay(start), endDate: isoDay(end), dimensions, rowLimit: ROW_LIMIT, startRow }) });
+          const body = await response.json().catch(() => ({}));
+          if (!response.ok) throw new Error('Search Console said: ' + (body.error?.message || response.status));
+          const page = body.rows || [];
+          for (const row of page) rows.push({ day: row.keys[0], page: row.keys[1], query: byPage ? '' : row.keys[2], clicks: row.clicks, impressions: row.impressions, position: row.position });
+          got += page.length;
+          if (page.length < ROW_LIMIT) break;
+        }
       }
 
       let saved = 0;
