@@ -26,3 +26,6 @@ export function credibilityScore(item, audits = []) {
     credibility_audit_count:count, certificate_supplied:supplied,
   };
 }
+
+// How much evidence a score stands for, in plain words. Never a verdict on whether an item is authentic.
+export const credibilityTier = score => (score < 40 ? 'Limited' : score < 70 ? 'Fair' : 'Strong');

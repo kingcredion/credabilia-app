@@ -1,18 +1,25 @@
 import React from 'react';
-import { Check, ClipboardCheck, ArrowRight, Gauge } from 'lucide-react';
+import { Check, ClipboardCheck, ArrowRight, Crown, Gauge } from 'lucide-react';
 import { OUTAGE_NOTE, resolveIssuer } from './certificates.js';
+import { credibilityTier } from './credibility.js';
 
-// Reused on the marketplace grid card (compact, no label) and on the full item-credibility
-// section below (full width, alongside the numeric breakdown already in the text around it).
-// A custom gradient bar rather than the native <meter> -- <meter> can only band a value into
-// low/high/optimum regions (rendered inconsistently across browsers), not a smooth 0-100
-// red-to-green gradient.
+// Two looks for one score. On a marketplace card it is a half gauge with the number inside (compact); on the item page it is five crowns with a plain-word tier.
+// The words say how much evidence there is (Limited, Fair, Strong), never that an item is or is not authentic: Credabilia does not authenticate items.
+
+const tierClass = score => (score < 40 ? 'low' : score < 70 ? 'mid' : 'high');
+
 export function CredibilityMeter({ score, compact }) {
   if (!Number.isFinite(score)) return null;
   const pct = Math.max(0, Math.min(100, Math.round(score)));
-  return <span className={compact ? 'credibility-meter compact' : 'credibility-meter'} role="img" aria-label={`Credibility score ${pct} out of 100`}>
-    <span className="credibility-meter-track"><span className="credibility-meter-marker" style={{ left: `${pct}%` }}/></span>
-    {compact && <span className="credibility-meter-num">{pct}</span>}
+  const label = `Credibility score ${pct} out of 100, ${credibilityTier(pct).toLowerCase()} evidence`;
+  if (compact) return <span className={`credibility-gauge ${tierClass(pct)}`} role="img" aria-label={label}>
+    <svg viewBox="0 0 64 40" width="64" height="40" aria-hidden="true"><path className="gauge-track" d="M8 34 A24 24 0 0 1 56 34"/><path className="gauge-fill" d="M8 34 A24 24 0 0 1 56 34" pathLength="100" strokeDasharray={`${pct} 100`}/></svg>
+    <span className="gauge-num">{pct}</span>
+  </span>;
+  const crowns = Math.max(0, Math.min(5, Math.round(pct / 20)));
+  return <span className={`credibility-crowns ${tierClass(pct)}`} role="img" aria-label={label}>
+    <span className="crown-row" aria-hidden="true">{[1, 2, 3, 4, 5].map(i => <Crown key={i} size={24} className={i <= crowns ? 'crown-on' : 'crown-off'}/>)}</span>
+    <span className="crown-word">{credibilityTier(pct)} evidence</span>
   </span>;
 }
 
