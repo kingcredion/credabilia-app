@@ -13,10 +13,28 @@ export const ISSUERS = [
   // Fiterman Sports does not put certificate numbers on its items, so there is no record a buyer can look up. It is scored lower for that
   // reason; the score says nothing about whether the item is authentic.
   { id:'fiterman', name:'Fiterman Sports', rating:50, aliases:['Fiterman','Fiterman Sports Collectibles'], lookup:null, noNumber:true },
+  // Frameworth Sports Marketing (Toronto, since 1992) makes framed signed memorabilia and issues its own hologram and certificate. It has no public lookup, so a
+  // number cannot be checked against its records; the rating (65) already reflects that, so its numbers count in full and are not reduced again to 75%.
+  { id:'frameworth', name:'Frameworth Sports Marketing', rating:65, aliases:['Frameworth','Frameworth Sports','Frameworth Sports Canada'], lookup:null, noLookup:true, website:'https://frameworth.com', authenticityPage:'https://frameworth.com/pages/authenticity',
+    // What a buyer is told on the item page about who the issuer is and how Credabilia arrived at the rating. Plain facts and the company's own claims, marked as such.
+    profile: {
+      summary: 'A Toronto company that has made framed sports memorabilia, mostly hockey, since 1992. It sells through its own website and through retailers such as Best Buy Canada.',
+      looked: [
+        "Frameworth's own website: its Toronto address, its 1992 start, and its authenticity page.",
+        'How its products are sold: its signed pieces appear at established retailers, not only on its own site.',
+        'What it says about its process: each signed piece comes with a hologram and a certificate of authenticity, most signings are done directly with the athletes, and when they are not it buys only from licensed dealers or the player's agent. These are the company's own statements.',
+      ],
+      couldnt: [
+        'It has no public lookup, so Credabilia cannot check a certificate number against its records.',
+        'It makes the item and issues the certificate itself, so there is no independent second opinion.',
+        'Open-edition certificate numbers are often product codes shared by many copies, so a number alone does not identify one piece.',
+      ],
+      why: 'Frameworth is rated 65 out of 100. That is well above an issuer we know nothing about (50), because it is an established company with a public process. It is below issuers whose numbers we can check (84 to 95), only because we cannot check this one. The rating is not a verdict on any single item.',
+    } },
   { id:'other', name:'Other', rating:50, aliases:[], lookup:null },
 ];
 // Issuers whose certificate numbers can be searched in Credabilia's own records (see the /certificate page).
-export const LOOKUP_ISSUERS = ISSUERS.filter(issuer => !issuer.noNumber && issuer.id !== 'other');
+export const LOOKUP_ISSUERS = ISSUERS.filter(issuer => !issuer.noNumber && !issuer.noLookup && issuer.id !== 'other');
 // An issuer whose own lookup is down (flagged with outage:true above) cannot be checked, which holds scores down through no fault of the seller.
 // The note explains that, and that scores rise once the lookup is back and the numbers are checked. Remove the flag when the lookup works again.
 export const OUTAGE_NOTE = "Beckett's online certificate lookup is currently down, so we can't check Beckett certificate numbers right now. That is why items with Beckett certificates score lower at the moment. Copy the number and search it yourself once Beckett's site is back. When it is, we will check these numbers and the scores will go up.";
