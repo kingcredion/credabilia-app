@@ -16,3 +16,8 @@ test('search and filters still run over everything that is loaded, before the ca
   assert.ok(app.indexOf('const filtered = eligible.filter(') < app.indexOf('const collectionItems =') && app.indexOf('const collectionItems =') < cut, 'filter, then order, then cut');
   assert.ok(app.includes('}, [category, query, workspace, collectionFilter]);'), 'filters reset the batch');
 });
+
+test('the Sell workspace hero shows King Credion photographing a jersey, with light web versions of the picture', () => {
+  assert.ok(app.includes("seller: { src: '/brand/king-credion-seller-photo-to-listing-v1.webp'"), 'the seller hero picture');
+  assert.ok(app.includes('king-credion-seller-photo-to-listing-v1-560.webp 560w'), 'a smaller version for phones');
+});
