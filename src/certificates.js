@@ -22,7 +22,7 @@ export const ISSUERS = [
       looked: [
         "Frameworth's own website: its Toronto address, its 1992 start, and its authenticity page.",
         'How its products are sold: its signed pieces appear at established retailers, not only on its own site.',
-        'What it says about its process: each signed piece comes with a hologram and a certificate of authenticity, most signings are done directly with the athletes, and when they are not it buys only from licensed dealers or the player's agent. These are the company's own statements.',
+        "What it says about its process: each signed piece comes with a hologram and a certificate of authenticity, most signings are done directly with the athletes, and when they are not it buys only from licensed dealers or the player's agent. These are the company's own statements.",
       ],
       couldnt: [
         'It has no public lookup, so Credabilia cannot check a certificate number against its records.',

@@ -40,12 +40,15 @@ function IssuerProfile({ issuer }) {
 
 export default function CredibilityDetails({ item, session, own, auditedLabel, onAudit }) {
   if (!Number.isFinite(item.credibility_score)) return null;
+  // The certificate side of the score includes King Credion's small signature adjustment. Show the issuer's own rating and the adjustment separately, so the number next to "Issuer rating" is the issuer's.
+  const signatureAdjustment = { consistent: 5, concerns: -15 }[item.signature_ai_label] || 0;
+  const issuerRating = Math.max(0, Math.min(100, (item.certificate_score ?? 0) - signatureAdjustment));
   return <section className="evidence-box" aria-label="Item credibility">
     <h3><Gauge size={18}/>Item credibility · {item.credibility_score}/100</h3>
     <CredibilityMeter score={item.credibility_score}/>
-    <p>{item.certificate_supplied ? `Issuer rating: ${item.certificate_score}/100` : 'No certificate provided'} · {item.certificate_weight}% of the score</p>
+    <p>{item.certificate_supplied ? `Issuer rating: ${issuerRating}/100${signatureAdjustment ? ` · signature opinion ${signatureAdjustment > 0 ? '+' : '−'}${Math.abs(signatureAdjustment)}` : ''}` : 'No certificate provided'} · {item.certificate_weight}% of the score</p>
     {item.certificate_checked_at && <p className="field-note"><Check size={14}/> Checked with the issuer — a Credabilia operator confirmed this certificate with the issuer on {new Date(item.certificate_checked_at).toLocaleDateString()}.</p>}
-    {item.certificate_supplied && item.certificate_number && !item.certificate_checked_at && <p className="field-note">The certificate number was entered by the seller and has not been checked with the issuer yet, so it counts at 75% of the issuer's rating.</p>}
+    {item.certificate_supplied && item.certificate_number && !item.certificate_checked_at && !resolveIssuer(item.certificate_issuer)?.noLookup && <p className="field-note">The certificate number was entered by the seller and has not been checked with the issuer yet, so it counts at 75% of the issuer's rating.</p>}
     {item.certificate_supplied && item.certificate_number && !item.certificate_checked_at && !resolveIssuer(item.certificate_issuer)?.noLookup && resolveIssuer(item.certificate_issuer)?.outage && <p className="field-note" role="note">{OUTAGE_NOTE}</p>}
     <p>Community: {item.credibility_audit_count ? `${item.community_score}/100` : 'No audits yet'} · {item.community_weight}% of the score</p>
     {resolveIssuer(item.certificate_issuer)?.profile && <IssuerProfile issuer={resolveIssuer(item.certificate_issuer)}/>}

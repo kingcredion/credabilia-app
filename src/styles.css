@@ -380,3 +380,4 @@ dialog.login-dialog::backdrop{background:radial-gradient(ellipse at 50% 38%,#c9a
 .marketplace-photo>.listing-cover{display:block}
 .marketplace-photo-trim{padding:12px;background:var(--marketplace-photo-bg)}
 .marketplace-photo-trim>.listing-cover,.marketplace-photo-trim>.item-art{background:var(--marketplace-photo-bg);border-radius:14px}
+.issuer-profile{margin:10px 0;padding:12px 14px;border:1px solid var(--border);border-radius:10px;background:var(--surface-2,transparent)}.issuer-profile h4{margin:0 0 6px}.issuer-profile h5{margin:10px 0 4px;font-size:12px;letter-spacing:.04em;text-transform:uppercase;color:var(--text-muted)}.issuer-profile ul{margin:0;padding-left:18px}.issuer-profile li{margin:3px 0}

@@ -75,11 +75,20 @@ test('a listing that named Frameworth as Other is moved to the real issuer by th
   assert.match(sql, /update public\.listings set certificate_issuer='frameworth', certificate_company=null\s+where certificate_issuer='other' and certificate_company ilike 'frameworth%'/);
 });
 
-test('the item page tells buyers about the company and links to its website instead of a lookup, and says plainly why it is rated lower', async () => {
-  const details = await readFile(new URL('../src/CertificateDetails.jsx', import.meta.url), 'utf8'), cred = await readFile(new URL('../src/CredibilityDetails.jsx', import.meta.url), 'utf8');
-  assert.ok(details.includes('if (issuer.noLookup) return') && details.includes('href={issuer.website}') && details.includes('href={issuer.authenticityPage}'));
-  assert.ok(details.includes('has no public lookup, so Credabilia cannot check this number'), 'the reason for the lower rating');
-  assert.ok(details.includes('On its own website it says'), "the company's claims are marked as its own");
-  assert.ok(cred.includes("item.certificate_issuer==='frameworth'") && cred.includes('Frameworth is rated 65 out of 100'));
-  assert.doesNotMatch(details, /NHL|guarantee/, 'no claim we cannot back up');
+test('the credibility box tells buyers who the issuer is, what we looked at, what we could not check, and why the rating is what it is', async () => {
+  const issuer = resolveIssuer('frameworth'), cred = await readFile(new URL('../src/CredibilityDetails.jsx', import.meta.url), 'utf8'), details = await readFile(new URL('../src/CertificateDetails.jsx', import.meta.url), 'utf8');
+  assert.ok(issuer.profile.summary.includes('1992') && issuer.profile.summary.includes('Toronto'), 'who they are');
+  assert.ok(issuer.profile.looked.length >= 3 && issuer.profile.couldnt.length >= 3, 'both halves of the due diligence');
+  assert.ok(issuer.profile.looked.some(line => line.includes("company's own statements")), "the company's claims are marked as its own");
+  assert.match(issuer.profile.why, /65 out of 100/); assert.match(issuer.profile.why, /cannot check this one/);
+  assert.ok(cred.includes('<IssuerProfile issuer={resolveIssuer(item.certificate_issuer)}/>') && cred.includes('What we looked at') && cred.includes('What we could not check') && cred.includes('Why this rating.'));
+  assert.ok(details.includes('if (issuer.noLookup) return') && details.includes('href={issuer.website}') && details.includes('href={issuer.authenticityPage}'), 'a website link instead of a lookup button');
+  assert.doesNotMatch(JSON.stringify(issuer.profile) + details, /NHL|guarantee/, 'no claim we cannot back up');
+});
+
+test('the credibility box shows the issuer rating and the signature adjustment separately, and never says a Frameworth number is waiting to be checked', async () => {
+  const cred = await readFile(new URL('../src/CredibilityDetails.jsx', import.meta.url), 'utf8');
+  assert.ok(cred.includes('(item.certificate_score ?? 0) - signatureAdjustment'), 'the issuer rating excludes the signature adjustment');
+  assert.ok(cred.includes('signature opinion ${signatureAdjustment > 0'), 'and the adjustment is shown on its own');
+  assert.match(cred, /!item\.certificate_checked_at && !resolveIssuer\(item\.certificate_issuer\)\?\.noLookup && <p className="field-note">The certificate number was entered/, 'no "not checked yet" line for an issuer with no lookup');
 });
