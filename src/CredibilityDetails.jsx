@@ -34,7 +34,7 @@ function IssuerProfile({ issuer }) {
     <h5>What we could not check</h5>
     <ul className="field-note">{profile.couldnt.map(line => <li key={line}>{line}</li>)}</ul>
     <p className="field-note"><strong>Why this rating.</strong> {profile.why}</p>
-    <p className="field-note"><a href={issuer.website} target="_blank" rel="noopener noreferrer">{issuer.name} website ↗</a> · <a href={issuer.authenticityPage} target="_blank" rel="noopener noreferrer">How they describe their authentication ↗</a></p>
+    <p className="field-note">{[issuer.website && <a key="w" href={issuer.website} target="_blank" rel="noopener noreferrer">{issuer.name} website ↗</a>, issuer.authenticityPage && <a key="a" href={issuer.authenticityPage} target="_blank" rel="noopener noreferrer">How they describe their authentication ↗</a>].filter(Boolean).reduce((links, link, i) => (i ? [...links, ' · ', link] : [link]), [])}</p>
   </div>;
 }
 
