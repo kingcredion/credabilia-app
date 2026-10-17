@@ -1,8 +1,55 @@
 // Credabilia's existing product ratings, not independently measured probabilities.
 export const ISSUERS = [
-  { id:'psa', name:'PSA/DNA', rating:95, aliases:['PSA','PSA DNA','PSA/DNA Authentication Services','PSA DNA Authentication Services'], lookup:'https://www.psacard.com/cert' },
-  { id:'jsa', name:'JSA', rating:92, aliases:['James Spence Authentication'], lookup:'https://www.spenceloa.com/verify-authenticity' },
-  { id:'bas', name:'Beckett (BAS)', rating:93, aliases:['BAS','Beckett','Beckett Authentication','Beckett Authentication Services','Beckett Authentication Services (BAS)'], lookup:'https://www.beckett-authentication.com/verify-certificate' },
+  { id:'psa', name:'PSA/DNA', rating:95, aliases:['PSA','PSA DNA','PSA/DNA Authentication Services','PSA DNA Authentication Services'], lookup:'https://www.psacard.com/cert', website:'https://www.psacard.com', authenticityPage:'https://www.psacard.com/services/autographauthentication',
+    profile: {
+      summary: "PSA/DNA is the autograph authentication service of PSA (Professional Sports Authenticator), based in Santa Ana, California. PSA says it has evaluated autographs since the late 1990s. PSA's parent company, Collectors, was bought by an investor group led by Nat Turner, D1 Capital Partners and Cohen Private Ventures in February 2021, and in December 2025 Collectors announced it would also acquire Beckett.",
+      looked: [
+        "PSA's own description of its process. For signatures already made, experts use ink analysis, signature-structure analysis, item evaluation and side-by-side comparisons, with a video spectral comparator when needed. PSA also offers an In-the-Presence service, in which a signing is witnessed and certified in real time. These are PSA's own statements.",
+        "Its official certificate lookup, where you enter the full number printed on the label. It covers PSA/DNA autographs as well as graded cards, and shows the certificate number, the result, a description of the item and the signer.",
+        "Its tamper-evident stickers, certificates of authenticity and letters of authenticity. PSA says older PSA/DNA labels stay valid even though the design has changed.",
+        "Auction-house acceptance: Heritage Auctions has accepted PSA/DNA-authenticated autographs in its sports showcase auctions (announced 2021). That shows market acceptance, not an accuracy rate.",
+      ],
+      couldnt: [
+        "PSA's website was behind a bot check for us, so we could not test the lookup ourselves.",
+        "Certificate numbers have not had one format over the years, and we could not confirm which older autograph certificates have no online record.",
+        "A matching number shows PSA issued it. It does not prove the item in your hands is the one that was certified, because counterfeit labels can reuse real numbers. Compare the item with the photo and description in the record.",
+        "We found no independent measurement of how often its opinions are right.",
+      ],
+      why: "PSA/DNA is rated 95 out of 100, the highest we give. It is a long-established, widely accepted issuer with a public lookup. A seller-entered number counts at 75% of that until a Credabilia operator checks it with PSA.",
+    } },
+  { id:'jsa', name:'JSA', rating:92, aliases:['James Spence Authentication'], lookup:'https://www.spenceloa.com/verify-authenticity', website:'https://www.spenceloa.com', authenticityPage:'https://www.spenceloa.com/authentication',
+    profile: {
+      summary: "James Spence Authentication (JSA) was founded in 2005 by James Spence Jr., from a family of autograph collectors that goes back four generations. In March 2024 Certified Collectibles Group, the parent company of CGC, bought JSA. The Spence family continues to run it.",
+      looked: [
+        "JSA's own pages. It says every item is examined by its authenticators, each signature is compared with a large exemplar library, and the authenticators score the item together. Certified items get a registration number and a tamper-evident label, and items that fail are returned with a letter explaining why. It also says it uses a video spectral comparator when closer examination is needed. These are JSA's own statements.",
+        "Its official verification page, where you look up a registration number.",
+        "The size of its reference library: JSA's website once cited nearly 700,000 files, and the 2024 acquisition announcement cited nearly one million images. These are JSA's own figures.",
+        "JSA's site also lists authorized dealers and events, and CGC and JSA offer a combined service for signed comics.",
+      ],
+      couldnt: [
+        "We could not see what its lookup returns, because it needs a real number to be entered.",
+        "A matching number shows JSA issued it, not that the item in your hands is the one it was issued for. Compare the label and the item.",
+        "We found no independent measurement of how often its opinions are right.",
+      ],
+      why: "JSA is rated 92 out of 100, in line with other long-established issuers whose numbers can be looked up (84 to 95). A seller-entered number counts at 75% of that until a Credabilia operator checks it with JSA.",
+    } },
+  { id:'bas', name:'Beckett (BAS)', rating:93, aliases:['BAS','Beckett','Beckett Authentication','Beckett Authentication Services','Beckett Authentication Services (BAS)'], lookup:'https://bas.beckett.com/verify-certificate', website:'https://bas.beckett.com', authenticityPage:'https://bas.beckett.com/services/authentication',
+    profile: {
+      summary: "Beckett Authentication Services (BAS) is the autograph authentication business of Beckett, based in Plano, Texas. Beckett says BAS started in November 2016. In December 2025, Collectors, the parent company of PSA, announced it would acquire Beckett.",
+      looked: [
+        "Beckett's own description. For signatures already made, BAS gives an expert opinion based on signature analysis, comparison with exemplars, and tools such as a video spectral comparator. Its Witness Certification service has a Beckett representative watch the signing. These are Beckett's own statements.",
+        "Its labels: an oval tamper-evident sticker with a matching alphanumeric certificate number, plus an optional letter of authenticity that includes a photo of the item. Beckett announced stickers with a hologram and a QR code in March 2021, so older stickers look different.",
+        "Its official lookup for BAS certificates. It is separate from Beckett's card-grading lookup.",
+        "Its own FAQ, which says a lookup can wrongly return \"no record found\" and tells customers to contact Beckett with the number, a description and a photo.",
+      ],
+      couldnt: [
+        "Beckett's website was behind a bot check for us, so we could not test the lookup or see a result page.",
+        "We could not confirm every certificate-number format Beckett has used.",
+        "A matching number shows BAS issued it, not that the item in your hands is the one it was issued for. A missing record is a reason to ask Beckett, not proof of a fake.",
+        "We found no independent measurement of how often its opinions are right.",
+      ],
+      why: "Beckett (BAS) is rated 93 out of 100, in line with other long-established issuers whose numbers can be looked up (84 to 95). A seller-entered number counts at 75% of that until a Credabilia operator checks it with Beckett.",
+    } },
   { id:'sgc', name:'SGC', rating:90, aliases:[], lookup:'https://www.gosgc.com/cert-code-lookup', website:'https://www.gosgc.com',
     profile: {
       summary: "SGC, LLC is a certification company based in Boca Raton, Florida, best known for grading trading cards. It announced an autograph authentication service, SGC Authentic, in 2013.",
@@ -17,20 +64,20 @@ export const ISSUERS = [
       ],
       why: "SGC is rated 90 out of 100, in line with other long-established issuers whose numbers can be looked up (84 to 95). A seller-entered number counts at 75% of that until a Credabilia operator checks it with SGC.",
     } },
-  { id:'cgc', name:'CGC', rating:91, aliases:[], lookup:'https://www.cgccomics.com/certlookup/', website:'https://www.cgccomics.com',
+  { id:'cgc', name:'CGC', rating:91, aliases:[], lookup:'https://www.cgcgrading.com/verify', website:'https://www.cgccomics.com', authenticityPage:'https://www.cgccomics.com/grading/cgc-guarantee/',
     profile: {
-      summary: "CGC (Certified Guaranty Company) grades and certifies comic books and other collectibles. By its own account its database holds a complete record of every comic it has graded since it began operating in 2000.",
+      summary: "CGC (Certified Guaranty Company) is based in Sarasota, Florida, and is part of Certified Collectibles Group, in which funds managed by Blackstone took a majority stake in 2021. It grades and certifies comics and other collectibles, and says it has offered witnessed signature certification, called Signature Series, since 2001.",
       looked: [
-        "CGC's own announcement of its certification verification tool: you enter the certification number printed on the label and see the details CGC has on file.",
-        "CGC says the tool covers any comic book, Playboy or Sports Illustrated magazine, lobby card or vintage photo in a CGC holder, and that it is free for everyone. These are CGC's own statements.",
-        "Collector guides that describe the same lookup and advise against buying when the number does not match the item.",
+        "CGC's official verification page: choose the type of collectible and enter the number on the label. CGC says this confirms the description and grade in its database and helps show the holder is genuine and has not been tampered with.",
+        "CGC's own guarantee, which treats signed items differently. On a yellow Signature Series label, where a CGC or JSA representative witnessed the signing, CGC guarantees the witnessed signature is authentic. On the black and yellow CGC and JSA Authentic Autograph label, for signatures made before submission, CGC states that the authenticity of the unwitnessed signature is not guaranteed. A green qualified label carries no authenticity guarantee for a signature.",
+        "A separate CGC and JSA service for comics that were signed earlier, which launched in May 2024.",
       ],
       couldnt: [
-        "CGC asks visitors to pass a bot check, so we could not test the lookup ourselves today.",
-        "The pages we read do not say how signed items or witnessed signatures show up in the lookup.",
-        "A matching number confirms CGC certified something under that number. Check that the label details match the item in the holder.",
+        "CGC's older comics lookup page was behind a bot check for us, so we could not see a populated result.",
+        "CGC says images are available for some collectibles only, and we could not confirm which older holders have full details in the lookup.",
+        "A matching number confirms CGC certified something under that number. Check that the label, the signature designation and the item all match.",
       ],
-      why: "CGC is rated 91 out of 100, in line with other long-established issuers whose numbers can be looked up (84 to 95). A seller-entered number counts at 75% of that until a Credabilia operator checks it with CGC.",
+      why: "CGC is rated 91 out of 100, in line with other long-established issuers whose numbers can be looked up (84 to 95). A seller-entered number counts at 75% of that until a Credabilia operator checks it with CGC. Because its witnessed and unwitnessed labels carry different guarantees, check which label an item has.",
     } },
   { id:'uda', name:'Upper Deck Authenticated', rating:88, aliases:[], lookup:'https://upperdeck.com/hologram/', website:'https://upperdeck.com', authenticityPage:'https://upperdeck.com/authenticity-fraud-prevention/',
     profile: {
@@ -74,7 +121,22 @@ export const ISSUERS = [
       ],
       why: "Steiner Sports is rated 85 out of 100, in line with other long-established issuers whose numbers can be looked up (84 to 95). A seller-entered number counts at 75% of that until a Credabilia operator checks it with Steiner.",
     } },
-  { id:'tristar', name:'TriStar Productions', rating:84, aliases:[], lookup:'https://www.tristarauthentic.com/' },
+  { id:'tristar', name:'TriStar Productions', rating:84, aliases:[], lookup:'https://www.tristarauthentic.com/', website:'https://www.tristarauthentic.com/',
+    profile: {
+      summary: "TRISTAR Productions runs autograph signing shows and private signings, and authenticates items signed under its own supervision with its own numbered hologram.",
+      looked: [
+        "Its website's description of the process: each item is signed under the direct supervision of a TRISTAR representative, a numbered hologram is applied to items signed at its shows and private signings, and the hologram number and details are recorded in its online verification system. These are TRISTAR's own statements.",
+        "Its hologram design: a tamper-evident hologram that the site says destroys itself, leaving a honeycomb residue, if it is removed.",
+        "Its online verification, a \"Verify TRISTAR Authentic Autograph Record\" button on its home page, where you enter the hologram number.",
+      ],
+      couldnt: [
+        "Its website does not say when the company was founded or where it is based, and the page we read carried a 2020 copyright date, so we could not confirm how current its process description is.",
+        "We could not see what a verification result shows.",
+        "It authenticates items it also signs and sells at its own events, so there is no independent second opinion.",
+        "We found no independent measurement of how often its authentication is right.",
+      ],
+      why: "TRISTAR is rated 84 out of 100, at the low end of the issuers whose numbers can be looked up (84 to 95), because it authenticates items it also signs and sells at its own events and we could not confirm how its lookup works. A seller-entered number counts at 75% of that until a Credabilia operator checks it with TRISTAR.",
+    } },
   { id:'mlb', name:'MLB Authenticated', rating:89, aliases:[], lookup:'https://www.mlb.com/official-information/authentication', website:'https://www.mlb.com', authenticityPage:'https://www.mlb.com/official-information/authentication',
     profile: {
       summary: "Major League Baseball's authentication program began in 2001. MLB says it has authenticated more than six million items. Third-party authenticators, who are off-duty law enforcement officers working as contractors, witness the signing or the game use, and a numbered hologram is applied.",

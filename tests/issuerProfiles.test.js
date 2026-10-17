@@ -3,11 +3,11 @@ import assert from 'node:assert/strict';
 import {readFile} from 'node:fs/promises';
 import {ISSUERS, resolveIssuer} from '../src/certificates.js';
 
-const SIX = ['sgc', 'cgc', 'uda', 'fanatics', 'steiner', 'mlb'];
+const CHECKABLE = ['psa', 'jsa', 'bas', 'sgc', 'cgc', 'uda', 'fanatics', 'steiner', 'tristar', 'mlb'];
 
-test('SGC, CGC, Upper Deck, Fanatics, Steiner and MLB each have an official lookup link and a plain explanation, and their ratings are unchanged', () => {
-  const ratings = {sgc: 90, cgc: 91, uda: 88, fanatics: 87, steiner: 85, mlb: 89};
-  for (const id of SIX) {
+test('every issuer whose numbers can be looked up has an official lookup link and a plain explanation, and the ratings are unchanged', () => {
+  const ratings = {psa: 95, jsa: 92, bas: 93, sgc: 90, cgc: 91, uda: 88, fanatics: 87, steiner: 85, tristar: 84, mlb: 89};
+  for (const id of CHECKABLE) {
     const issuer = resolveIssuer(id);
     assert.equal(issuer.rating, ratings[id], id + ' rating');
     assert.match(issuer.lookup, /^https:\/\//, id + ' has an official lookup link');
@@ -34,9 +34,25 @@ test('the official pages that were confirmed are the ones linked', () => {
   assert.equal(resolveIssuer('fanatics').lookup, 'https://www.fanatics.com/fansecure');
   assert.equal(resolveIssuer('steiner').lookup, 'https://www.steinersports.com/authenticity');
   assert.equal(resolveIssuer('mlb').lookup, 'https://www.mlb.com/official-information/authentication');
+  assert.equal(resolveIssuer('jsa').lookup, 'https://www.spenceloa.com/verify-authenticity');
+  assert.equal(resolveIssuer('tristar').lookup, 'https://www.tristarauthentic.com/');
+  assert.equal(resolveIssuer('psa').lookup, 'https://www.psacard.com/cert');
+  assert.equal(resolveIssuer('bas').lookup, 'https://bas.beckett.com/verify-certificate');
+  assert.equal(resolveIssuer('cgc').lookup, 'https://www.cgcgrading.com/verify');
 });
 
 test('the profile block shows only the links an issuer actually has', async () => {
   const cred = await readFile(new URL('../src/CredibilityDetails.jsx', import.meta.url), 'utf8');
   assert.ok(cred.includes('issuer.website && <a') && cred.includes('issuer.authenticityPage && <a'), 'each link is optional');
+});
+
+test('the shared-ownership facts are stated carefully: announced plans are not presented as completed deals', () => {
+  assert.match(resolveIssuer('psa').profile.summary, /announced it would also acquire Beckett/);
+  assert.match(resolveIssuer('bas').profile.summary, /announced it would acquire Beckett/);
+  assert.match(resolveIssuer('jsa').profile.summary, /March 2024/);
+});
+
+test("CGC's explanation tells buyers that witnessed and unwitnessed signatures carry different guarantees", () => {
+  const text = JSON.stringify(resolveIssuer('cgc').profile);
+  assert.match(text, /yellow Signature Series label/); assert.match(text, /unwitnessed signature is not guaranteed/);
 });
