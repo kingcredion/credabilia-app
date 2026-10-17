@@ -115,7 +115,7 @@ function harness({secret, google, login}) {
   const env = name => ({SUPABASE_URL: 'https://x.test', SUPABASE_SERVICE_ROLE_KEY: 'k', GOOGLE_SC_SERVICE_ACCOUNT_JSON: secret, ...(login ? {GOOGLE_SC_CLIENT_ID: 'cid', GOOGLE_SC_CLIENT_SECRET: 'csecret', GOOGLE_SC_REFRESH_TOKEN: 'rtoken'} : {})}[name]);
   return {calls, handler: createHandler({createClient, env, fetchFn, now: () => new Date('2026-10-17T08:15:00Z')})};
 }
-const post = handler => handler(new Request('https://x.test', {method: 'POST'}));
+const post = (handler, body) => handler(new Request('https://x.test', {method: 'POST', ...(body ? {body: JSON.stringify(body), headers: {'Content-Type': 'application/json'}} : {})}));
 
 test('the sync does nothing but say so until the Google service account is set up', async () => {
   const {calls, handler} = harness({secret: undefined, google: () => { throw new Error('must not call Google'); }});
@@ -177,4 +177,12 @@ test('a login that is only half saved is treated as not set up, never as an erro
   const handler = createHandler({createClient: () => ({rpc: async (n, a) => { calls.push([n, a]); return {data: null, error: null}; }}), env: name => ({GOOGLE_SC_CLIENT_ID: 'cid'}[name]), fetchFn: () => { throw new Error('must not call Google'); }});
   assert.deepEqual(await (await post(handler)).json(), {configured: false});
   assert.equal(calls[0][1].p_status, 'not_configured');
+});
+
+test('a one-off catch-up can read a longer stretch of history, within a limit', async () => {
+  const startDate = async body => { const {calls, handler} = harness({secret: undefined, login: true, google: async () => ({ok: true, json: async () => ({rows: []})})}); await post(handler, body); return JSON.parse(calls.fetch[1][1].body).startDate; };
+  assert.equal(await startDate(), '2026-10-11', 'the daily run reads the last few days');
+  assert.equal(await startDate({days: 60}), '2026-08-18');
+  assert.equal(await startDate({days: 100000}), '2026-06-19', 'capped at 120 days');
+  assert.equal(await startDate({days: 'abc'}), '2026-10-11', 'nonsense falls back to the daily window');
 });

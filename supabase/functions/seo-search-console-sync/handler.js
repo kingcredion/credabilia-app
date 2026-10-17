@@ -9,7 +9,7 @@
 const TOKEN_URL = 'https://oauth2.googleapis.com/token';
 const SCOPE = 'https://www.googleapis.com/auth/webmasters.readonly';
 const ROW_LIMIT = 5000, MAX_ROWS = 25000, CHUNK = 1000;
-const DAYS_BACK_START = 6, DAYS_BACK_END = 2; // Google's figures for a day settle about two days later, so re-read the last several days each run.
+const DAYS_BACK_START = 6, DAYS_BACK_END = 2, MAX_CATCH_UP_DAYS = 120; // Google's figures for a day settle about two days later, so re-read the last several days each run.
 
 const b64url = input => {
   const bytes = typeof input === 'string' ? new TextEncoder().encode(input) : new Uint8Array(input);
@@ -60,7 +60,10 @@ export function createHandler({ createClient, env, fetchFn = fetch, now = () => 
       }
       const site = env('GOOGLE_SC_SITE') || 'sc-domain:credabilia.com';
       const today = now();
-      const start = new Date(today.getTime() - DAYS_BACK_START * 86400000), end = new Date(today.getTime() - DAYS_BACK_END * 86400000);
+      // The daily run re-reads the last few days. A one-off catch-up can ask for longer ({"days": 60}) to fill in history.
+      const asked = Number((await request.json().catch(() => ({}))).days);
+      const backDays = Number.isFinite(asked) && asked > DAYS_BACK_START ? Math.min(Math.floor(asked), MAX_CATCH_UP_DAYS) : DAYS_BACK_START;
+      const start = new Date(today.getTime() - backDays * 86400000), end = new Date(today.getTime() - DAYS_BACK_END * 86400000);
       const token = useLogin ? await refreshAccessToken(login, fetchFn) : await accessToken(account, fetchFn, Math.floor(today.getTime() / 1000));
 
       const rows = [];
