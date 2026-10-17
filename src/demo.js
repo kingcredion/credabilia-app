@@ -584,6 +584,7 @@ const demoReview = r => { const purchase = state.purchases.find(p => p.id === r.
     async adminRecordMailinClaim() { throw new Error('The admin dashboard requires the connected app. Not available in this practice preview.'); },
     async adminCancelGiveaway() { throw new Error('The admin dashboard requires the connected app. Not available in this practice preview.'); },
     async adminListReports() { requireUser(); return []; },
+    async adminSeoReport() { requireUser(); return {sync:null,newest_day:null,last_7_days:null,previous_7_days:null,low_ctr:[],striking_distance:[],no_clicks:[],top_queries:[],listing_issues:[],suggestions:[]}; },
     async adminResolveReport() { throw new Error('The admin dashboard requires the connected app. Not available in this practice preview.'); },
     async adminListSupportConversations() { requireUser(); return []; },
     async adminGetSupportThread() { requireUser(); return []; },

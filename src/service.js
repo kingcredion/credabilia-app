@@ -388,6 +388,7 @@ export function makeService() {
     async adminRecordMailinClaim(winnerId, address) { unwrap(await client.rpc('admin_record_mailin_claim', { p_winner_id: winnerId, p_address: address })); },
     async adminCancelGiveaway(id) { unwrap(await client.rpc('admin_cancel_giveaway', { p_id: id })); },
     async adminListReports(status) { return unwrap(await client.rpc('admin_list_reports', { p_status: status || null })); },
+    async adminSeoReport() { return unwrap(await client.rpc('admin_seo_report')); },
     async adminResolveReport(reportId, status, note, removeListing) { return unwrap(await client.rpc('admin_resolve_report', { p_report_id: reportId, p_status: status, p_note: note || null, p_remove_listing: !!removeListing })); },
     async adminListSupportConversations() { return unwrap(await client.rpc('admin_list_support_conversations')); },
     async adminGetSupportThread(userId) { return unwrap(await client.rpc('admin_get_support_thread', { p_user_id: userId })); },

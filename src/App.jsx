@@ -1648,6 +1648,36 @@ function AdminReports() {
   return <div className="admin-list">{list.map(r => <AdminReportRow key={r.id} report={r} onResolve={resolve}/>)}</div>;
 }
 
+// The weekly SEO review: this week against last week from Google Search Console, what to fix first, and which listings are too thin to rank.
+function AdminSeo() {
+  const [report, setReport] = useState(undefined), [error, setError] = useState('');
+  useEffect(() => { service.adminSeoReport().then(setReport).catch(err => setError(err.message)); }, []);
+  if (error) return <p role="alert" className="error">{error}</p>;
+  if (report === undefined) return <p role="status">Loading the SEO report…</p>;
+  const { sync, last_7_days: now, previous_7_days: before } = report;
+  const change = (a, b) => (b ? `${a >= b ? '+' : ''}${Math.round(((a - b) / b) * 100)}% vs the week before` : 'first week of data');
+  const list = (rows, line) => rows.length ? <ul className="field-note seo-list">{rows.map((row, i) => <li key={i}>{line(row)}</li>)}</ul> : <p className="field-note">Nothing here yet.</p>;
+  const path = url => String(url).replace('https://credabilia.com', '') || '/';
+  return <div className="form-stack">
+    <div className="evidence-box"><h3>Search Console data</h3>
+      {!sync ? <p className="field-note">Waiting for the first sync. It runs daily once Google access is connected.</p>
+        : sync.status === 'ok' ? <p className="field-note saved-note"><Check size={15} aria-hidden="true"/>Last sync {new Date(sync.ran_at).toLocaleString()} · {sync.rows_saved} rows · data through {report.newest_day}</p>
+        : sync.status === 'not_configured' ? <p className="field-note">Google access is not connected yet, so there is no data. Add the Search Console service account to turn this on.</p>
+        : <p role="alert" className="error">The last sync failed: {sync.note}</p>}
+    </div>
+    {now && <div className="stat-grid">
+      <div className="evidence-box"><span className="field-note">Clicks, last 7 days</span><strong>{now.clicks}</strong><span className="field-note">{change(now.clicks, before?.clicks)}</span></div>
+      <div className="evidence-box"><span className="field-note">Views in search</span><strong>{now.impressions}</strong><span className="field-note">{change(now.impressions, before?.impressions)}</span></div>
+      <div className="evidence-box"><span className="field-note">Average position</span><strong>{now.position ?? '–'}</strong><span className="field-note">lower is better; 1 to 10 is page one</span></div>
+    </div>}
+    <div className="evidence-box"><h3>Do this first</h3>{list(report.suggestions.map(text => ({ text })), row => row.text)}</div>
+    <div className="evidence-box"><h3>Seen but not clicked</h3><p className="field-note">People see these in results and skip them. Improve the title and description.</p>{list(report.low_ctr, r => <>{path(r.page)} · “{r.query}” · {r.impressions} views, {r.clicks} clicks, position {r.avg_position}</>)}</div>
+    <div className="evidence-box"><h3>Close to page one</h3><p className="field-note">Positions 8–20. More detail and links to the page can lift them.</p>{list(report.striking_distance, r => <>{path(r.page)} · “{r.query}” · position {r.avg_position}, {r.impressions} views</>)}</div>
+    <div className="evidence-box"><h3>Searches that work</h3>{list(report.top_queries, r => <>“{r.query}” · {r.clicks} clicks, {r.impressions} views, position {r.avg_position}</>)}</div>
+    <div className="evidence-box"><h3>Listings too thin to rank</h3>{list(report.listing_issues, l => <><a href={`/item/${l.id}`} target="_blank" rel="noreferrer">{l.title}</a> · {l.issues.join(', ')}</>)}</div>
+  </div>;
+}
+
 function AdminSupportThread({ userId, onClosed }) {
   const [messages, setMessages] = useState(undefined), [body, setBody] = useState(''), [busy, setBusy] = useState(false), [error, setError] = useState('');
   function load() { service.adminGetSupportThread(userId).then(setMessages).catch(err => setError(err.message)); }
@@ -1945,6 +1975,7 @@ function AdminDashboard() {
       <button aria-pressed={tab === 'certificates'} className={tab === 'certificates' ? 'active' : ''} onClick={() => setTab('certificates')}>Certificates</button>
       <button aria-pressed={tab === 'sellerAccounts'} className={tab === 'sellerAccounts' ? 'active' : ''} onClick={() => setTab('sellerAccounts')}>Seller accounts</button>
       <button aria-pressed={tab === 'giveaway'} className={tab === 'giveaway' ? 'active' : ''} onClick={() => setTab('giveaway')}>Giveaway</button>
+      <button aria-pressed={tab === 'seo'} className={tab === 'seo' ? 'active' : ''} onClick={() => setTab('seo')}>SEO</button>
     </div>
     {tab === 'disputes' && <AdminDisputes/>}
     {tab === 'reports' && <AdminReports/>}
@@ -1956,6 +1987,7 @@ function AdminDashboard() {
     {tab === 'certificates' && <AdminCertificates/>}
     {tab === 'sellerAccounts' && <AdminSellerAccounts/>}
     {tab === 'giveaway' && <GiveawayAdmin service={service}/>}
+    {tab === 'seo' && <AdminSeo/>}
   </div>;
 }
 
