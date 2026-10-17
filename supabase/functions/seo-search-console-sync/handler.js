@@ -1,9 +1,11 @@
 // Called daily by pg_cron (202610170153_seo_sync_schedule.sql) via pg_net, authenticated with the real service role key as a Supabase-issued JWT.
 //
 // Copies the last few days of Google Search Console search data (day, page, search, clicks, views, average position) into the database, where
-// admin_seo_report() reads it. Read-only toward Google: it only asks for data. It needs a Google "service account" that has been added as a user
-// on the Search Console property; its key is stored as the GOOGLE_SC_SERVICE_ACCOUNT_JSON secret. Until that secret exists the function does nothing but
-// record "not configured", so the schedule can run safely before setup is finished.
+// admin_seo_report() reads it. Read-only toward Google: it only asks for data, with the read-only Search Console scope.
+// It signs in to Google one of two ways. (1) With the owner's own Google login, saved once as an OAuth refresh token: the secrets
+// GOOGLE_SC_CLIENT_ID, GOOGLE_SC_CLIENT_SECRET and GOOGLE_SC_REFRESH_TOKEN. (2) With a service account key in GOOGLE_SC_SERVICE_ACCOUNT_JSON (some Google
+// organizations forbid creating those keys). Until one of them exists the function does nothing but record "not configured", so the schedule can
+// run safely before setup is finished.
 const TOKEN_URL = 'https://oauth2.googleapis.com/token';
 const SCOPE = 'https://www.googleapis.com/auth/webmasters.readonly';
 const ROW_LIMIT = 5000, MAX_ROWS = 25000, CHUNK = 1000;
@@ -29,6 +31,15 @@ async function accessToken(account, fetchFn, nowSeconds) {
   return body.access_token;
 }
 
+// Trades a saved refresh token for a short-lived access token (the owner's own login, read-only scope).
+async function refreshAccessToken({ clientId, clientSecret, refreshToken }, fetchFn) {
+  const response = await fetchFn(TOKEN_URL, { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: new URLSearchParams({ grant_type: 'refresh_token', client_id: clientId, client_secret: clientSecret, refresh_token: refreshToken }) });
+  const body = await response.json().catch(() => ({}));
+  if (!response.ok || !body.access_token) throw new Error('Google sign-in failed: ' + (body.error_description || body.error || response.status));
+  return body.access_token;
+}
+
 export function createHandler({ createClient, env, fetchFn = fetch, now = () => new Date() }) {
   const cors = { 'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Headers': 'authorization, content-type', 'Access-Control-Allow-Methods': 'POST, OPTIONS' };
   const reply = (body, status = 200) => Response.json(body, { status, headers: cors });
@@ -38,14 +49,19 @@ export function createHandler({ createClient, env, fetchFn = fetch, now = () => 
     const service = createClient(env('SUPABASE_URL'), env('SUPABASE_SERVICE_ROLE_KEY'));
     const log = (status, rows, note) => service.rpc('seo_log_sync', { p_status: status, p_rows: rows, p_note: note }).then(() => {}, () => {});
     try {
+      const login = { clientId: env('GOOGLE_SC_CLIENT_ID'), clientSecret: env('GOOGLE_SC_CLIENT_SECRET'), refreshToken: env('GOOGLE_SC_REFRESH_TOKEN') };
+      const useLogin = !!(login.clientId && login.clientSecret && login.refreshToken);
       const raw = env('GOOGLE_SC_SERVICE_ACCOUNT_JSON');
-      if (!raw) { await log('not_configured', 0, 'GOOGLE_SC_SERVICE_ACCOUNT_JSON is not set yet.'); return reply({ configured: false }); }
-      let account; try { account = JSON.parse(raw); } catch { throw new Error('The service account secret is not valid JSON.'); }
-      if (!account.client_email || !account.private_key) throw new Error('The service account secret is missing client_email or private_key.');
+      if (!useLogin && !raw) { await log('not_configured', 0, 'No Google access is saved yet (GOOGLE_SC_CLIENT_ID, GOOGLE_SC_CLIENT_SECRET and GOOGLE_SC_REFRESH_TOKEN, or GOOGLE_SC_SERVICE_ACCOUNT_JSON).'); return reply({ configured: false }); }
+      let account;
+      if (!useLogin) {
+        try { account = JSON.parse(raw); } catch { throw new Error('The service account secret is not valid JSON.'); }
+        if (!account.client_email || !account.private_key) throw new Error('The service account secret is missing client_email or private_key.');
+      }
       const site = env('GOOGLE_SC_SITE') || 'sc-domain:credabilia.com';
       const today = now();
       const start = new Date(today.getTime() - DAYS_BACK_START * 86400000), end = new Date(today.getTime() - DAYS_BACK_END * 86400000);
-      const token = await accessToken(account, fetchFn, Math.floor(today.getTime() / 1000));
+      const token = useLogin ? await refreshAccessToken(login, fetchFn) : await accessToken(account, fetchFn, Math.floor(today.getTime() / 1000));
 
       const rows = [];
       for (let startRow = 0; rows.length < MAX_ROWS; startRow += ROW_LIMIT) {

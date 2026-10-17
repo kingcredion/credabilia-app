@@ -104,7 +104,7 @@ async function serviceAccount() {
   const der = Buffer.from(await crypto.subtle.exportKey('pkcs8', keys.privateKey)).toString('base64');
   return JSON.stringify({client_email: 'seo@project.iam.gserviceaccount.com', private_key: '-----BEGIN PRIVATE KEY-----\n' + der.match(/.{1,64}/g).join('\n') + '\n-----END PRIVATE KEY-----\n'});
 }
-function harness({secret, google}) {
+function harness({secret, google, login}) {
   const calls = {rpc: [], fetch: []};
   const createClient = () => ({rpc: async (name, args) => { calls.rpc.push([name, args]); return {data: name === 'seo_ingest_search_rows' ? args.p_rows.length : null, error: null}; }});
   const fetchFn = async (url, options) => {
@@ -112,7 +112,7 @@ function harness({secret, google}) {
     if (String(url).startsWith('https://oauth2.googleapis.com/token')) return {ok: true, json: async () => ({access_token: 'tok'})};
     return google(url, options);
   };
-  const env = name => ({SUPABASE_URL: 'https://x.test', SUPABASE_SERVICE_ROLE_KEY: 'k', GOOGLE_SC_SERVICE_ACCOUNT_JSON: secret}[name]);
+  const env = name => ({SUPABASE_URL: 'https://x.test', SUPABASE_SERVICE_ROLE_KEY: 'k', GOOGLE_SC_SERVICE_ACCOUNT_JSON: secret, ...(login ? {GOOGLE_SC_CLIENT_ID: 'cid', GOOGLE_SC_CLIENT_SECRET: 'csecret', GOOGLE_SC_REFRESH_TOKEN: 'rtoken'} : {})}[name]);
   return {calls, handler: createHandler({createClient, env, fetchFn, now: () => new Date('2026-10-17T08:15:00Z')})};
 }
 const post = handler => handler(new Request('https://x.test', {method: 'POST'}));
@@ -160,4 +160,21 @@ test('the admin dashboard has an SEO tab that reads the weekly report', async ()
   assert.ok(app.includes("onClick={() => setTab('seo')}>SEO</button>") && app.includes("{tab === 'seo' && <AdminSeo/>}"));
   assert.ok(app.includes('service.adminSeoReport()') && service.includes("client.rpc('admin_seo_report')"));
   assert.ok(app.includes('Google access is not connected yet'), 'it says plainly when the data source is not connected');
+});
+
+test('the sync can sign in with your own Google login (a saved refresh token) instead of a service account key', async () => {
+  const {calls, handler} = harness({secret: undefined, login: true, google: async () => ({ok: true, json: async () => ({rows: [{keys: ['2026-10-14', 'https://credabilia.com/', 'credabilia'], clicks: 2, impressions: 5, position: 1}]})})});
+  const response = await post(handler);
+  assert.deepEqual(await response.json(), {configured: true, rows: 1});
+  const token = calls.fetch[0][1].body;
+  assert.equal(token.get('grant_type'), 'refresh_token'); assert.equal(token.get('client_id'), 'cid'); assert.equal(token.get('refresh_token'), 'rtoken');
+  assert.equal(calls.fetch[1][1].headers.Authorization, 'Bearer tok');
+  assert.equal(calls.rpc.at(-1)[1].p_status, 'ok');
+});
+
+test('a login that is only half saved is treated as not set up, never as an error', async () => {
+  const calls = [];
+  const handler = createHandler({createClient: () => ({rpc: async (n, a) => { calls.push([n, a]); return {data: null, error: null}; }}), env: name => ({GOOGLE_SC_CLIENT_ID: 'cid'}[name]), fetchFn: () => { throw new Error('must not call Google'); }});
+  assert.deepEqual(await (await post(handler)).json(), {configured: false});
+  assert.equal(calls[0][1].p_status, 'not_configured');
 });
