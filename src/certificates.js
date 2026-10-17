@@ -12,7 +12,23 @@ export const ISSUERS = [
   { id:'mlb', name:'MLB Authenticated', rating:89, aliases:[], lookup:null },
   // Fiterman Sports does not put certificate numbers on its items, so there is no record a buyer can look up. It is scored lower for that
   // reason; the score says nothing about whether the item is authentic.
-  { id:'fiterman', name:'Fiterman Sports', rating:50, aliases:['Fiterman','Fiterman Sports Collectibles'], lookup:null, noNumber:true },
+  { id:'fiterman', name:'Fiterman Sports', rating:55, aliases:['Fiterman','Fiterman Sports Collectibles'], lookup:null, noNumber:true, website:'https://www.fitermansports.com',
+    // Plain facts, the company's own claims marked as such, and the reasoning for the rating. Reviewed 2026-10-17.
+    profile: {
+      summary: 'A Houston-area sports memorabilia and marketing company led by CEO Ryan Fiterman, with a store in League City, Texas. It runs autograph signings and events, custom framing and talent management. By its own account it has been in the business for more than 20 years.',
+      looked: [
+        'Its website and press releases: named leadership, a store address, and a list of the athletes it works with.',
+        "Public partnerships: WWE named it an official autograph partner in 2022 (WWE's own announcement), and a 2014 press release announced an exclusive autograph partnership with Mike Tyson. We could not confirm the Tyson arrangement is still in place.",
+        'Customer reviews, which are mixed. The Better Business Bureau lists it as Not Rated, with no complaints on file. Review sites include praise, and also complaints about customer service, shipping and certificates that did not arrive.',
+        "What it says about authenticity: \"All our items are guaranteed to feature authentic signatures.\" This is the company's own statement.",
+      ],
+      couldnt: [
+        'Nothing it issues carries a number we can look up, and there is no public lookup, so we cannot check an item against any record.',
+        'Its website does not describe how its holograms, certificates or signings are verified.',
+        'There is no independent second opinion on items it authenticates itself. Some of its items also carry a JSA or Beckett certificate; those are rated separately when listed.',
+      ],
+      why: 'Fiterman Sports is rated 55 out of 100. That is above an issuer we know nothing about (50), because it is an established company with public partnerships, including WWE. It is below Frameworth (65) and the issuers whose numbers we can check (84 to 95), because we cannot check its items against any record, its process is not published, and customer reviews are mixed. The rating is not a verdict on any single item.',
+    } },
   // Frameworth Sports Marketing (Toronto, since 1992) makes framed signed memorabilia and issues its own hologram and certificate. It has no public lookup, so a
   // number cannot be checked against its records; the rating (65) already reflects that, so its numbers count in full and are not reduced again to 75%.
   { id:'frameworth', name:'Frameworth Sports Marketing', rating:65, aliases:['Frameworth','Frameworth Sports','Frameworth Sports Canada'], lookup:null, noLookup:true, website:'https://frameworth.com', authenticityPage:'https://frameworth.com/pages/authenticity',

@@ -24,6 +24,7 @@ export default function CertificateDetails({item}) {
   if (issuer?.noNumber) return <section className="evidence-box" aria-label="Certificate details">
     <h3><Award size={18}/>Certificate details</h3><p><strong>{issuer.name}</strong></p>
     <p>{issuer.name} does not use certificate numbers, so there is no certificate record attached that you can look up.</p>
+    <p className="field-note"><a href={issuer.website} target="_blank" rel="noopener noreferrer">{issuer.name} website ↗</a> · Who they are and why we rate them as we do is explained under Item credibility, on this page.</p>
     <p className="field-note">This does not mean the item is not authentic. It only means there is no certificate number with a record to check, so the credibility score is lower than it would be for an item with a numbered, checkable certificate. Provided by the seller.</p>
   </section>;
   if (!issuer || !item.certificate_number) return null;
