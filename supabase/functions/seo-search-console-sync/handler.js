@@ -66,11 +66,11 @@ export function createHandler({ createClient, env, fetchFn = fetch, now = () => 
       const start = new Date(today.getTime() - backDays * 86400000), end = new Date(today.getTime() - DAYS_BACK_END * 86400000);
       const token = useLogin ? await refreshAccessToken(login, fetchFn) : await accessToken(account, fetchFn, Math.floor(today.getTime() / 1000));
 
-      // Two reads. By phrase (Google hides rarely used phrases, so these rows undercount a small site), and by page alone (never hidden), saved with an
-      // empty phrase so the report can take true totals from them.
+      // Three reads. By phrase (Google hides rarely used phrases, so these rows undercount a small site); by page alone, saved with an empty phrase; and for the
+      // whole site by day, saved with an empty page and phrase, which is what the report's headline totals use (it matches Search Console's own figures).
       const rows = [];
-      for (const dimensions of [['date', 'page', 'query'], ['date', 'page']]) {
-        const byPage = dimensions.length === 2;
+      for (const dimensions of [['date', 'page', 'query'], ['date', 'page'], ['date']]) {
+        const level = dimensions.length;
         for (let startRow = 0, got = 0; got < MAX_ROWS; startRow += ROW_LIMIT) {
           const response = await fetchFn('https://www.googleapis.com/webmasters/v3/sites/' + encodeURIComponent(site) + '/searchAnalytics/query', {
             method: 'POST', headers: { Authorization: 'Bearer ' + token, 'Content-Type': 'application/json' },
@@ -78,7 +78,7 @@ export function createHandler({ createClient, env, fetchFn = fetch, now = () => 
           const body = await response.json().catch(() => ({}));
           if (!response.ok) throw new Error('Search Console said: ' + (body.error?.message || response.status));
           const page = body.rows || [];
-          for (const row of page) rows.push({ day: row.keys[0], page: row.keys[1], query: byPage ? '' : row.keys[2], clicks: row.clicks, impressions: row.impressions, position: row.position });
+          for (const row of page) rows.push({ day: row.keys[0], page: level >= 2 ? row.keys[1] : '', query: level === 3 ? row.keys[2] : '', clicks: row.clicks, impressions: row.impressions, position: row.position });
           got += page.length;
           if (page.length < ROW_LIMIT) break;
         }

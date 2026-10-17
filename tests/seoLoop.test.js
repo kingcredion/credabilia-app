@@ -73,13 +73,15 @@ test('the weekly report compares this week to last, and names the searches and p
     {day: day(3), page: 'https://credabilia.com/item/a', query: '', clicks: 0, impressions: 40, position: 6},
     {day: day(3), page: 'https://credabilia.com/category/sports', query: '', clicks: 1, impressions: 20, position: 12},
     {day: day(10), page: 'https://credabilia.com/', query: '', clicks: 2, impressions: 12, position: 3},
-  ]; // what Google reports for the pages overall, including phrases it hides
+    {day: day(3), page: '', query: '', clicks: 1, impressions: 50, position: 7},   // the whole site, as Search Console's own headline shows it
+    {day: day(10), page: '', query: '', clicks: 2, impressions: 12, position: 3},
+  ]; // what Google reports for the pages and the site overall, including phrases it hides
   await as(null, 'service_role'); await db.query('select public.seo_ingest_search_rows($1)', [JSON.stringify([...rows, ...pageRows])]);
   await as(operator);
   const report = (await db.query('select public.admin_seo_report() as r')).rows[0].r;
-  assert.equal(report.last_7_days.impressions, 60, 'totals come from the page-level rows, so hidden phrases still count'); assert.equal(report.last_7_days.clicks, 1);
+  assert.equal(report.last_7_days.impressions, 50, 'totals come from the site-wide rows, so they match Search Console and hidden phrases still count'); assert.equal(report.last_7_days.clicks, 1);
   assert.equal(report.previous_7_days.impressions, 12); assert.equal(report.previous_7_days.clicks, 2);
-  assert.equal(Number(report.last_7_days.position), 8, 'average position is weighted by views: (6*40 + 12*20) / 60');
+  assert.equal(Number(report.last_7_days.position), 7);
   assert.deepEqual(report.low_ctr.map(r => r.query), ['frameworth crosby photo']);
   assert.deepEqual(report.striking_distance.map(r => r.query), ['sports memorabilia']);
   assert.equal(report.top_queries[0].query, 'credabilia'); assert.equal(report.top_queries[0].clicks, 2, 'the search with the most clicks leads, over the 28 days');
@@ -137,7 +139,7 @@ test('the sync signs in to Google, asks for the last days of search data, and sa
     {keys: ['2026-10-14', 'https://credabilia.com/item/a', 'sidney crosby photo'], clicks: 1, impressions: 9, position: 4.2},
     {keys: ['2026-10-14', 'https://credabilia.com/', 'credabilia'], clicks: 2, impressions: 5, position: 1}]})})});
   const response = await post(handler);
-  assert.deepEqual(await response.json(), {configured: true, rows: 4}, 'two rows by phrase and the same two by page');
+  assert.deepEqual(await response.json(), {configured: true, rows: 6}, 'two rows by phrase, the same two by page, and the same two by day for the whole site');
   const token = calls.fetch[0]; assert.match(token[1].body.get('assertion'), /^[\w-]+\.[\w-]+\.[\w-]+$/, 'a signed three-part token');
   const query = calls.fetch[1]; assert.match(query[0], /sites\/sc-domain%3Acredabilia\.com\/searchAnalytics\/query/);
   assert.equal(query[1].headers.Authorization, 'Bearer tok');
@@ -145,10 +147,11 @@ test('the sync signs in to Google, asks for the last days of search data, and sa
   assert.equal(sent.startDate, '2026-10-11'); assert.equal(sent.endDate, '2026-10-15', 'ends two days back, when Google has settled');
   const ingest = calls.rpc.find(c => c[0] === 'seo_ingest_search_rows')[1].p_rows;
   assert.deepEqual(ingest[0], {day: '2026-10-14', page: 'https://credabilia.com/item/a', query: 'sidney crosby photo', clicks: 1, impressions: 9, position: 4.2});
-  assert.deepEqual(calls.rpc.at(-1), ['seo_log_sync', {p_status: 'ok', p_rows: 4, p_note: '2026-10-11 to 2026-10-15'}]);
+  assert.deepEqual(calls.rpc.at(-1), ['seo_log_sync', {p_status: 'ok', p_rows: 6, p_note: '2026-10-11 to 2026-10-15'}]);
   const pageRead = JSON.parse(calls.fetch[2][1].body); assert.deepEqual(pageRead.dimensions, ['date', 'page'], 'a second read by page alone, which Google never hides');
   const saved = calls.rpc.filter(c => c[0] === 'seo_ingest_search_rows').flatMap(c => c[1].p_rows);
   assert.ok(saved.some(r => r.query === '' && r.page === 'https://credabilia.com/'), 'page-level rows are saved with an empty phrase');
+  assert.deepEqual(JSON.parse(calls.fetch[3][1].body).dimensions, ['date']); assert.ok(saved.some(r => r.query === '' && r.page === ''), 'site-wide rows have an empty page and phrase');
 });
 
 test('a Google error is logged as failed and never reported as success', async () => {
@@ -175,7 +178,7 @@ test('the admin dashboard has an SEO tab that reads the weekly report', async ()
 test('the sync can sign in with your own Google login (a saved refresh token) instead of a service account key', async () => {
   const {calls, handler} = harness({secret: undefined, login: true, google: async () => ({ok: true, json: async () => ({rows: [{keys: ['2026-10-14', 'https://credabilia.com/', 'credabilia'], clicks: 2, impressions: 5, position: 1}]})})});
   const response = await post(handler);
-  assert.deepEqual(await response.json(), {configured: true, rows: 2});
+  assert.deepEqual(await response.json(), {configured: true, rows: 3});
   const token = calls.fetch[0][1].body;
   assert.equal(token.get('grant_type'), 'refresh_token'); assert.equal(token.get('client_id'), 'cid'); assert.equal(token.get('refresh_token'), 'rtoken');
   assert.equal(calls.fetch[1][1].headers.Authorization, 'Bearer tok');
