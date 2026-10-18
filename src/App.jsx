@@ -29,6 +29,7 @@ import { ItemArt, money, RatingStars } from './ItemArt.jsx';
 import { MessageThread } from './MessageThread.jsx';
 import { SoldItemPage } from './SoldItemPage.jsx';
 import { trackItemListed, trackSignUpIfNew } from './analytics.js';
+import { trackEvent } from './events.js';
 import { SellPage } from './SellPage.jsx';
 import { LIST_INTENT_KEY, captureListIntent, hasFreshListIntent, isSellHost } from './listIntent.js';
 import { captureGiveawayParam, captureReferralParam, clearGiveawayIntent, clearReferral, hasFreshGiveawayIntent, readReferral, rememberGiveawayIntent } from './giveaway.js';
@@ -495,6 +496,7 @@ function CreateListing({ onClose, onCreated, relistFrom, bulkPhoto, bulkProgress
       service.attestAuthenticity(id).catch(err => console.warn('Could not record the seller statement:', err.message));
       // Tell Google Ads a seller listed something -- but not listings held for review, so junk can't teach it the wrong audience.
       if (!(fit?.fit==='unrelated' || fit?.fit==='unsure')) trackItemListed(id);
+      trackEvent('listing_published', { sale_type: listingType, category: form.category || 'none' });
       // Best-effort: the listing is already published, so a failure here shouldn't block the seller — but it should be visible for debugging.
       if (relistFrom?.purchase_id) service.markListingRelisted(id, relistFrom.purchase_id).catch(err => console.warn('Could not record relist provenance:', err.message));
       onCreated(id, fit);
@@ -2739,6 +2741,7 @@ export default function App() {
     setBusy(true); setError('');
     try {
       const r = await service.requestToBuy(listingId);
+      trackEvent('request_to_buy', { category: selected?.category || 'none' });
       setBuyRequests(list => [...list.filter(x => x.listing_id !== listingId), { ...r, title: selected?.title, category: selected?.category, price_cents: selected?.price_cents, media: selected?.media }]);
     } catch (err) { setError(err.message); } finally { setBusy(false); }
   }

@@ -1,6 +1,8 @@
 // Google Ads conversion measurement. The Google tag itself is loaded in index.html (production hosts
 // only); this file just reports the one outcome we want Google to learn from: someone successfully
 // publishing a listing. Everything here is best-effort and must never break the real action.
+import { trackEvent } from './events.js';
+
 const ITEM_LISTED = 'AW-17772928194/oCGSCKivzY8dEMK55ZpC';
 
 // Secondary goal: a brand-new account. Not used for bidding (the campaign still optimizes for listings); it only shows in "All conversions".
@@ -24,7 +26,8 @@ export function trackSignUpIfNew(user, now = Date.now()) {
     const key = `credabilia:signup-tracked:${user.id}`;
     try { if (window.localStorage.getItem(key)) return false; } catch { /* no storage: transaction_id still dedupes */ }
     const sent = trackSignUp(user.id);
-    if (sent) { try { window.localStorage.setItem(key, '1'); } catch { /* fine */ } }
+    const counted = trackEvent('sign_up', { provider: user.app_metadata?.provider || 'email' });
+    if (sent || counted) { try { window.localStorage.setItem(key, '1'); } catch { /* fine */ } }
     return sent;
   } catch { return false; }
 }

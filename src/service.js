@@ -5,6 +5,7 @@ import { createDemoService } from './demo.js';
 import { listingInput, auditInput } from './domain.js';
 import { pushSupported, currentPushSubscription, enablePush, disablePush } from './push.js';
 import { handleNativeBack } from './nativeBack.js';
+import { trackEvent } from './events.js';
 import { NATIVE_REDIRECT, isNativeApp, parseAuthRedirect, cleanEmailCode, EMAIL_CODE_MIN, EMAIL_CODE_MAX, externalLinkUrl, APP_REVIEW_EMAIL } from './nativeAuth.js';
 
 // Opens an outside page (Stripe's payout setup). On the website it is an ordinary redirect. In the phone app it opens in the in-app browser so the member can
@@ -258,6 +259,7 @@ export function makeService() {
     async startStripeOnboarding() {
       const {data,error}=await invokeFn('stripe-connect-onboarding',{body:{}});
       if(error) { let detail; try {detail=await error.context?.json();} catch {} throw new Error(detail?.error || 'Stripe onboarding is not available right now.'); }
+      trackEvent('payout_setup_started');
       return data;
     },
     async refreshStripeOnboardingStatus() {
