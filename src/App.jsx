@@ -2253,7 +2253,8 @@ function EmailLogin() {
   const [busy, setBusy] = useState(false), [sentTo, setSentTo] = useState(''), [error, setError] = useState(''), [resent, setResent] = useState(false);
   // App Review's test account: the button exists only while the review switch is on in the database.
   const [reviewOpen, setReviewOpen] = useState(false);
-  useEffect(() => { let alive = true; service.reviewSignInAvailable?.().then(on => { if (alive) setReviewOpen(!!on); }); return () => { alive = false; }; }, []);
+  // The Review Team button is for Apple and Google's reviewers inside the phone apps only. On the website it would let any visitor, including someone arriving from an ad, sign in as the shared review account.
+  useEffect(() => { let alive = true; if (isNativeApp()) service.reviewSignInAvailable?.().then(on => { if (alive) setReviewOpen(!!on); }); return () => { alive = false; }; }, []);
   async function reviewSignIn() { setBusy(true); setError(''); try { await service.signInAsReviewTeam(); } catch (err) { setError(err.message); setBusy(false); } }
   async function send(email) {
     setBusy(true); setError('');

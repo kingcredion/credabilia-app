@@ -99,7 +99,8 @@ export function makeService() {
     // The email carries both a link and a 6-digit code. The code works everywhere, including the apps, where a link opens the browser instead.
     async signInWithEmail(email) {
       // App Review's test account: while the review switch is on, this address signs straight in. When it is off (or for anyone else) this falls through to the normal emailed code.
-      if (email.trim().toLowerCase() === APP_REVIEW_EMAIL) {
+      // Only inside the phone apps: on the website the review address gets the normal emailed code like anyone else's.
+      if (email.trim().toLowerCase() === APP_REVIEW_EMAIL && isNativeApp()) {
         const { data, error } = await invokeFn('review-sign-in', { body: { email: email.trim() } });
         if (!error && data?.token_hash) { unwrap(await client.auth.verifyOtp({ token_hash: data.token_hash, type: data.type || 'magiclink' })); return { signedIn: true }; }
       }
