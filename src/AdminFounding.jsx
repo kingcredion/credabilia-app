@@ -34,9 +34,10 @@ export function AdminFounding({ service }) {
     </div>
     <h3>Founding sellers</h3>
     {data.members.length === 0 ? <p className="field-note">No one has claimed a spot yet.</p>
-      : <div className="table-scroll"><table><thead><tr><th>Spot</th><th>Seller</th><th>Claimed</th></tr></thead><tbody>
-        {data.members.map(m => <tr key={m.user_id}><td>{m.spot_number}</td><td>{m.name || 'Member'}</td><td>{day(m.claimed_at)}</td></tr>)}
+      : <div className="table-scroll"><table><thead><tr><th>Spot</th><th>Seller</th><th>Account email</th><th>Signs in with</th><th>Claimed</th></tr></thead><tbody>
+        {data.members.map(m => <tr key={m.user_id}><td>{m.spot_number}</td><td>{m.name || 'Member'}</td><td>{m.email || '—'}{m.apple_hidden_email && <> <strong>Apple hidden email</strong></>}</td><td>{(m.providers || []).join(', ') || '—'}</td><td>{day(m.claimed_at)}</td></tr>)}
       </tbody></table></div>}
+    {data.members.some(m => !(m.providers || []).includes('apple')) && data.members.length > 0 && <p className="field-note">A founder who later signs in on the phone with Sign in with Apple and hides their email gets a separate new account without the benefit. Remind founders to sign in the same way they did on the website.</p>}
     <h3>Open invitations</h3>
     <form onSubmit={find} className="submit-row">
       <label>Find by shop, name, phone or email<input value={search} onChange={event => setSearch(event.target.value)} placeholder="e.g. Cards"/></label>

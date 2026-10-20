@@ -332,3 +332,19 @@ test('"founding" cannot be taken as a store name, because /founding is the claim
   await as(B1); await db.query("select public.update_store_slug('giveaway-rules-fans')").catch(() => {});
   await assert.rejects((async () => { await as(B1); await db.query("select public.update_store_slug('giveaway-rules')"); })(), /reserved/, 'the earlier reserved names still work');
 });
+
+test('staff can see each founder\'s account email and how they sign in, and which ones use an Apple hidden email', async () => {
+  const w = await world(); const {raw, db, as} = w;
+  const apple = uid();
+  await raw("insert into auth.users(id,email,email_confirmed_at,raw_app_meta_data) values($1,$2,now(),$3)", [apple, 'seller@example.test'.replace('seller', 'apple1'), JSON.stringify({provider: 'email', providers: ['email', 'apple']})]);
+  await raw("update auth.users set raw_app_meta_data=$2 where id=$1", [S, JSON.stringify({provider: 'email', providers: ['email']})]);
+  await w.invite([{email: 'seller@example.test'}, {email: 'apple1@example.test'}]); await w.startCampaign();
+  await w.claim(S); await w.claim(apple);
+  await raw("update auth.users set email='x7k2@privaterelay.appleid.com' where id=$1", [apple]);
+  await as(OP);
+  const members = (await db.query('select public.admin_founding_overview() as r')).rows[0].r.members;
+  assert.equal(members.length, 2);
+  assert.deepEqual([members[0].email, members[0].providers, members[0].apple_hidden_email], ['seller@example.test', ['email'], false]);
+  assert.deepEqual([members[1].email, members[1].providers, members[1].apple_hidden_email], ['x7k2@privaterelay.appleid.com', ['email', 'apple'], true]);
+  await as(B1); await assert.rejects(db.query('select public.admin_founding_overview()'), /Operators only/, 'still staff only');
+});

@@ -4,6 +4,7 @@ import { Brand } from './Brand.jsx';
 import { MAILIN_EMAIL, statesNote } from './giveaway.js';
 import { FOUNDING_FEE_NOTE, FOUNDING_TERMS, SAME_EMAIL_NOTE, claimView, isAppleRelayEmail } from './founding.js';
 import { FoundingBadgeImage } from './FoundingBadge.jsx';
+import { isNativeApp } from './nativeAuth.js';
 
 const LAST_UPDATED = 'October 5, 2026';
 const TERMS_UPDATED = 'October 20, 2026';
@@ -303,11 +304,14 @@ export function FoundingPage({ service, EmailLogin }) {
   async function signOut() { setBusy(true); try { await service.signOut(); } catch (err) { setError(err.message); } finally { setBusy(false); } }
   const when = status?.expires_at ? new Date(status.expires_at).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' }) : '';
   const view = session === undefined ? 'loading' : !session ? 'signed-out' : claimView(status);
+  // Claiming happens on the website. Inside the phone apps a non-member is sent to the browser; a member just sees their status.
+  const webOnly = isNativeApp() && (view === 'signed-out' || view === 'invited' || view === 'not-invited' || view === 'closed');
   return <LegalShell title="Founding 100" updated={false} current="">
     <div className="founding-claim">
       <FoundingBadgeImage/>
       {view === 'loading' && <p role="status">Loading…</p>}
-      {view === 'signed-out' && <>
+      {webOnly && <div className="founding-box"><h3>Claim your spot in your web browser</h3><p>Please open <strong>credabilia.com/founding</strong> in your phone's web browser to claim your Founding spot. Afterwards, sign in here with the same email address and the same method you used there.</p></div>}
+      {!webOnly && view === 'signed-out' && <>
         <p>Founding 100 is an invitation-only group of 100 sellers who pay no Credabilia selling fees for as long as their account stays open and in good standing. Payment-processing fees still apply.</p>
         <div className="founding-box"><h3>Claim your spot</h3>
           <p className="field-note">Enter the email address we invited. We'll send a sign-in code to that address, which proves it's yours.</p>
@@ -315,19 +319,19 @@ export function FoundingPage({ service, EmailLogin }) {
           <EmailLogin/>
         </div>
       </>}
-      {view === 'invited' && <div className="founding-box ok"><h3>You're invited</h3>
+      {!webOnly && view === 'invited' && <div className="founding-box ok"><h3>You're invited</h3>
         <p>This invitation is for <strong>{session?.user?.email}</strong>. <span className="founding-spots">{status.spots_left} of 100 spots left</span>, open until {when}.</p>
         {error && <p role="alert" className="error">{error}</p>}
         <button type="button" className="primary" disabled={busy} onClick={claim}>{busy ? 'Claiming…' : 'Claim my Founding spot'}</button></div>}
       {view === 'member' && <div className="founding-box ok"><h3>You're a Founding seller</h3>
         <p>Spot {status.spot_number} of 100. {FOUNDING_FEE_NOTE}</p>
         <p><a className="primary" href="/?list=1">List your first item</a></p></div>}
-      {view === 'not-invited' && <div className="founding-box"><h3>No invitation for this email</h3>
+      {!webOnly && view === 'not-invited' && <div className="founding-box"><h3>No invitation for this email</h3>
         <p>You're signed in as <strong>{session?.user?.email}</strong>, and we don't have a Founding invitation for that address.</p>
         {isAppleRelayEmail(session?.user?.email) && <p>That is an Apple "Hide My Email" address, which can't be matched to an invitation.</p>}
         <p>If we contacted you, sign out and sign in again with the exact email address we used.</p>
         <button type="button" className="text-button" disabled={busy} onClick={signOut}>Sign out</button></div>}
-      {view === 'closed' && <div className="founding-box"><h3>The Founding 100 invitation has closed</h3>
+      {!webOnly && view === 'closed' && <div className="founding-box"><h3>The Founding 100 invitation has closed</h3>
         <p>All 100 spots have been claimed or the invitation window has ended. You can still sell on Credabilia under our standard fees.</p></div>}
       {error && view !== 'invited' && <p role="alert" className="error">{error}</p>}
       <h2>How it works</h2>

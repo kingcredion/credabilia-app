@@ -247,8 +247,10 @@ begin
     'started_at',camp.started_at,'expires_at',camp.expires_at,'window_days',camp.window_days,'spot_limit',camp.spot_limit,'closed_reason',camp.closed_reason,
     'invitations_loaded',camp.invitations_loaded,'invitations_open',(select count(*) from public.founding_invitations),
     'claimed',camp.claimed_count,'spots_left',greatest(camp.spot_limit-camp.claimed_count,0),'removed_unclaimed',camp.invitations_removed_unclaimed,
-    'members',coalesce((select jsonb_agg(jsonb_build_object('user_id',m.user_id,'name',p.display_name,'spot_number',m.spot_number,'claimed_at',m.claimed_at) order by m.spot_number)
-                         from public.founding_members m left join public.profiles p on p.id=m.user_id),'[]'::jsonb));
+    'members',coalesce((select jsonb_agg(jsonb_build_object('user_id',m.user_id,'name',p.display_name,'spot_number',m.spot_number,'claimed_at',m.claimed_at,
+                           'email',u.email,'providers',coalesce(u.raw_app_meta_data->'providers',to_jsonb(array[coalesce(u.raw_app_meta_data->>'provider','email')])),
+                           'apple_hidden_email',coalesce(u.email ilike '%@privaterelay.appleid.com',false)) order by m.spot_number)
+                         from public.founding_members m left join public.profiles p on p.id=m.user_id left join auth.users u on u.id=m.user_id),'[]'::jsonb));
 end;$$;
 revoke all on function public.admin_founding_overview() from public,anon;
 grant execute on function public.admin_founding_overview() to authenticated;

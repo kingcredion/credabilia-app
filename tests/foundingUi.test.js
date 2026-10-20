@@ -108,3 +108,14 @@ test('the claim page tells people to use the email we contacted, and explains Ap
   assert.match(legal, /<strong>\{SAME_EMAIL_NOTE\}<\/strong>/, 'shown before they sign in');
   assert.match(legal, /isAppleRelayEmail\(session\?\.user\?\.email\) && <p>That is an Apple/, 'and explained after a mismatch');
 });
+
+test('inside the phone apps the claim page sends a non-member to the web browser, and the admin view shows how founders sign in', async () => {
+  const legal = squash(await read('src/Legal.jsx')), admin = await read('src/AdminFounding.jsx');
+  assert.match(legal, /import \{ isNativeApp \} from '\.\/nativeAuth\.js';/);
+  assert.match(legal, /const webOnly = isNativeApp\(\) && \(view === 'signed-out' \|\| view === 'invited' \|\| view === 'not-invited' \|\| view === 'closed'\);/, 'a member still sees their status in the app');
+  for (const v of ['signed-out', 'invited', 'not-invited', 'closed']) assert.match(legal, new RegExp(`\{!webOnly && view === '${v}'`), v + ' is hidden in the app');
+  assert.match(legal, /Please open <strong>credabilia\.com\/founding<\/strong> in your phone's web browser/);
+  assert.doesNotMatch(legal.split('webOnly &&')[1]?.split('</div>')[0] || '', /EmailLogin/, 'no sign-in box inside the app notice');
+  assert.match(admin, /<th>Account email<\/th><th>Signs in with<\/th>/);
+  assert.match(admin, /m\.apple_hidden_email && /);
+});
