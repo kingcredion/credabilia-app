@@ -34,3 +34,19 @@
 .admin-founding table { width: 100%; border-collapse: collapse; font-size: 13.5px; }
 .admin-founding th, .admin-founding td { text-align: left; padding: 6px 8px; border-bottom: 1px solid var(--border); vertical-align: top; }
 .admin-founding .table-scroll { overflow-x: auto; }
+
+/* The quiet extras for Founding sellers. */
+.founding-chip { display: inline-flex; align-items: center; gap: 4px; margin-left: 8px; padding: 1px 8px; border: 1px solid #c9a227; border-radius: 999px; background: #0d3b2c; color: #f3d77a; font-size: 11px; font-weight: 700; letter-spacing: .2px; white-space: nowrap; vertical-align: middle; }
+.founding-chip svg { color: #f3b823; }
+.founding-welcome { display: flex; gap: 14px; align-items: flex-start; margin: 0 0 18px; padding: 16px 18px; border: 1px solid #c9a227; border-radius: 16px; background: linear-gradient(180deg, #0d3b2c, #06231a); color: #f6f1de; }
+.founding-welcome > svg { flex: none; margin-top: 2px; color: #f3b823; }
+.founding-welcome strong { color: #f3d77a; }
+.founding-welcome p { margin: 4px 0 0; font-size: 14px; line-height: 1.5; color: #f6f1de; }
+.founding-welcome a, .founding-welcome .text-button { color: #f3d77a; margin-right: 14px; }
+.founding-fee-note { margin: 6px 0 0; }
+.founding-store-chip { margin: 2px 0 8px; }
+.founding-store-chip .founding-chip { margin-left: 0; }
+.founding-welcome p:last-child { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 18px; }
+.founding-welcome a, .founding-welcome .text-button { margin-right: 0; font-weight: 700; }
+/* On a narrow card the chip sits under the seller's name, left-aligned, rather than hanging off the end of it. */
+.item-card .founding-chip { display: flex; width: fit-content; margin: 4px 0 0; }

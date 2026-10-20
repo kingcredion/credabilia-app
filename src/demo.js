@@ -285,7 +285,10 @@ const demoReview = r => { const purchase = state.purchases.find(p => p.id === r.
       return state.purchases.filter(p=>p.seller_id===state.userId).map(p=>{
         const item=state.listings.find(x=>x.id===p.listing_id) || {};
         const refund=state.refundRequests.find(r=>r.purchase_id===p.id);
-        return {id:p.id,listing_id:item.id,title:item.title,category:item.category,price_cents:p.price_cents,created_at:p.created_at,shipping_address:p.shipping_address,
+        // Practice preview only (/?founding-preview=1): show a sale the way a Founding seller sees it.
+        const previewFounder=typeof window!=='undefined' && new URLSearchParams(window.location.search).get('founding-preview')==='1';
+        return {id:p.id,listing_id:item.id,title:item.title,category:item.category,price_cents:p.price_cents,created_at:p.created_at,
+          selling_fee_waived:previewFounder,waived_selling_fee_cents:previewFounder?p.platform_fee_cents||0:0,processing_fee_cents:previewFounder?Math.round(p.price_cents*0.029)+30:null,shipping_address:p.shipping_address,
           shipping_cost_cents:p.shipping_cost_cents || 0,seller_shipping_charge_cents:p.seller_shipping_charge_cents || 0,
           tracking_number:p.tracking_number || null,tracking_url:p.tracking_url || null,tracking_status:p.tracking_status || 'UNKNOWN',label_url:p.label_url || null,shipped_at:p.shipped_at || null,
           escrow_status:p.escrow_status || 'held',funds_released_at:p.funds_released_at || null,
@@ -719,11 +722,14 @@ const demoReview = r => { const purchase = state.purchases.find(p => p.id === r.
       return item ? { id: item.id, title: item.title, category: item.category, media: item.media?.[0] ? [{ path: item.media[0].path, url: item.media[0].url }] : [] } : null;
     },
     async listings(after) {
+      // Practice preview only (/?founding-preview=1): every third seller shows the Founding chip.
+      const previewChips=typeof window!=='undefined' && new URLSearchParams(window.location.search).get('founding-preview')==='1';
       const scored = state.listings.filter(item => item.status === 'active' || (item.status === 'needs_review' && item.seller_id === state.userId)).map(item => { const current=state.audits.filter(a => a.listing_id === item.id && (a.listing_version||1) === (item.version||1)); const {avg,count}=sellerRatingStats(item.seller_id); const signed=item.media?.some(asset=>asset.kind==='signature'); return { ...item, ...(signed ? credibilityScore(item,current) : {}), audit_count: current.length, seller_member_since:new Date().toISOString(), seller_sales_count:state.purchases.filter(p=>p.seller_id===item.seller_id).length, seller_rating_avg:avg, seller_rating_count:count }; })
         .sort((a,b) => a.created_at === b.created_at ? (a.id < b.id ? 1 : -1) : (a.created_at < b.created_at ? 1 : -1));
-      if (!after) return scored;
-      const idx = scored.findIndex(item => item.created_at === after.created_at && item.id === after.id);
-      return idx === -1 ? [] : scored.slice(idx + 1);
+      const shown = previewChips ? scored.map((item, i) => i % 3 === 0 ? { ...item, seller_founding: true } : item) : scored;
+      if (!after) return shown;
+      const idx = shown.findIndex(item => item.created_at === after.created_at && item.id === after.id);
+      return idx === -1 ? [] : shown.slice(idx + 1);
     },
     async myAudits() { requireUser(); return state.audits.filter(a => a.auditor_id === state.userId); },
     async getListingHistory(listingId) {

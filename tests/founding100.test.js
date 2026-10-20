@@ -348,3 +348,38 @@ test('staff can see each founder\'s account email and how they sign in, and whic
   assert.deepEqual([members[1].email, members[1].providers, members[1].apple_hidden_email], ['x7k2@privaterelay.appleid.com', ['email', 'apple'], true]);
   await as(B1); await assert.rejects(db.query('select public.admin_founding_overview()'), /Operators only/, 'still staff only');
 });
+
+async function activeListing(raw, seller, title) {
+  return (await raw("insert into public.listings(seller_id,title,description,category,price_cents,status) values($1,$2,'A fictional listing for testing only, with enough text to count as a description.','Sports',12500,'active') returning id", [seller, title])).rows[0].id;
+}
+
+test('EXTRAS: the marketplace feed and a storefront say who is a Founding seller, publicly, as a plain yes or no', async () => {
+  const w = await world(); const {raw, db, as} = w;
+  const other = await member(raw, 'other@shop.example');
+  await activeListing(raw, S, 'Founder item'); await activeListing(raw, other, 'Ordinary item');
+  await raw("update public.profiles set slug='sam-sports',display_name='Sam Sports' where id=$1", [S]);
+  await raw("update public.profiles set slug='other-shop',display_name='Other Shop' where id=$1", [other]);
+  await w.invite([{email: 'seller@example.test'}]); await w.startCampaign(); await w.claim(S);
+
+  await as(null, 'anon');
+  const feed = (await db.query('select public.browse_listings_with_certificates() as f')).rows[0].f;
+  const flags = Object.fromEntries(feed.map(i => [i.title, i.seller_founding]));
+  assert.deepEqual(flags, {'Founder item': true, 'Ordinary item': false});
+  const store = (await db.query("select public.get_storefront('sam-sports') as s")).rows[0].s;
+  assert.equal(store.founding, true);
+  assert.equal((await db.query("select public.get_storefront('other-shop') as s")).rows[0].s.founding, false);
+  assert.doesNotMatch(JSON.stringify(feed) + JSON.stringify(store), /spot_number|claimed_at|email_hash/, 'only the yes or no is public, nothing about the claim');
+});
+
+test('EXTRAS: a Founding seller\'s sales list shows the waived selling fee and the separate processing amount; an ordinary seller sees no change', async () => {
+  const w = await world(); const {db, as} = w;
+  await w.sale(B1);
+  await w.invite([{email: 'seller@example.test'}]); await w.startCampaign(); await w.claim(S);
+  await w.sale(B2);
+  await as(S);
+  const sales = (await db.query('select public.my_sales() as s')).rows[0].s;
+  assert.equal(sales.length, 2);
+  const [founder, ordinary] = sales;   // newest first
+  assert.deepEqual([founder.selling_fee_waived, Number(founder.waived_selling_fee_cents), Number(founder.processing_fee_cents)], [true, 10920, 2350]);
+  assert.deepEqual([ordinary.selling_fee_waived, Number(ordinary.waived_selling_fee_cents), ordinary.processing_fee_cents], [false, 0, null], 'an ordinary sale carries no waiver and no processing figure');
+});

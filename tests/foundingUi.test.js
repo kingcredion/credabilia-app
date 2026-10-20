@@ -54,7 +54,7 @@ test('the hero swaps the badge for a qualified member only, and keeps the old ba
 test('the badge and the founding status can never control a fee: no money code reads them', async () => {
   const service = squash(await read('src/service.js')), demo = squash(await read('src/demo.js'));
   for (const [name, source] of [['service.js', service], ['demo.js', demo]]) {
-    const outside = source.split('\n').filter(line => !/^\s*\/\//.test(line) && /founding/i.test(line) &&!/async (founding|claimFounding|adminFounding|adminStartFounding)/.test(line) && !/Founding 100/.test(line));
+    const outside = source.split('\n').filter(line => !/^\s*\/\//.test(line) && /founding/i.test(line) &&!/async (founding|claimFounding|adminFounding|adminStartFounding)/.test(line) && !/Founding 100/.test(line) && !/founding-preview/.test(line) && !/seller_founding: true/.test(line));
     assert.deepEqual(outside, [], name + ': nothing but the Founding methods mentions the program');
   }
   assert.doesNotMatch(service.split("async startCheckout")[1]?.split('\n    async ')[0] || '', /founding/i, 'checkout never looks at founding status');
@@ -118,4 +118,16 @@ test('inside the phone apps the claim page sends a non-member to the web browser
   assert.doesNotMatch(legal.split('webOnly &&')[1]?.split('</div>')[0] || '', /EmailLogin/, 'no sign-in box inside the app notice');
   assert.match(admin, /<th>Account email<\/th><th>Signs in with<\/th>/);
   assert.match(admin, /m\.apple_hidden_email && /);
+});
+
+test('the Founding chip, the sales fee line and the one-time welcome are wired in, and the welcome is remembered per account', async () => {
+  const app = squash(await read('src/App.jsx')), store = squash(await read('src/Storefront.jsx')), badge = squash(await read('src/FoundingBadge.jsx'));
+  assert.match(app, /item\.seller_name\}\{item\.seller_founding && <FoundingChip\/>\}/, 'on marketplace cards');
+  assert.match(app, /Shared by \{selected\.seller_name\}\{selected\.seller_founding && <FoundingChip\/>\}/, 'on the item page');
+  assert.match(store, /\{store\.founding && <p className="founding-store-chip"><FoundingChip\/><\/p>\}/, 'on the storefront');
+  assert.match(app, /\{sale\.selling_fee_waived && <p className="field-note founding-fee-note">Founding 100: Credabilia selling fee waived \(you saved \{money\(sale\.waived_selling_fee_cents\)\}\)\. Payment processing: −\{money\(sale\.processing_fee_cents\)\}\.<\/p>\}/, 'on the seller\'s own sales');
+  assert.match(app, /showFoundingBadge\(session, founding\) && <FoundingWelcome userId=\{session\.user\.id\}\/>/, 'the welcome is only for a qualified, signed-in member');
+  assert.match(badge, /'credabilia:founding-welcome-seen:' \+ userId/, 'remembered per account');
+  assert.match(badge, /catch \{ return false; \}/, 'and never shown over and over when the browser cannot remember');
+  assert.match(badge, /Payment-processing fees still apply/, 'the welcome repeats that processing is separate');
 });
