@@ -5,6 +5,16 @@
 // place that actually holds the number, never trust the caller); {phone, body} sends directly to
 // a fixed number with no opt-in check, used only for internal operator alerts (see
 // notify_operator_sms()) that were never a per-user notification to begin with.
+// Twilio only accepts international format. The app lets people save a plain 10-digit US number
+// ("7025551234") or a leading-1 number, so convert at send time (this also fixes numbers already saved).
+export function toE164(raw) {
+  const digits=String(raw||'').replace(/\D/g,'');
+  if(String(raw||'').trim().startsWith('+')) return '+'+digits;
+  if(digits.length===10) return '+1'+digits;
+  if(digits.length===11 && digits.startsWith('1')) return '+'+digits;
+  return '+'+digits;
+}
+
 export function createHandler({createClient,env,sendSms}) {
   const cors={'Access-Control-Allow-Origin':'*','Access-Control-Allow-Headers':'content-type, x-sms-secret','Access-Control-Allow-Methods':'POST, OPTIONS'};
   const reply=(body,status=200)=>Response.json(body,{status,headers:cors});
@@ -31,8 +41,14 @@ export function createHandler({createClient,env,sendSms}) {
         to=profile.phone_number;
       }
 
-      await sendSms({to,from:env('TWILIO_FROM_NUMBER'),body,accountSid:env('TWILIO_ACCOUNT_SID'),authToken:env('TWILIO_AUTH_TOKEN')});
+      await sendSms({to:toE164(to),from:env('TWILIO_FROM_NUMBER'),body,accountSid:env('TWILIO_ACCOUNT_SID'),authToken:env('TWILIO_AUTH_TOKEN')});
       return reply({sent:1});
-    } catch {return reply({error:'SMS notification is temporarily unavailable.'},503);}
+    } catch(error) {
+      // Log why Twilio refused (code and reason), with any phone numbers masked, so failures are diagnosable.
+      const detail=String(error?.message||error).replace(/\+?\d{7,}/g,'[number]').slice(0,300);
+      console.error('send-sms failed:',detail);
+      // Only the database (pg_net, behind the shared secret) ever sees this reply, so the reason can ride along.
+      return reply({error:'SMS notification is temporarily unavailable.',detail},503);
+    }
   };
 }

@@ -166,6 +166,15 @@ test('settle_ended_auctions still settles correctly with the sms/klaviyo additio
   } finally { await db.close(); }
 });
 
+test('send-sms turns a plain US number into the international format Twilio requires',async()=>{
+  const {toE164}=await import('../supabase/functions/send-sms/handler.js');
+  assert.equal(toE164('7025551234'),'+17025551234');
+  assert.equal(toE164('17025551234'),'+17025551234');
+  assert.equal(toE164('+17025551234'),'+17025551234');
+  assert.equal(toE164(' +1 (702) 555-1234 '),'+17025551234');
+  assert.equal(toE164('+442071838750'),'+442071838750');
+});
+
 test('send-sms handler validates the shared secret and Twilio config, skips non-opted-in users, and sends otherwise',async()=>{
   const secret='test-sms-secret';
   const sent=[];
