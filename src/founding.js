@@ -27,3 +27,9 @@ export const FOUNDING_TERMS = [
   'A Founding seller pays no Credabilia selling fee on their sales for as long as their account stays open and in good standing. The benefit belongs to that account and cannot be transferred or sold. It does not cover payment-processing charges, which are shown separately on each sale, or shipping, insurance or taxes.',
   'We may end the benefit for an account that is closed, or that breaks our rules, for example by listing items on behalf of other sellers to avoid fees. Unclaimed invitations, and the contact details kept for them, are deleted when the window closes.',
 ];
+
+// Apple's "Hide My Email" gives an app a random forwarding address, which can never match an invitation sent to the person's real address.
+export const isAppleRelayEmail = email => /@privaterelay\.appleid\.com$/i.test(String(email || '').trim());
+
+// Shown on the claim page and repeated in the invitation email and call script, so nobody is surprised.
+export const SAME_EMAIL_NOTE = 'Use the exact email address we contacted. Signing in with a different address, or with Apple’s "Hide My Email", will not work, because your invitation is matched to your email address.';

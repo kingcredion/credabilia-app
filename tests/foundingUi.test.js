@@ -94,3 +94,17 @@ test('the invitation list is not in any public or committed file', async () => {
   const sql = squash(await read('supabase/migrations/202610200159_founding_100.sql'));
   assert.doesNotMatch(sql, /@(gmail|yahoo|hotmail|outlook|aol)\./i, 'the migration holds no contact addresses');
 });
+
+test('the claim page tells people to use the email we contacted, and explains Apple "Hide My Email" when that is what they signed in with', async () => {
+  const {isAppleRelayEmail, SAME_EMAIL_NOTE} = await import('../src/founding.js');
+  assert.equal(isAppleRelayEmail('x7k2abc@privaterelay.appleid.com'), true);
+  assert.equal(isAppleRelayEmail('  X7K@PrivateRelay.AppleID.com '), true);
+  assert.equal(isAppleRelayEmail('owner@icloud.com'), false, 'a real iCloud address is fine');
+  assert.equal(isAppleRelayEmail('owner@gmail.com'), false);
+  assert.equal(isAppleRelayEmail(null), false);
+  assert.match(SAME_EMAIL_NOTE, /exact email address we contacted/);
+  assert.match(SAME_EMAIL_NOTE, /Hide My Email/);
+  const legal = squash(await read('src/Legal.jsx'));
+  assert.match(legal, /<strong>\{SAME_EMAIL_NOTE\}<\/strong>/, 'shown before they sign in');
+  assert.match(legal, /isAppleRelayEmail\(session\?\.user\?\.email\) && <p>That is an Apple/, 'and explained after a mismatch');
+});

@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { ArrowLeft } from 'lucide-react';
 import { Brand } from './Brand.jsx';
 import { MAILIN_EMAIL, statesNote } from './giveaway.js';
-import { FOUNDING_FEE_NOTE, FOUNDING_TERMS, claimView } from './founding.js';
+import { FOUNDING_FEE_NOTE, FOUNDING_TERMS, SAME_EMAIL_NOTE, claimView, isAppleRelayEmail } from './founding.js';
 import { FoundingBadgeImage } from './FoundingBadge.jsx';
 
 const LAST_UPDATED = 'October 5, 2026';
@@ -311,6 +311,7 @@ export function FoundingPage({ service, EmailLogin }) {
         <p>Founding 100 is an invitation-only group of 100 sellers who pay no Credabilia selling fees for as long as their account stays open and in good standing. Payment-processing fees still apply.</p>
         <div className="founding-box"><h3>Claim your spot</h3>
           <p className="field-note">Enter the email address we invited. We'll send a sign-in code to that address, which proves it's yours.</p>
+          <p className="field-note"><strong>{SAME_EMAIL_NOTE}</strong></p>
           <EmailLogin/>
         </div>
       </>}
@@ -322,7 +323,9 @@ export function FoundingPage({ service, EmailLogin }) {
         <p>Spot {status.spot_number} of 100. {FOUNDING_FEE_NOTE}</p>
         <p><a className="primary" href="/?list=1">List your first item</a></p></div>}
       {view === 'not-invited' && <div className="founding-box"><h3>No invitation for this email</h3>
-        <p>You're signed in as <strong>{session?.user?.email}</strong>, and we don't have a Founding invitation for that address. If we contacted you, sign out and sign in again with the email address we used.</p>
+        <p>You're signed in as <strong>{session?.user?.email}</strong>, and we don't have a Founding invitation for that address.</p>
+        {isAppleRelayEmail(session?.user?.email) && <p>That is an Apple "Hide My Email" address, which can't be matched to an invitation.</p>}
+        <p>If we contacted you, sign out and sign in again with the exact email address we used.</p>
         <button type="button" className="text-button" disabled={busy} onClick={signOut}>Sign out</button></div>}
       {view === 'closed' && <div className="founding-box"><h3>The Founding 100 invitation has closed</h3>
         <p>All 100 spots have been claimed or the invitation window has ended. You can still sell on Credabilia under our standard fees.</p></div>}
