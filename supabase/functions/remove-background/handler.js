@@ -3,6 +3,8 @@
 // RLS-scoped client (never service-role -- ownership is enforced by Storage's own policies, not
 // by us re-checking it), forwards it to Photoroom, and streams the cutout straight back. Nothing
 // is written to Storage here; the client re-uploads the result itself via the normal upload path.
+import { keptShare, cutoutIsTooSmall } from './cutoutQuality.js';
+
 export function createHandler({createClient,env,fetcher=fetch}) {
   const cors={'Access-Control-Allow-Origin':'*','Access-Control-Allow-Headers':'authorization, x-client-info, apikey, content-type','Access-Control-Allow-Methods':'POST, OPTIONS'};
   const reply=(body,status=200)=>Response.json(body,{status,headers:cors});
@@ -38,6 +40,8 @@ export function createHandler({createClient,env,fetcher=fetch}) {
       });
       if(!response.ok) return reply({error:'The background could not be removed. Try a different photo.'},502);
       const result=new Uint8Array(await response.arrayBuffer());
+      // A cutout that keeps only a small patch of the picture (everything else see-through) turns the main photo into a blur. Keep the seller's original instead.
+      if(cutoutIsTooSmall(await keptShare(result))) return reply({error:'We kept your original photo: removing the background would have cut out most of the picture.'},422);
       // application/octet-stream, not image/png: supabase-js's functions.invoke() only parses a
       // response body as a Blob for octet-stream/pdf Content-Types -- anything else (including
       // image/png) falls through to response.text(), which would corrupt the binary PNG bytes.
