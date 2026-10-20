@@ -8,7 +8,8 @@
   box-shadow: 0 0 0 1px #f3b8232e, 0 10px 30px #0d3b2c40, 0 0 34px #f3b82333;
   color: #f6f1de;
 }
-.giveaway-card { display: flex; flex-direction: column; margin-bottom: 22px; max-width: 460px; }
+/* Centered in the Discover column, and wider on desktop so it fills the space instead of sitting to one side. Phones keep the full width (see the 600px rule below). */
+.giveaway-card { display: flex; flex-direction: column; margin: 0 auto 22px; width: 100%; max-width: 760px; }
 .giveaway-ribbon { display: block; position: relative; z-index: 2; width: 74%; max-width: 380px; height: auto; margin: 6px auto -34px; filter: drop-shadow(0 3px 8px #00000066); pointer-events: none; }
 .giveaway-photo { position: relative; z-index: 1; display: block; width: 100%; padding: 40px 14px 6px; background: none; border: 0; cursor: pointer; }
 .giveaway-photo .item-art, .giveaway-photo img { border-radius: 10px; }
