@@ -23,7 +23,7 @@
 .legal-page .founding-box.ok p, .legal-page .founding-box.ok li, .legal-page .founding-box.ok span, .legal-page .founding-box.ok strong { color: #f6f1de; }
 .legal-page .founding-box.ok a.primary { display: inline-block; padding: 10px 18px; border-radius: 10px; color: #fff; text-decoration: none; font-weight: 700; }
 .founding-box h3 { margin: 0 0 6px; }
-.founding-claim .field-note { margin: 0; }
+.founding-claim .field-note { margin: 0 0 10px; }
 .founding-spots { font-weight: 700; }
 
 .admin-founding { display: flex; flex-direction: column; gap: 16px; }

@@ -320,27 +320,29 @@ export function FoundingPage({ service, EmailLogin }) {
         </div>
       </>}
       {!webOnly && view === 'invited' && <div className="founding-box ok"><h3>You're invited</h3>
-        <p>This invitation is for <strong>{session?.user?.email}</strong>. <span className="founding-spots">{status.spots_left} of 100 spots left</span>, open until {when}.</p>
+        <p>This invitation is for {session?.user?.email ? <strong>{session.user.email}</strong> : 'your account'}. <span className="founding-spots">{status.spots_left} of 100 spots left</span>, open until {when}.</p>
         {error && <p role="alert" className="error">{error}</p>}
         <button type="button" className="primary" disabled={busy} onClick={claim}>{busy ? 'Claiming…' : 'Claim my Founding spot'}</button></div>}
       {view === 'member' && <div className="founding-box ok"><h3>You're a Founding seller</h3>
         <p>Spot {status.spot_number} of 100. {FOUNDING_FEE_NOTE}</p>
         <p><a className="primary" href="/?list=1">List your first item</a></p></div>}
       {!webOnly && view === 'not-invited' && <div className="founding-box"><h3>No invitation for this email</h3>
-        <p>You're signed in as <strong>{session?.user?.email}</strong>, and we don't have a Founding invitation for that address.</p>
+        <p>You're signed in{session?.user?.email && <> as <strong>{session.user.email}</strong></>}, and we don't have a Founding invitation for {session?.user?.email ? 'that address' : 'this account'}.</p>
         {isAppleRelayEmail(session?.user?.email) && <p>That is an Apple "Hide My Email" address, which can't be matched to an invitation.</p>}
         <p>If we contacted you, sign out and sign in again with the exact email address we used.</p>
         <button type="button" className="text-button" disabled={busy} onClick={signOut}>Sign out</button></div>}
       {!webOnly && view === 'closed' && <div className="founding-box"><h3>The Founding 100 invitation has closed</h3>
         <p>All 100 spots have been claimed or the invitation window has ended. You can still sell on Credabilia under our standard fees.</p></div>}
       {error && view !== 'invited' && <p role="alert" className="error">{error}</p>}
-      <h2>How it works</h2>
-      <ul className="founding-facts">
-        <li>Your Credabilia selling fee is waived on every sale for as long as your account stays open and in good standing.</li>
-        <li>Payment-processing fees still apply. They are shown as their own line on each sale and are separate from Credabilia's selling fee.</li>
-        <li>The benefit belongs to your account, so changing your email later does not affect it.</li>
-        <li>Invitations are tied to one email address and expire on the date above or when all 100 spots are taken.</li>
-      </ul>
+      {view !== 'closed' && <>
+        <h2>How it works</h2>
+        <ul className="founding-facts">
+          <li>Founding sellers pay no Credabilia selling fee on their sales, for as long as their account stays open and in good standing.</li>
+          <li>Payment-processing fees still apply. They are shown as their own line on each sale and are separate from Credabilia's selling fee.</li>
+          <li>The benefit belongs to the account, so changing the email later does not affect it.</li>
+          <li>Each invitation is tied to one email address. It closes on the date shown once you sign in, or sooner if all 100 spots are taken.</li>
+        </ul>
+      </>}
       <p className="field-note">Full terms: <a href="/terms">Terms of Service, section 7</a>.</p>
     </div>
   </LegalShell>;
