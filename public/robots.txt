@@ -3,5 +3,6 @@ Allow: /
 # Private or technical addresses, never meant to appear in search: the sign-in return page and the server functions. Item photos are served from /img/item/, which stays open.
 Disallow: /auth/
 Disallow: /api/
+Disallow: /founding
 
 Sitemap: https://credabilia.com/sitemap.xml

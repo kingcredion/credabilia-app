@@ -392,6 +392,12 @@ export function makeService() {
     async adminCancelGiveaway(id) { unwrap(await client.rpc('admin_cancel_giveaway', { p_id: id })); },
     async adminListReports(status) { return unwrap(await client.rpc('admin_list_reports', { p_status: status || null })); },
     async adminSeoReport() { return unwrap(await client.rpc('admin_seo_report')); },
+    // Founding 100 (the rules are enforced by the database; these only ask it).
+    async foundingStatus() { return unwrap(await client.rpc('founding_status')); },
+    async claimFoundingSpot() { return unwrap(await client.rpc('claim_founding_spot')); },
+    async adminFoundingOverview() { return unwrap(await client.rpc('admin_founding_overview')); },
+    async adminStartFounding() { return unwrap(await client.rpc('admin_start_founding_campaign')); },
+    async adminFoundingInvitations(search) { return unwrap(await client.rpc('admin_founding_invitations', { p_search: search || null, p_limit: 200 })); },
     async adminResolveReport(reportId, status, note, removeListing) { return unwrap(await client.rpc('admin_resolve_report', { p_report_id: reportId, p_status: status, p_note: note || null, p_remove_listing: !!removeListing })); },
     async adminListSupportConversations() { return unwrap(await client.rpc('admin_list_support_conversations')); },
     async adminGetSupportThread(userId) { return unwrap(await client.rpc('admin_get_support_thread', { p_user_id: userId })); },

@@ -1,0 +1,36 @@
+/* Founding 100: the hero badge for qualified members, and the claim page. */
+.founding-hero-badge { margin: 4px 0 14px; max-width: 360px; }
+.founding-badge-img {
+  display: block; width: 360px; max-width: 100%; height: auto;
+  /* Gold glow like the badge it replaces; drop-shadow follows the artwork's own outline (it is a transparent image). */
+  filter: drop-shadow(0 0 7px rgba(243, 184, 35, 0.5)) drop-shadow(0 0 16px rgba(243, 184, 35, 0.22));
+}
+.founding-badge-note { margin: 10px 2px 0; font-size: 14px; line-height: 1.45; color: var(--text); opacity: .86; }
+@media (max-width: 640px) {
+  .founding-hero-badge { max-width: 280px; }
+  .founding-badge-img { width: 280px; }
+  .founding-badge-note { font-size: 13.5px; }
+}
+
+.founding-claim { display: flex; flex-direction: column; gap: 14px; max-width: 620px; }
+.founding-claim .founding-badge-img { width: 340px; }
+.founding-claim h2 { border-top: 0; padding-top: 0; margin: 4px 0 0; }
+.founding-facts { margin: 0; padding-left: 18px; line-height: 1.6; }
+.founding-box { border: 1px solid var(--border); background: var(--surface-2); border-radius: 14px; padding: 16px 18px; }
+.founding-box.ok { border-color: #c9a227; background: linear-gradient(180deg, #0d3b2c, #06231a); color: #f6f1de; }
+.founding-box.ok h2, .founding-box.ok h3 { color: #f3d77a; }
+/* The legal page sets its own dark text colour on paragraphs and links, so the green box has to win explicitly to stay readable. */
+.legal-page .founding-box.ok p, .legal-page .founding-box.ok li, .legal-page .founding-box.ok span, .legal-page .founding-box.ok strong { color: #f6f1de; }
+.legal-page .founding-box.ok a.primary { display: inline-block; padding: 10px 18px; border-radius: 10px; color: #fff; text-decoration: none; font-weight: 700; }
+.founding-box h3 { margin: 0 0 6px; }
+.founding-claim .field-note { margin: 0; }
+.founding-spots { font-weight: 700; }
+
+.admin-founding { display: flex; flex-direction: column; gap: 16px; }
+.admin-founding .stat-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 10px; }
+.admin-founding .stat { border: 1px solid var(--border); border-radius: 12px; padding: 10px 12px; background: var(--surface); }
+.admin-founding .stat strong { display: block; font-size: 22px; }
+.admin-founding .stat span { font-size: 12.5px; color: var(--text-muted); }
+.admin-founding table { width: 100%; border-collapse: collapse; font-size: 13.5px; }
+.admin-founding th, .admin-founding td { text-align: left; padding: 6px 8px; border-bottom: 1px solid var(--border); vertical-align: top; }
+.admin-founding .table-scroll { overflow-x: auto; }

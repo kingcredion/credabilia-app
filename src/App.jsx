@@ -22,6 +22,7 @@ import { isNativeApp, EMAIL_CODE_MAX } from './nativeAuth.js';
 const Storefront = React.lazy(() => import('./Storefront.jsx').then(module => ({ default: module.Storefront })));
 const TermsPage = React.lazy(() => import('./Legal.jsx').then(module => ({ default: module.TermsPage })));
 const GiveawayRulesPage = React.lazy(() => import('./Legal.jsx').then(module => ({ default: module.GiveawayRulesPage })));
+const FoundingPage = React.lazy(() => import('./Legal.jsx').then(module => ({ default: module.FoundingPage })));
 const PrivacyPage = React.lazy(() => import('./Legal.jsx').then(module => ({ default: module.PrivacyPage })));
 const CertificateLookupPage = React.lazy(() => import('./CertificateLookup.jsx').then(module => ({ default: module.CertificateLookupPage })));
 const HelpPage = React.lazy(() => import('./Help.jsx').then(module => ({ default: module.HelpPage })));
@@ -30,6 +31,9 @@ import { MessageThread } from './MessageThread.jsx';
 import { SoldItemPage } from './SoldItemPage.jsx';
 import { trackItemListed, trackSignUpIfNew } from './analytics.js';
 import { trackEvent } from './events.js';
+import { showFoundingBadge } from './founding.js';
+import { FoundingHeroBadge } from './FoundingBadge.jsx';
+import { AdminFounding } from './AdminFounding.jsx';
 import { SellPage } from './SellPage.jsx';
 import { LIST_INTENT_KEY, captureListIntent, hasFreshListIntent, isSellHost } from './listIntent.js';
 import { captureGiveawayParam, captureReferralParam, clearGiveawayIntent, clearReferral, hasFreshGiveawayIntent, readReferral, rememberGiveawayIntent } from './giveaway.js';
@@ -1978,6 +1982,7 @@ function AdminDashboard() {
       <button aria-pressed={tab === 'sellerAccounts'} className={tab === 'sellerAccounts' ? 'active' : ''} onClick={() => setTab('sellerAccounts')}>Seller accounts</button>
       <button aria-pressed={tab === 'giveaway'} className={tab === 'giveaway' ? 'active' : ''} onClick={() => setTab('giveaway')}>Giveaway</button>
       <button aria-pressed={tab === 'seo'} className={tab === 'seo' ? 'active' : ''} onClick={() => setTab('seo')}>SEO</button>
+      <button aria-pressed={tab === 'founding'} className={tab === 'founding' ? 'active' : ''} onClick={() => setTab('founding')}>Founding 100</button>
     </div>
     {tab === 'disputes' && <AdminDisputes/>}
     {tab === 'reports' && <AdminReports/>}
@@ -1990,6 +1995,7 @@ function AdminDashboard() {
     {tab === 'sellerAccounts' && <AdminSellerAccounts/>}
     {tab === 'giveaway' && <GiveawayAdmin service={service}/>}
     {tab === 'seo' && <AdminSeo/>}
+    {tab === 'founding' && <AdminFounding service={service}/>}
   </div>;
 }
 
@@ -2294,7 +2300,7 @@ export default function App() {
   const storefrontSlug = (() => { const segments = window.location.pathname.split('/').filter(Boolean); return segments.length === 1 && segments[0] !== 'auth' ? segments[0] : null; })();
   // /terms, /privacy, and /help are standalone, no-login-required pages -- checked before
   // storefrontSlug so they can never be shadowed by a seller's store name (also reserved server-side).
-  const legalPage = window.location.pathname === '/terms' ? 'terms' : window.location.pathname === '/privacy' ? 'privacy' : window.location.pathname === '/help' ? 'help' : window.location.pathname === '/certificate' ? 'certificate' : window.location.pathname === '/giveaway-rules' ? 'giveaway-rules' : (window.location.pathname === '/sell' || (isSellHost(window.location.hostname) && window.location.pathname === '/')) ? 'sell' : null;
+  const legalPage = window.location.pathname === '/terms' ? 'terms' : window.location.pathname === '/privacy' ? 'privacy' : window.location.pathname === '/help' ? 'help' : window.location.pathname === '/certificate' ? 'certificate' : window.location.pathname === '/giveaway-rules' ? 'giveaway-rules' : window.location.pathname === '/founding' ? 'founding' : (window.location.pathname === '/sell' || (isSellHost(window.location.hostname) && window.location.pathname === '/')) ? 'sell' : null;
   // /item/<id> gives each listing its own shareable, bookmarkable, back-button-friendly URL --
   // parsed once here (same pattern as storefrontSlug/legalPage above) and reconciled against the
   // loaded `items`/`buyRequests` once they're fetched, below.
@@ -2318,6 +2324,8 @@ export default function App() {
   useEffect(() => { setCardsShown(CARDS_PER_VIEW); }, [category, query, workspace, collectionFilter]); // a new view starts back at the first batch
   const [sales, setSales] = useState([]), [sellerTab, setSellerTab] = useState('active'), [endedListings, setEndedListings] = useState([]);
   const [payoutStatus, setPayoutStatus] = useState([]);
+  // Founding 100 status for the signed-in member, from the server. Only used to show the badge; it never decides a fee.
+  const [founding, setFounding] = useState(null);
   const [giveaway, setGiveaway] = useState(null), [giveawayBusy, setGiveawayBusy] = useState(false), [giveawayWin, setGiveawayWin] = useState(null), [referralInfo, setReferralInfo] = useState(null);
   const payoutByPurchase = Object.fromEntries(payoutStatus.map(entry => [entry.purchase_id, entry]));
   const [buyRequests, setBuyRequests] = useState([]), [sellerBuyRequests, setSellerBuyRequests] = useState([]);
@@ -2356,6 +2364,12 @@ export default function App() {
   // missing backend (or a stub service) just shows no giveaway.
   const loadGiveaway = () => Promise.resolve().then(() => service.currentGiveaway?.()).then(next => setGiveaway(next || null)).catch(() => {});
   useEffect(() => { if (!authReady || storefrontSlug || legalPage) return; loadGiveaway(); }, [authReady, session?.user?.id, profile?.stripe_charges_enabled]);
+  useEffect(() => {
+    if (!authReady || !session || storefrontSlug || legalPage || service.mode === 'unconfigured') { setFounding(null); return undefined; }
+    let alive = true;
+    service.foundingStatus().then(value => { if (alive) setFounding(value); }).catch(() => { if (alive) setFounding(null); });
+    return () => { alive = false; };
+  }, [authReady, session?.user?.id]);
   useEffect(() => {
     if (!authReady || !session || storefrontSlug || legalPage) { setGiveawayWin(null); return; }
     Promise.resolve().then(() => service.myGiveawayWin?.()).then(win => setGiveawayWin(win || null)).catch(() => {});
@@ -2598,6 +2612,7 @@ export default function App() {
   if (legalPage === 'help') return <HelpPage/>;
   if (legalPage === 'certificate') return <CertificateLookupPage service={service}/>;
   if (legalPage === 'giveaway-rules') return <GiveawayRulesPage/>;
+  if (legalPage === 'founding') return <FoundingPage service={service} EmailLogin={EmailLogin}/>;
   if (legalPage === 'sell') return <SellPage/>;
   if (soldPreview) return <SoldItemPage item={soldPreview} onBack={() => { window.location.href = '/'; }}/>;
   if (storefrontSlug) return <Storefront slug={storefrontSlug} service={service} onBack={() => { window.location.href = '/'; }}/>;
@@ -2809,7 +2824,7 @@ export default function App() {
           <div className="detail-grid"><div>{pendingBuy.media?.some(asset=>asset.kind==='item') ? <PhotoGallery service={service} key={pendingBuy.listing_id} media={pendingBuy.media} title={pendingBuy.title}/> : <ItemArt category={pendingBuy.category} large/>}</div><section className="item-info"><span className="pill">{pendingBuy.category}</span><h1>{pendingBuy.title}</h1><p className="detail-price">{money(pendingBuy.price_cents)}</p>{pendingBuy.status === 'confirmed' ? <><p className="field-note">The seller confirmed this is still available.</p><button className="primary" disabled={busy} onClick={()=>setModal('checkout-address')}>Continue to checkout<ArrowRight size={16}/></button></> : <p role="status" className="field-note">Waiting for the seller to confirm this item is still available…</p>}</section></div>
         </> : <>
           {showFirstListing && <FirstListingCard onStart={openCreate} onDismiss={() => { dismissFirstListing(); setFirstListingUntil(firstListingDismissedUntil()); }} payoutsReady={!!profile?.stripe_charges_enabled}/>}
-          <section className={workspace === 'collector' && !isNativeApp() ? 'hero mobile-launch-hero' : 'hero'}><div className="hero-copy"><p className="eyebrow"><span className="small-line"/>{workspace === 'collector' ? (isNativeApp() ? 'YOUR KINGDOM. IN YOUR POCKET.' : 'YOUR KINGDOM. NOW ON ANDROID.') : workspace === 'seller' ? 'YOUR NEXT GREAT FIND STARTS HERE' : 'OBSERVATION OVER ASSUMPTION'}</p><h1>{workspace === 'collector' ? (isNativeApp() ? <>The Kingdom<br/><em>is in your hands.</em></> : <>The Kingdom<br/><em>is on Google Play.</em></>) : workspace === 'seller' ? <>Your collection.<br/><em>A new chapter.</em></> : <>Look closer.<br/><em>Share what you see.</em></>}</h1><p>{workspace === 'collector' ? (isNativeApp() ? 'Discover, collect and sell memorabilia with every piece looked over by King Credion. Browse the collection below.' : 'The Credabilia app is now on Google Play. The iPhone app is coming soon, and we’ll email our registered members the moment it’s ready. Keep discovering and collecting here in the meantime.') : workspace === 'seller' ? 'Give every piece the context it deserves. Share its story, its condition, and what you know.' : 'Help collectors make informed decisions. Review evidence, explain your reasoning, and keep learning.'}</p><img className="ai-marketplace-badge" src="/brand/ai-powered-marketplace-badge-v3.webp" width="920" height="307" alt="AI powered marketplace"/>{workspace === 'collector' && !isNativeApp() && <div className="store-links"><a className="store-link store-link-live" href={PLAY_STORE_URL} target="_blank" rel="noopener noreferrer"><span>Get it on</span><strong>Google Play</strong></a><span className="store-link store-link-soon" aria-label="iPhone app coming soon"><span>iPhone app</span><strong>Coming soon</strong></span></div>}<button className="primary" onClick={workspace === 'seller' ? openCreate : () => document.getElementById('listings').scrollIntoView({ behavior: 'smooth' })}>{workspace === 'seller' ? 'Create a listing' : workspace === 'auditor' ? 'Explore the audit queue' : 'Explore the collection'}<ArrowUpRight size={18}/></button>{workspace === 'seller' && <button className="text-button" onClick={openBulkCreate}><Layers size={16}/>Bulk list items</button>}</div><div className="hero-mascot"><img key={workspace} src={(workspace === 'collector' && isNativeApp() ? NATIVE_COLLECTOR_HERO : HERO_IMAGES[workspace]).src} width={(workspace === 'collector' && isNativeApp() ? NATIVE_COLLECTOR_HERO : HERO_IMAGES[workspace]).width} height={(workspace === 'collector' && isNativeApp() ? NATIVE_COLLECTOR_HERO : HERO_IMAGES[workspace]).height} alt={(workspace === 'collector' && isNativeApp() ? NATIVE_COLLECTOR_HERO : HERO_IMAGES[workspace]).alt} srcSet={(workspace === 'collector' && isNativeApp() ? NATIVE_COLLECTOR_HERO : HERO_IMAGES[workspace]).srcSet} sizes="(max-width: 720px) 360px, 460px" fetchPriority={workspace === 'collector' ? 'high' : 'auto'} /></div></section>
+          <section className={workspace === 'collector' && !isNativeApp() ? 'hero mobile-launch-hero' : 'hero'}><div className="hero-copy"><p className="eyebrow"><span className="small-line"/>{workspace === 'collector' ? (isNativeApp() ? 'YOUR KINGDOM. IN YOUR POCKET.' : 'YOUR KINGDOM. NOW ON ANDROID.') : workspace === 'seller' ? 'YOUR NEXT GREAT FIND STARTS HERE' : 'OBSERVATION OVER ASSUMPTION'}</p><h1>{workspace === 'collector' ? (isNativeApp() ? <>The Kingdom<br/><em>is in your hands.</em></> : <>The Kingdom<br/><em>is on Google Play.</em></>) : workspace === 'seller' ? <>Your collection.<br/><em>A new chapter.</em></> : <>Look closer.<br/><em>Share what you see.</em></>}</h1><p>{workspace === 'collector' ? (isNativeApp() ? 'Discover, collect and sell memorabilia with every piece looked over by King Credion. Browse the collection below.' : 'The Credabilia app is now on Google Play. The iPhone app is coming soon, and we’ll email our registered members the moment it’s ready. Keep discovering and collecting here in the meantime.') : workspace === 'seller' ? 'Give every piece the context it deserves. Share its story, its condition, and what you know.' : 'Help collectors make informed decisions. Review evidence, explain your reasoning, and keep learning.'}</p>{showFoundingBadge(session, founding) ? <FoundingHeroBadge/> : <img className="ai-marketplace-badge" src="/brand/ai-powered-marketplace-badge-v3.webp" width="920" height="307" alt="AI powered marketplace"/>}{workspace === 'collector' && !isNativeApp() && <div className="store-links"><a className="store-link store-link-live" href={PLAY_STORE_URL} target="_blank" rel="noopener noreferrer"><span>Get it on</span><strong>Google Play</strong></a><span className="store-link store-link-soon" aria-label="iPhone app coming soon"><span>iPhone app</span><strong>Coming soon</strong></span></div>}<button className="primary" onClick={workspace === 'seller' ? openCreate : () => document.getElementById('listings').scrollIntoView({ behavior: 'smooth' })}>{workspace === 'seller' ? 'Create a listing' : workspace === 'auditor' ? 'Explore the audit queue' : 'Explore the collection'}<ArrowUpRight size={18}/></button>{workspace === 'seller' && <button className="text-button" onClick={openBulkCreate}><Layers size={16}/>Bulk list items</button>}</div><div className="hero-mascot"><img key={workspace} src={(workspace === 'collector' && isNativeApp() ? NATIVE_COLLECTOR_HERO : HERO_IMAGES[workspace]).src} width={(workspace === 'collector' && isNativeApp() ? NATIVE_COLLECTOR_HERO : HERO_IMAGES[workspace]).width} height={(workspace === 'collector' && isNativeApp() ? NATIVE_COLLECTOR_HERO : HERO_IMAGES[workspace]).height} alt={(workspace === 'collector' && isNativeApp() ? NATIVE_COLLECTOR_HERO : HERO_IMAGES[workspace]).alt} srcSet={(workspace === 'collector' && isNativeApp() ? NATIVE_COLLECTOR_HERO : HERO_IMAGES[workspace]).srcSet} sizes="(max-width: 720px) 360px, 460px" fetchPriority={workspace === 'collector' ? 'high' : 'auto'} /></div></section>
           <div className="values-strip"><span><Search size={16}/>Discover the details</span><span><ClipboardCheck size={16}/>Share your perspective</span><span><BookOpen size={16}/>Keep learning</span></div>
           <section id="listings" className="listings-section"><div className="section-heading"><div><p className="eyebrow">{workspace === 'auditor' ? 'A FRESH PERSPECTIVE' : 'THE COLLECTION'}</p><h2>{workspace === 'seller' ? (sellerTab === 'sold' ? 'Sold items' : sellerTab === 'requests' ? 'Buy requests' : 'Your listings') : workspace === 'auditor' ? 'Ready for a closer look' : collectionFilter === 'owned' ? 'Items you own' : collectionFilter === 'saved' ? 'Items you saved' : 'Discover something worth keeping'}</h2></div><span className="item-count">{workspace === 'seller' && sellerTab === 'sold' ? sales.length : workspace === 'seller' && sellerTab === 'requests' ? sellerBuyRequests.length : collectionItems.length} {(workspace === 'seller' && sellerTab === 'sold' ? sales.length : workspace === 'seller' && sellerTab === 'requests' ? sellerBuyRequests.length : collectionItems.length) === 1 ? 'item' : 'items'}</span></div>
             {workspace === 'seller' && session && service.mode === 'live' && profile && !profile.stripe_charges_enabled && <div className="evidence-box lock-banner" role="status"><h3><Lock size={16}/> Your listings are locked</h3><p className="field-note">Buyers can see them, but nobody can buy or bid until you connect payouts with Stripe. It takes about five minutes, you can stop and finish later, and everything opens automatically when you're done.</p><button type="button" className="primary" onClick={beginPayoutSetup}>{profile.stripe_details_submitted ? 'Check payout status' : 'Set up payouts'}<ArrowRight size={16}/></button></div>}

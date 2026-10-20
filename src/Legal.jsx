@@ -1,10 +1,12 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { ArrowLeft } from 'lucide-react';
 import { Brand } from './Brand.jsx';
 import { MAILIN_EMAIL, statesNote } from './giveaway.js';
+import { FOUNDING_FEE_NOTE, FOUNDING_TERMS, claimView } from './founding.js';
+import { FoundingBadgeImage } from './FoundingBadge.jsx';
 
 const LAST_UPDATED = 'October 5, 2026';
-const TERMS_UPDATED = 'October 5, 2026';
+const TERMS_UPDATED = 'October 20, 2026';
 
 const LEGAL_PATHS = ['/terms', '/privacy', '/help'];
 const RETURN_KEY = 'credabilia-legal-return';
@@ -39,7 +41,7 @@ function LegalShell({ title, children, updated = LAST_UPDATED, current }) {
     <LegalNav current={current}/>
     <a className="legal-back brand" href="/"><Brand/></a>
     <h1>{title}</h1>
-    <p className="legal-updated">Last updated: {updated}</p>
+    {updated !== false && <p className="legal-updated">Last updated: {updated}</p>}
     {children}
     <LegalNav current={current} footer/>
   </div>;
@@ -87,6 +89,7 @@ export function TermsPage() {
 
     <h2>7. Fees</h2>
     <p>Credabilia charges sellers a platform fee on completed sales and, where applicable, a 10% service charge on shipping and insurance costs (King's Collection items are charged at the carrier's rate with no service charge). The exact fee is shown before you publish a listing or complete a purchase. Fees may change; the fee in effect at the time of a transaction is the one that applies to it.</p>
+    <p><strong>Founding 100 program.</strong> {FOUNDING_TERMS.join(' ')}</p>
     <p><strong>Sales tax.</strong> Where the law requires it, Credabilia collects sales tax on purchases and pays it to the state. Tax is worked out from the address the order is delivered to (or the meetup location for a local pickup), is shown as its own line at checkout before you pay, and is added to the price. It is not part of the item price, the platform fee, or the seller's payout. If an order is refunded, the matching tax is refunded with it.</p>
 
     <h2>8. Payments, holds and payouts</h2>
@@ -267,5 +270,71 @@ export function GiveawayRulesPage() {
 
     <h2>10. Winner list</h2>
     <p>The winner's first name and state, and the date of the drawing, are available for 90 days after the end date. Write to {MAILIN_EMAIL} to ask for them.</p>
+  </LegalShell>;
+}
+
+// The invitation claim page (/founding). Signing in with the invited email address is the proof of ownership: the sign-in code is sent to that address, and the
+// server only grants a spot to a verified account whose email matches an invitation. Not indexed. Nothing here decides anything about money.
+export function FoundingPage({ service, EmailLogin }) {
+  const [session, setSession] = useState(undefined), [status, setStatus] = useState(null), [busy, setBusy] = useState(false), [error, setError] = useState('');
+  useEffect(() => {
+    const meta = document.createElement('meta'); meta.name = 'robots'; meta.content = 'noindex, nofollow'; document.head.appendChild(meta);
+    const before = document.title; document.title = 'Founding 100 | Credabilia';
+    return () => { meta.remove(); document.title = before; };
+  }, []);
+  useEffect(() => {
+    let alive = true;
+    service.getSession().then(value => { if (alive) setSession(value); }).catch(() => { if (alive) setSession(null); });
+    const off = service.onAuthChange(value => { if (alive) { setSession(value); setStatus(null); setError(''); } });
+    return () => { alive = false; if (typeof off === 'function') off(); };
+  }, [service]);
+  useEffect(() => {
+    if (!session) { setStatus(null); return undefined; }
+    let alive = true;
+    service.foundingStatus().then(value => { if (alive) setStatus(value); }).catch(err => { if (alive) setError(err.message); });
+    return () => { alive = false; };
+  }, [session?.user?.id]);
+  async function claim() {
+    setBusy(true); setError('');
+    try { await service.claimFoundingSpot(); setStatus(await service.foundingStatus()); }
+    catch (err) { setError(err.message); }
+    finally { setBusy(false); }
+  }
+  async function signOut() { setBusy(true); try { await service.signOut(); } catch (err) { setError(err.message); } finally { setBusy(false); } }
+  const when = status?.expires_at ? new Date(status.expires_at).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' }) : '';
+  const view = session === undefined ? 'loading' : !session ? 'signed-out' : claimView(status);
+  return <LegalShell title="Founding 100" updated={false} current="">
+    <div className="founding-claim">
+      <FoundingBadgeImage/>
+      {view === 'loading' && <p role="status">Loading…</p>}
+      {view === 'signed-out' && <>
+        <p>Founding 100 is an invitation-only group of 100 sellers who pay no Credabilia selling fees for as long as their account stays open and in good standing. Payment-processing fees still apply.</p>
+        <div className="founding-box"><h3>Claim your spot</h3>
+          <p className="field-note">Enter the email address we invited. We'll send a sign-in code to that address, which proves it's yours.</p>
+          <EmailLogin/>
+        </div>
+      </>}
+      {view === 'invited' && <div className="founding-box ok"><h3>You're invited</h3>
+        <p>This invitation is for <strong>{session?.user?.email}</strong>. <span className="founding-spots">{status.spots_left} of 100 spots left</span>, open until {when}.</p>
+        {error && <p role="alert" className="error">{error}</p>}
+        <button type="button" className="primary" disabled={busy} onClick={claim}>{busy ? 'Claiming…' : 'Claim my Founding spot'}</button></div>}
+      {view === 'member' && <div className="founding-box ok"><h3>You're a Founding seller</h3>
+        <p>Spot {status.spot_number} of 100. {FOUNDING_FEE_NOTE}</p>
+        <p><a className="primary" href="/?list=1">List your first item</a></p></div>}
+      {view === 'not-invited' && <div className="founding-box"><h3>No invitation for this email</h3>
+        <p>You're signed in as <strong>{session?.user?.email}</strong>, and we don't have a Founding invitation for that address. If we contacted you, sign out and sign in again with the email address we used.</p>
+        <button type="button" className="text-button" disabled={busy} onClick={signOut}>Sign out</button></div>}
+      {view === 'closed' && <div className="founding-box"><h3>The Founding 100 invitation has closed</h3>
+        <p>All 100 spots have been claimed or the invitation window has ended. You can still sell on Credabilia under our standard fees.</p></div>}
+      {error && view !== 'invited' && <p role="alert" className="error">{error}</p>}
+      <h2>How it works</h2>
+      <ul className="founding-facts">
+        <li>Your Credabilia selling fee is waived on every sale for as long as your account stays open and in good standing.</li>
+        <li>Payment-processing fees still apply. They are shown as their own line on each sale and are separate from Credabilia's selling fee.</li>
+        <li>The benefit belongs to your account, so changing your email later does not affect it.</li>
+        <li>Invitations are tied to one email address and expire on the date above or when all 100 spots are taken.</li>
+      </ul>
+      <p className="field-note">Full terms: <a href="/terms">Terms of Service, section 7</a>.</p>
+    </div>
   </LegalShell>;
 }
