@@ -13,7 +13,9 @@ const SUPABASE_KEY = process.env.VITE_SUPABASE_PUBLISHABLE_KEY;
 const SITE_ORIGIN = 'https://credabilia.com';
 const DEFAULT_IMAGE = SITE_ORIGIN + '/brand/app-icons/crown-c/web/icon-512.png';
 const RESERVED_SLUGS = new Set(['terms', 'privacy', 'help', 'auth', 'item', 'sell', 'certificate', 'giveaway-rules', 'category']);
-const BOT_UA = /bot|facebookexternalhit|facebookcatalog|twitterbot|slackbot|discordbot|linkedinbot|whatsapp|telegrambot|applebot|pinterest|redditbot|vkshare|skypeuripreview|embedly|quora|outbrain|iframely|w3c_validator/i;
+// Includes Google's other fetchers (Search Console's live URL test is "Google-InspectionTool", which does not say "bot"), speed-test tools, and spiders that call themselves spider or crawler.
+const BOT_UA = /bot|spider|crawl|google-|googleother|lighthouse|pagespeed|facebookexternalhit|facebookcatalog|twitterbot|slackbot|discordbot|linkedinbot|whatsapp|telegrambot|applebot|pinterest|redditbot|vkshare|skypeuripreview|embedly|quora|outbrain|iframely|w3c_validator/i;
+export const isCrawler = userAgent => BOT_UA.test(userAgent || '');
 const SITEMAP_URL_LIMIT = 45000; // the protocol allows 50,000 per file; stay under it
 
 export const config = {
@@ -372,7 +374,7 @@ export default async function middleware(request) {
     const xml = await buildMerchantFeed(url.origin);
     return xmlResponse(xml);
   }
-  if (!BOT_UA.test(request.headers.get('user-agent') || '')) return next();
+  if (!isCrawler(request.headers.get('user-agent'))) return next();
 
   const meta = await buildMeta(url.pathname);
   if (!meta) return next();
