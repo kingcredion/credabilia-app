@@ -36,3 +36,8 @@ test('certificate metadata is validated atomically and returned to buyers',async
     await assert.rejects(create('psa','123'),/permission denied/);
   } finally { await db.close(); }
 });
+
+test('no issuer is flagged as having its lookup down right now, so no outage notice shows (set outage:true on an issuer to bring it back)', async () => {
+  const {ISSUERS} = await import('../src/certificates.js');
+  assert.deepEqual(ISSUERS.filter(issuer => issuer.outage).map(issuer => issuer.id), []);
+});

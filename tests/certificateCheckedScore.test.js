@@ -123,7 +123,7 @@ test('an unchecked certificate number counts at 75% of the issuer rating, a chec
     const expectations = [
       [unchecked, 71, { certificate_issuer: 'psa', certificate_number: 'AB12345' }],
       [checked, 93, { certificate_issuer: 'bas', certificate_number: 'CD67890', certificate_checked_at: '2026-10-08T00:00:00Z' }],
-      [fiterman, 50, { certificate_issuer: 'fiterman', certificate_number: null }],
+      [fiterman, 55, { certificate_issuer: 'fiterman', certificate_number: null }],
       [none, 25, {}],
     ];
     for (const [id, expectedCertificateScore, fixture] of expectations) {

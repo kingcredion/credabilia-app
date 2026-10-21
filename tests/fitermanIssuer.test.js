@@ -104,7 +104,7 @@ test('Fiterman Sports is an issuer with no certificate number, the removed Creda
     await assert.rejects(raw("update public.listings set certificate_issuer='credabilia',certificate_number='1' where id=$1", [listing]), /certificate_details_valid/, 'Credabilia has no certificate of its own');
     await assert.rejects(raw("update public.listings set certificate_issuer='psa',certificate_number=null where id=$1", [listing]), /certificate_details_valid/);
     await raw("update public.listings set certificate_issuer='psa',certificate_number='AB12345' where id=$1", [listing]);
-    assert.equal((await raw("select public.certificate_rating('fiterman') as r")).rows[0].r, 50);
+    assert.equal((await raw("select public.certificate_rating('fiterman') as r")).rows[0].r, 55);
     assert.equal((await raw("select public.certificate_rating('psa') as r")).rows[0].r, 95);
   } finally { await db.close(); }
 });

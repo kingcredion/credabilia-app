@@ -74,12 +74,15 @@ test('a member who signed up a day ago and has not listed gets exactly one nudge
   assert.deepEqual(again.events, []);
 });
 
-test('the default display name "Collector" is not used as a first name', async () => {
+test('the automatic display names ("Royal Member", and the older "Collector") are not used as a first name', async () => {
   const {raw} = await world();
-  await member(raw, {email: 'someone@example.test'}); // no full_name -> display name "Collector"
+  const fresh = await member(raw, {email: 'someone@example.test'}); // no full_name -> display name "Royal Member"
+  assert.equal((await raw('select display_name from public.profiles where id=$1', [fresh])).rows[0].display_name, 'Royal Member');
+  const legacy = await member(raw, {email: 'legacy@example.test'});
+  await raw("update public.profiles set display_name='Collector' where id=$1", [legacy]); // a member from before the rename
   const {events} = await sweep(raw);
-  assert.equal(events.length, 1);
-  assert.equal(events[0].props.first_name ?? null, null);
+  assert.equal(events.length, 2);
+  for (const e of events) assert.equal(e.props.first_name ?? null, null);
 });
 
 test('too new, too old, already listed, banned, deleted, operators, the App Review account and no-selling accounts are skipped', async () => {
@@ -131,4 +134,74 @@ test('the daily schedule migration runs send_first_listing_nudges once a day', a
   const sql = await readFile(new URL('../supabase/migrations/202610130141_first_listing_nudge_schedule.sql', import.meta.url), 'utf8');
   assert.match(sql, /cron\.schedule\('first-listing-nudges', '0 17 \* \* \*'/);
   assert.match(sql, /public\.send_first_listing_nudges\(\)/);
+});
+
+// ---- the second reminder ----
+async function reminderEvents(raw) {
+  const rows = (await raw("select body from net._http_calls where url like '%klaviyo%' and body->'data'->'attributes'->'metric'->'data'->'attributes'->>'name'='First Listing Reminder' order by id")).rows;
+  return rows.map(r => ({email: r.body.data.attributes.profile.data.attributes.email, props: r.body.data.attributes.properties}));
+}
+async function remind(raw) {
+  await raw('delete from net._http_calls');
+  const sent = (await raw('select public.send_first_listing_reminders() as sent')).rows[0].sent;
+  return {sent, events: await reminderEvents(raw)};
+}
+// Makes a member who was nudged `hoursAgo` hours ago (back-dates the nudge record that the daily sweep writes).
+async function nudged(raw, opts, hoursAgo = 72) {
+  const uid = await member(raw, {...opts, hoursAgo: 96}); // inside the nudge sweep's 24 hours to 5 days window
+  await raw('select public.send_first_listing_nudges()');
+  await raw("update public.first_listing_nudges set sent_at=now()-($2||' hours')::interval where user_id=$1", [uid, String(hoursAgo)]);
+  return uid;
+}
+
+test('a member nudged three days ago who still has not listed gets exactly one reminder, with their first name', async () => {
+  const {raw} = await world();
+  await nudged(raw, {email: 'sam@example.test', name: 'Sam Rivera'}, 72);
+  const first = await remind(raw);
+  assert.equal(first.sent, 1);
+  assert.deepEqual(first.events, [{email: 'sam@example.test', props: {first_name: 'Sam'}}]);
+  const again = await remind(raw); // one reminder per member, ever
+  assert.equal(again.sent, 0);
+  assert.deepEqual(again.events, []);
+});
+
+test('no reminder when the nudge is too recent or too old, or the member has since listed, was banned or deleted, or is an operator or the App Review account', async () => {
+  const {raw} = await world();
+  await nudged(raw, {email: 'recent@example.test'}, 24);
+  await nudged(raw, {email: 'old@example.test'}, 24 * 9);
+  const listed = await nudged(raw, {email: 'listed@example.test'}, 72);
+  await raw("insert into public.listings(seller_id,title,description,category,price_cents,status) values($1,'Signed helmet','A fictional listing for testing only.','Sports',5000,'draft')", [listed]);
+  const banned = await nudged(raw, {email: 'banned@example.test'}, 72);
+  await raw('update public.profiles set banned_at=now() where id=$1', [banned]);
+  const deleted = await nudged(raw, {email: 'deleted@example.test'}, 72);
+  await raw('update public.profiles set deleted_at=now() where id=$1', [deleted]);
+  const operator = await nudged(raw, {email: 'operator@example.test'}, 72);
+  await raw('insert into public.operators(user_id) values($1)', [operator]);
+  await nudged(raw, {email: 'appreview@credabilia.com'}, 72);
+  await nudged(raw, {email: 'eligible@example.test'}, 72);
+  const {sent, events} = await remind(raw);
+  assert.equal(sent, 1);
+  assert.deepEqual(events.map(e => e.email), ['eligible@example.test']);
+});
+
+test('a member who was never nudged is not reminded, and the automatic names are not used as a first name', async () => {
+  const {raw} = await world();
+  await member(raw, {email: 'never@example.test', hoursAgo: 100});
+  assert.equal((await remind(raw)).sent, 0);
+  await nudged(raw, {email: 'anon@example.test'}, 72); // no full_name -> "Royal Member"
+  const {events} = await remind(raw);
+  assert.equal(events.length, 1);
+  assert.equal(events[0].props.first_name ?? null, null);
+});
+
+test('the reminder sweep is service-role only, its table is locked, and the schedule runs it once a day', async () => {
+  const {db, as} = await world();
+  await as('00000000-0000-4000-8000-0000000000aa');
+  await assert.rejects(db.query('select public.send_first_listing_reminders()'), /permission denied/);
+  await assert.rejects(db.query('select * from public.first_listing_reminders'), /permission denied/);
+  await as('00000000-0000-4000-8000-0000000000aa', 'service_role');
+  await db.query('select public.send_first_listing_reminders()');
+  const sql = await readFile(new URL('../supabase/migrations/202610150148_first_listing_reminder_schedule.sql', import.meta.url), 'utf8');
+  assert.match(sql, /cron\.schedule\('first-listing-reminders', '30 17 \* \* \*'/);
+  assert.match(sql, /public\.send_first_listing_reminders\(\)/);
 });

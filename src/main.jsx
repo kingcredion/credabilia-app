@@ -1,6 +1,6 @@
 import React from 'react';
 import { createRoot } from 'react-dom/client';
-import App from './App.jsx';
+import { isSellHost } from './listIntent.js';
 import { inject } from '@vercel/analytics';
 import { SpeedInsights } from '@vercel/speed-insights/react';
 import { startClarity } from './clarity.js';
@@ -15,6 +15,10 @@ if (/^(www\.)?credabilia\.(com|app)$/.test(window.location.hostname)) inject();
 startClarity();
 const collectSpeedInsights = import.meta.env.PROD && /^(www\.)?credabilia\.com$/.test(window.location.hostname);
 
+// The seller landing page (credabilia.app root and /sell) is a simple page: it loads on its own, without the ~700 KB marketplace code that every other page needs.
+const isSellRoute = (isSellHost(window.location.hostname) && window.location.pathname === '/') || window.location.pathname === '/sell';
+const Page = React.lazy(() => isSellRoute ? import('./SellPage.jsx').then(module => ({ default: module.SellPage })) : import('./App.jsx'));
+
 class ErrorBoundary extends React.Component {
   state = { error: false };
   static getDerivedStateFromError() { return { error: true }; }
@@ -23,4 +27,4 @@ class ErrorBoundary extends React.Component {
     return this.props.children;
   }
 }
-createRoot(document.getElementById('root')).render(<ErrorBoundary><React.Suspense fallback={<main className="setup" role="status">Loading Credabilia…</main>}><App /></React.Suspense>{collectSpeedInsights && <SpeedInsights />}</ErrorBoundary>);
+createRoot(document.getElementById('root')).render(<ErrorBoundary><React.Suspense fallback={isSellRoute ? null : <main className="setup" role="status">Loading Credabilia…</main>}><Page /></React.Suspense>{collectSpeedInsights && <SpeedInsights />}</ErrorBoundary>);

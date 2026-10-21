@@ -9,13 +9,13 @@
 .hero-tag svg { color: var(--brand-teal); }
 .signer-badge .signed-by-quill {
   display: inline-block;
-  width: 40px;
-  height: 16px;
+  width: 63px;
+  height: 21px;
   object-fit: contain;
   vertical-align: middle;
   margin-right: 4px;
 }
-.signer-badge.compact .signed-by-quill { width: 32px; height: 13px; }
+.signer-badge.compact .signed-by-quill { width: 51px; height: 17px; }
 .item-card-content.has-signature-watermark,
 .item-card-content.has-auction-watermark {
   position: relative;
@@ -29,7 +29,7 @@
   bottom: 12px;
   width: 65%;
   height: 60%;
-  background: url('/brand/signed-by-quill.webp') right bottom / contain no-repeat;
+  background: url('/brand/signed-by-quill-v2-600.webp') right bottom / contain no-repeat;
   opacity: .07;
   pointer-events: none;
   z-index: -1;

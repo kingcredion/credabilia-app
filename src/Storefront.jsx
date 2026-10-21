@@ -1,8 +1,11 @@
+import { FoundingChip } from './FoundingBadge.jsx';
 import React, { useEffect, useState } from 'react';
 import { ArrowUpRight, Layers } from 'lucide-react';
 import { Brand } from './Brand.jsx';
 import { ItemArt, money, RatingStars } from './ItemArt.jsx';
 import { ReviewList } from './Reviews.jsx';
+import { EmptyStoreCarousel } from './Giveaway.jsx';
+import { rememberReferral } from './giveaway.js';
 
 export function Storefront({ slug, service, onBack }) {
   const [store, setStore] = useState(undefined);
@@ -12,6 +15,8 @@ export function Storefront({ slug, service, onBack }) {
     service.getStorefront(slug).then(result => { if (alive) setStore(result); }).catch(err => { if (alive) setError(err.message); });
     return () => { alive = false; };
   }, [slug]);
+  // A visitor who arrives through someone's storefront is remembered (first storefront wins, 30 days); if they join, that member is credited with the referral (see giveaway.js).
+  useEffect(() => { if (store) rememberReferral({ slug: store.slug || slug }); }, [store]);
   // Share-link previews (crawlers) get real per-page meta from the Vercel routing middleware --
   // this just keeps the browser tab title honest for an actual visitor, who never sees that HTML.
   useEffect(() => {
@@ -30,9 +35,9 @@ export function Storefront({ slug, service, onBack }) {
           : store === undefined ? <p role="status" className="empty-state">Loading this storefront…</p>
           : store === null ? <div className="empty-state"><Layers size={34}/><h3>Store not found.</h3><p>This storefront link isn't in use.</p></div>
           : <>
-            <section className="hero storefront-hero"><div className="hero-copy"><p className="eyebrow"><span className="small-line"/>SELLER STOREFRONT</p><h1>{store.display_name}</h1><p>{store.rating_count > 0 && <><RatingStars value={store.rating_avg} count={store.rating_count} size={16}/> · </>}Member since {new Date(store.member_since).toLocaleDateString()} · {store.sales_count} {store.sales_count === 1 ? 'sale' : 'sales'} on Credabilia.</p></div><div className="hero-mascot"><img src="/brand/screen-face-v1/storefront.webp" width="1421" height="800" alt="King Credion welcoming visitors beside an open royal memorabilia storefront" fetchPriority="high"/></div></section>
+            <section className="hero storefront-hero"><div className="hero-copy"><p className="eyebrow"><span className="small-line"/>SELLER STOREFRONT</p><h1>{store.display_name}</h1>{store.founding && <p className="founding-store-chip"><FoundingChip/></p>}<p>{store.rating_count > 0 && <><RatingStars value={store.rating_avg} count={store.rating_count} size={16}/> · </>}Member since {new Date(store.member_since).toLocaleDateString()} · {store.sales_count} {store.sales_count === 1 ? 'sale' : 'sales'} on Credabilia.</p></div><div className="hero-mascot"><img src="/brand/screen-face-v1/storefront.webp" width="1421" height="800" alt="King Credion welcoming visitors beside an open royal memorabilia storefront" fetchPriority="high"/></div></section>
             <section className="listings-section"><div className="section-heading"><div><p className="eyebrow">THE COLLECTION</p><h2>Active listings</h2></div><span className="item-count">{store.listings.length} {store.listings.length === 1 ? 'item' : 'items'}</span></div>
-              {!store.listings.length ? <div className="empty-state"><Layers size={34}/><h3>Nothing listed right now.</h3><p>Check back later for new finds.</p></div>
+              {!store.listings.length ? <EmptyStoreCarousel service={service} ownerName={store.display_name}/>
                 : <div className="items-grid">{store.listings.map(item => <a className="item-card" key={item.id} href={`/item/${item.id}`} aria-label={`View ${item.title}`}><ItemArt category={item.category} photo={item.media?.[0]?.url} thumbId={item.id}/><div className="item-card-content"><div className="card-meta"><span>{item.category}</span></div><h3>{item.title}</h3><div className="card-bottom"><strong>{money(item.price_cents)}</strong></div></div></a>)}</div>}
             </section>
             {store.reviews?.length > 0 && <section className="listings-section"><div className="section-heading"><div><p className="eyebrow">FEEDBACK</p><h2>What buyers say</h2></div></div>

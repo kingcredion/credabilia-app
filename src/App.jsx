@@ -1,3 +1,4 @@
+import { KingsCollectionCarousel } from './KingsCollectionCarousel.jsx';
 import { watchForNewVersion } from './updatePrompt.js';
 import { NearMePanel, PickupMeetup } from './NearMe.jsx';
 import { nearMeListings, formatDistance, loadStationLocations } from './nearMe.js';
@@ -20,6 +21,8 @@ import { makeService, openExternal, listenForExternalLinks } from './service.js'
 import { isNativeApp, EMAIL_CODE_MAX } from './nativeAuth.js';
 const Storefront = React.lazy(() => import('./Storefront.jsx').then(module => ({ default: module.Storefront })));
 const TermsPage = React.lazy(() => import('./Legal.jsx').then(module => ({ default: module.TermsPage })));
+const GiveawayRulesPage = React.lazy(() => import('./Legal.jsx').then(module => ({ default: module.GiveawayRulesPage })));
+const FoundingPage = React.lazy(() => import('./Legal.jsx').then(module => ({ default: module.FoundingPage })));
 const PrivacyPage = React.lazy(() => import('./Legal.jsx').then(module => ({ default: module.PrivacyPage })));
 const CertificateLookupPage = React.lazy(() => import('./CertificateLookup.jsx').then(module => ({ default: module.CertificateLookupPage })));
 const HelpPage = React.lazy(() => import('./Help.jsx').then(module => ({ default: module.HelpPage })));
@@ -27,8 +30,18 @@ import { ItemArt, money, RatingStars } from './ItemArt.jsx';
 import { MessageThread } from './MessageThread.jsx';
 import { SoldItemPage } from './SoldItemPage.jsx';
 import { trackItemListed, trackSignUpIfNew } from './analytics.js';
+import { trackEvent } from './events.js';
+import { showFoundingBadge } from './founding.js';
+import { FoundingChip, FoundingHeroBadge, FoundingWelcome } from './FoundingBadge.jsx';
+import { AdminFounding } from './AdminFounding.jsx';
 import { SellPage } from './SellPage.jsx';
 import { LIST_INTENT_KEY, captureListIntent, hasFreshListIntent, isSellHost } from './listIntent.js';
+import { captureGiveawayParam, captureReferralParam, clearGiveawayIntent, clearReferral, hasFreshGiveawayIntent, readReferral, rememberGiveawayIntent } from './giveaway.js';
+import { FirstListingCard, FirstListingCelebration, PayoutIntro } from './FirstListing.jsx';
+import { SaveButton, showSavedThen, useSavedFlash } from './SaveButton.jsx';
+import { categoryFromPath, categoryPageTitle, pathForBrowse } from './seoRoutes.js';
+import { dismissFirstListing, firstListingDismissedUntil, hasEverListed, shouldCelebrateFirstListing, shouldShowFirstListing } from './firstListing.js';
+import { GiveawayAdmin, GiveawayCard, GiveawayClaimForm, GiveawayEnterForm, GiveawayItemControl, GiveawayPanel, GiveawayWinBanner, ReferralCard } from './Giveaway.jsx';
 const SupportChat = React.lazy(() => import('./SupportChat.jsx').then(module => ({ default: module.SupportChat })));
 import { CATEGORIES, WORKSPACES, priceInCents } from './domain.js';
 import { formatWeight, formatLength } from './weight.js';
@@ -41,14 +54,15 @@ const REQUESTS_INTENT_KEY = 'credabilia-view-requests';
 // Matches browse_listings()'s own per-call ceiling (supabase/migrations/202609300063_browse_pagination.sql) --
 // a page this size back means there may be more past it, worth offering "Load more" for.
 const LISTINGS_PAGE_SIZE = 300;
+const CARDS_PER_VIEW = 48; // Only this many cards are drawn at a time (the data for all of them is loaded, so search and filters still cover everything); "Show more" draws the next batch.
 const LABELS = { authentic: 'Looks consistent', uncertain: 'Need more evidence', concerns: 'I see concerns' };
 // The installed iPhone/Android app shows King Credion with his collection instead of the 'coming soon to the stores' art, which stays on the website only.
 const NATIVE_COLLECTOR_HERO = { src: '/brand/screen-face-v1/collect.webp', width: 800, height: 800, alt: 'King Credion holding a signed baseball beside a signed basketball and a framed signed jersey' };
 // The referrer lets Play Console's acquisition reports attribute installs to this button.
 const PLAY_STORE_URL = 'https://play.google.com/store/apps/details?id=com.credabilia.app&referrer=utm_source%3Dcredabilia_web%26utm_medium%3Dhome_hero';
 const HERO_IMAGES = {
-  collector: { src: '/brand/mobile-launch-hero-v3.webp', width: 960, height: 960, alt: 'King Credion holding up a phone showing the Credabilia app, beside a signed baseball and a framed signed jersey' },
-  seller: { src: '/brand/screen-face-v1/sell.webp', width: 800, height: 800, alt: 'King Credion welcoming shoppers to a royal market stall with a signed baseball, trading card, and framed jersey' },
+  collector: { src: '/brand/mobile-launch-hero-v3.webp', srcSet: '/brand/mobile-launch-hero-v3-560.webp 560w, /brand/mobile-launch-hero-v3-720.webp 720w, /brand/mobile-launch-hero-v3.webp 960w', width: 960, height: 960, alt: 'King Credion holding up a phone showing the Credabilia app, beside a signed baseball and a framed signed jersey' },
+  seller: { src: '/brand/king-credion-seller-photo-to-listing-v1.webp', srcSet: '/brand/king-credion-seller-photo-to-listing-v1-560.webp 560w, /brand/king-credion-seller-photo-to-listing-v1.webp 800w', width: 800, height: 800, alt: 'King Credion photographing a jersey with his phone while a finished listing card appears beside it' },
   auditor: { src: '/brand/screen-face-v1/audit.webp', width: 800, height: 800, alt: 'King Credion inspecting a certificate of authenticity with a magnifying glass beside a signed baseball' },
 };
 
@@ -223,6 +237,13 @@ function CreateListing({ onClose, onCreated, relistFrom, bulkPhoto, bulkProgress
   const [fit,setFit]=useState(null); // {fit:'clear'|'unsure'|'unrelated', reason} from the last AI draft, or null if never drafted
   const formRef=useRef(null);
   const working=busy||uploading||analyzing||drafting||copyingPhotos||reviewingSignature||processingPhoto||resuming||discarding;
+  // While something is still running the publish button is off. Say what, so a click that does nothing is never a mystery.
+  const waitingReason=busy?'':uploading?'Photos are still uploading':processingPhoto?'King Credion is reading your photo':drafting?'AI is drafting the details':copyingPhotos?'Photos are being copied':reviewingSignature?'The signature is being reviewed':analyzing?'The certificate is being read':(resuming||discarding)?'One moment':'';
+  const [tried,setTried]=useState(false), errorRef=useRef(null);
+  // A form error appears next to the publish button, which can be off screen after scrolling: bring it into view, and put the cursor on the field it is about.
+  useEffect(()=>{ if(error) errorRef.current?.scrollIntoView?.({block:'center',behavior:'smooth'}); },[error]);
+  const errorField={'Choose the issuer':'certificate_issuer','Confirm the certificate details':'cert-confirm-check','Confirm the statement':'attest-check','Enter who signed it':'attribute:subject'};
+  function pointAtField(message){ const key=Object.keys(errorField).find(prefix=>message.startsWith(prefix)); if(!key) return; const target=document.getElementById(errorField[key])||formRef.current?.elements?.namedItem(errorField[key]); target?.focus?.({preventScroll:false}); }
   const certificates=media.filter(asset=>asset.kind==='certificate');
   const signaturePhoto=media.find(asset=>asset.kind==='signature');
   const [subjectTick,setSubjectTick]=useState(0); // bumps when the signed-by name is entered or filled in, so the signature review can start
@@ -479,10 +500,11 @@ function CreateListing({ onClose, onCreated, relistFrom, bulkPhoto, bulkProgress
       service.attestAuthenticity(id).catch(err => console.warn('Could not record the seller statement:', err.message));
       // Tell Google Ads a seller listed something -- but not listings held for review, so junk can't teach it the wrong audience.
       if (!(fit?.fit==='unrelated' || fit?.fit==='unsure')) trackItemListed(id);
+      trackEvent('listing_published', { sale_type: listingType, category: form.category || 'none' });
       // Best-effort: the listing is already published, so a failure here shouldn't block the seller — but it should be visible for debugging.
       if (relistFrom?.purchase_id) service.markListingRelisted(id, relistFrom.purchase_id).catch(err => console.warn('Could not record relist provenance:', err.message));
       onCreated(id, fit);
-    } catch (err) { setError(err.message); setBusy(false); }
+    } catch (err) { setError(err.message); setBusy(false); pointAtField(err.message); }
   }
   if (!relistFrom && !bulkPhoto && draftPrompt) return <Modal title="Resume your listing?" onClose={close}>
     <div className="ai-photo-step">
@@ -517,9 +539,9 @@ function CreateListing({ onClose, onCreated, relistFrom, bulkPhoto, bulkProgress
     {copyingPhotos && <p role="status" className="field-note">Copying photos to your own listing…</p>}
     {draftApplied && <p className="field-note bg-removed-ok">AI filled in the details from your photo — review everything before publishing. <button type="button" className="text-button" onClick={()=>setDraftApplied(false)}>Dismiss</button></p>}
     {draftNote && <p className="field-note">{draftNote} <button type="button" className="text-button" onClick={()=>setDraftNote('')}>Dismiss</button></p>}
-    <form ref={formRef} onSubmit={submit} className="form-stack">
+    <form ref={formRef} onSubmit={submit} onInvalidCapture={()=>{ setTried(true); setError(current=>current||'Some details are missing. Fill in the highlighted fields, then publish again.'); }} className={`form-stack${tried?' tried':''}`}>
       <div className="bulk-form-wrap">
-      {bulkPhoto && processingPhoto && <div className="bulk-scan-overlay" role="status" aria-label="King Credion is drafting this listing"><img src="/brand/screen-face-v1/scan.webp" alt=""/><p>Reading this photo…</p></div>}
+      {bulkPhoto && processingPhoto && <div className="bulk-scan-overlay" role="status" aria-label="King Credion is drafting this listing"><div className="bulk-scan-card"><img src="/brand/screen-face-v1/scan.webp" alt=""/><p>Reading this photo…</p></div></div>}
       <label>Item title<input name="title" placeholder="What are you sharing?" minLength={4} maxLength={120} required autoFocus/></label>
       <label>Signed by <span className="optional">{signaturePhoto?'required':'optional'}</span><SignedByInput required={!!signaturePhoto} onCommit={()=>setSubjectTick(t=>t+1)}/></label>
       <MediaPicker service={service} media={media} onChange={next=>{setMedia(next);setSuggestion(null);setConfirmed(false);setSignatureAi(null);}} busy={working} onBusy={setUploading} onError={setError}/>
@@ -562,11 +584,12 @@ function CreateListing({ onClose, onCreated, relistFrom, bulkPhoto, bulkProgress
       {certificates.length>0 && <><button type="button" className="text-button" onClick={analyze} disabled={working}>{analyzing?'Reading certificate…':'Read certificate with AI'}</button><p className="field-note">Sends the first certificate photo to our AI provider to suggest the company and number. Review the suggestions before publishing.</p></>}
       {suggestion && <div className="evidence-box"><h3>Suggested certificate details</h3><p>Issuer: {suggestion.certificate_issuer} · Number: {suggestion.certificate_number || 'Not readable'}</p><button type="button" className="text-button" onClick={()=>{setCertificate(suggestion);setConfirmed(false);setSuggestion(null);}}>Use these details and review</button><button type="button" className="text-button" onClick={()=>setSuggestion(null)}>Dismiss suggestion</button></div>}
       <CertificateFields value={certificate} onChange={value=>{setCertificate(value);setConfirmed(false);}} disabled={working}/>
-      {certificate.certificate_issuer && <label className="certificate-confirm"><input type="checkbox" checked={confirmed} onChange={event=>setConfirmed(event.target.checked)} required disabled={working}/>I checked the company and number against my certificate.</label>}
-      <label className="certificate-confirm"><input type="checkbox" checked={attested} onChange={event=>setAttested(event.target.checked)} required disabled={working}/>I own this item, it is what this listing says it is, and any certificate I attached is genuine. I understand that misleading buyers can lead to removal and a ban.</label>
-      {error && <p role="alert" className="error">{error}</p>}
+      {certificate.certificate_issuer && <label className="certificate-confirm"><input id="cert-confirm-check" type="checkbox" checked={confirmed} onChange={event=>setConfirmed(event.target.checked)} required disabled={working}/>I checked the company and number against my certificate.</label>}
+      <label className="certificate-confirm"><input id="attest-check" type="checkbox" checked={attested} onChange={event=>setAttested(event.target.checked)} required disabled={working}/>I own this item, it is what this listing says it is, and any certificate I attached is genuine. I understand that misleading buyers can lead to removal and a ban.</label>
+      {error && <p role="alert" className="error" ref={errorRef}>{error}</p>}
+      {working && !busy && waitingReason && <p role="status" className="field-note publish-wait">{waitingReason}…  The publish button turns on when it is done.</p>}
       <div className="submit-row">
-        <button className="primary" disabled={working}>{busy ? 'Publishing…' : relistFrom ? 'Publish relisted item' : bulkPhoto ? 'Publish and next' : 'Publish listing'}<ArrowRight size={17}/></button>
+        <button className="primary" disabled={working} aria-busy={busy}>{busy ? 'Publishing…' : relistFrom ? 'Publish relisted item' : bulkPhoto ? 'Publish and next' : 'Publish listing'}<ArrowRight size={17}/></button>
         {bulkPhoto && onPause && <button type="button" className="text-button" disabled={working} onClick={()=>onPause(bulkPhoto)}>Save and exit</button>}
       </div>
     </form>
@@ -696,7 +719,7 @@ function BulkListing({ onClose, onAllDone }) {
 
 function EditListing({item:currentItem,onClose,onSaved}) {
   const item=useRef(currentItem).current;
-  const [saving,setSaving]=useState(false),[error,setError]=useState(''),[uploading,setUploading]=useState(false);
+  const [saving,setSaving]=useState(false),[saved,setSaved]=useState(false),[error,setError]=useState(''),[uploading,setUploading]=useState(false);
   const [media,setMedia]=useState(item.media||[]),[mediaTouched,setMediaTouched]=useState(false);
   const [certificate,setCertificate]=useState({certificate_issuer:item.certificate_issuer||'',certificate_number:item.certificate_number||'',certificate_company:item.certificate_company||''});
   const [confirmed,setConfirmed]=useState(true);
@@ -755,7 +778,7 @@ function EditListing({item:currentItem,onClose,onSaved}) {
         } catch { /* AI unavailable -- leave it exactly as held as it already was rather than guessing. */ }
       }
       await service.editListing(item,{...form,attributes,...certificate,media:finalMedia,price_cents:priceInCents(form.price)},mediaTouched,fit);
-      onSaved();
+      setSaving(false); await showSavedThen(setSaved,onSaved);
     }
     catch(err){setError(err.message);setSaving(false);}
   }
@@ -781,7 +804,7 @@ function EditListing({item:currentItem,onClose,onSaved}) {
       <CertificateFields value={certificate} onChange={value=>{setCertificate(value);setConfirmed(false);}} disabled={working}/>
       {certificate.certificate_issuer && certificateChanged && <label className="certificate-confirm"><input type="checkbox" checked={confirmed} onChange={event=>setConfirmed(event.target.checked)} required disabled={working}/>I checked the company and number against my certificate.</label>}
       {error&&<p role="alert" className="error">{error}</p>}
-      <button className="primary" disabled={working}>{saving?'Saving…':'Save changes'}</button>
+      <SaveButton saving={saving} saved={saved} disabled={working||saved}>Save changes</SaveButton>
     </form>
   </Modal>;
 }
@@ -810,11 +833,11 @@ function StorefrontSettings({ profile }) {
   // Tracked locally (not just re-read from `profile`) so saving shows the new link immediately
   // without closing the surrounding modal — the parent's onSaved is for the display-name form only.
   const [savedSlug, setSavedSlug] = useState(profile?.slug || '');
-  const [saving, setSaving] = useState(false), [error, setError] = useState(''), [copied, setCopied] = useState(false);
+  const [saving, setSaving] = useState(false), [error, setError] = useState(''), [copied, setCopied] = useState(false), [saved, flashSaved] = useSavedFlash();
   async function submit(event) {
     event.preventDefault(); if (saving) return;
     setSaving(true); setError('');
-    try { await service.updateStoreSlug(slug); setSavedSlug(slug.trim().toLowerCase()); }
+    try { await service.updateStoreSlug(slug); setSavedSlug(slug.trim().toLowerCase()); flashSaved(); }
     catch (err) { setError(err.message); } finally { setSaving(false); }
   }
   async function copyLink() {
@@ -827,7 +850,7 @@ function StorefrontSettings({ profile }) {
     {link && <p><a href={link} target="_blank" rel="noreferrer">{link}</a> <button type="button" className="text-button" onClick={copyLink}>{copied ? 'Copied!' : 'Copy link'}</button></p>}
     <form className="form-row" onSubmit={submit}>
       <label>{profile?.slug ? 'Change store name' : 'Choose a store name'}<input value={slug} onChange={event=>setSlug(event.target.value)} minLength={3} maxLength={30} placeholder="mystore" required/></label>
-      <button className="primary" disabled={saving}>{saving ? 'Saving…' : 'Save'}</button>
+      <SaveButton saving={saving} saved={saved}>Save</SaveButton>
     </form>
     {error && <p role="alert" className="error">{error}</p>}
   </div>;
@@ -929,7 +952,7 @@ function ShippingSettings({ profile }) {
     <form className="form-stack" onSubmit={submit}>
       <ShippingAddressFields value={address} onChange={value => { setAddress(value); setSaved(false); }} disabled={saving} onVerifiedChange={setVerified}/>
       {error && <p role="alert" className="error">{error}</p>}
-      <button className="primary" disabled={saving || !verified}>{saving ? 'Saving…' : saved ? 'Saved' : 'Save address'}</button>
+      <SaveButton saving={saving} saved={saved} disabled={!verified}>Save address</SaveButton>
     </form>
   </div>;
 }
@@ -1321,6 +1344,7 @@ function SellerRatingForm({ item, onRated }) {
   }
   if (!editing) return <div className="evidence-box">
     <h3><Star size={18}/>Your rating</h3>
+    <p className="saved-note" role="status"><Check size={15} aria-hidden="true"/>Rating saved</p>
     <RatingStars value={item.my_rating} size={18}/>
     {item.my_rating_comment && <p>{item.my_rating_comment}</p>}
     <button type="button" className="text-button" onClick={() => setEditing(true)}>Edit your rating</button>
@@ -1422,6 +1446,7 @@ function SoldItemCard({ sale, payout, session, onShipped, onRefundChanged, focus
       <div className="card-meta"><span>{sale.category}</span><span>SOLD {new Date(sale.created_at).toLocaleDateString()}</span></div>
       <h3>{sale.title}</h3>
       <div className="card-bottom"><strong>{money(sale.price_cents)}</strong></div>
+      {sale.selling_fee_waived && <p className="field-note founding-fee-note">Founding 100: Credabilia selling fee waived (you saved {money(sale.waived_selling_fee_cents)}). Payment processing: −{money(sale.processing_fee_cents)}.</p>}
       {sellerPayoutLine && <p className="field-note">{sellerPayoutLine}</p>}
       {sale.fulfillment_method === 'pickup' ? <>
           <p className="field-note">Meet at {sale.pickup_station?.jurisdiction}{sale.pickup_station?.city ? ` — ${sale.pickup_station.city}` : ''}</p>
@@ -1503,6 +1528,7 @@ function NotificationSettings() {
   }
   if (!status || !status.supported) return null;
   return <div className="evidence-box"><h3>Notifications</h3>
+    {status.subscribed && <p className="saved-note" role="status"><Check size={15} aria-hidden="true"/>Notifications are on for this device</p>}
     <p className="field-note">{status.subscribed ? 'You’ll get a push notification here for new messages and refund updates.' : 'Turn on push notifications for new messages and refund updates on this device.'}</p>
     {error && <p role="alert" className="error">{error}</p>}
     <button type="button" className="text-button" onClick={toggle} disabled={busy}>{busy ? 'Working…' : status.subscribed ? 'Turn off notifications' : 'Enable notifications'}</button>
@@ -1528,7 +1554,7 @@ function SmsNotificationSettings({ profile }) {
       <label>Phone number<input type="tel" value={phone} onChange={event => setPhone(event.target.value)} placeholder="+1 555 555 5555" disabled={busy} required={optIn}/></label>
       <label className="certificate-confirm"><input type="checkbox" checked={optIn} onChange={event => setOptIn(event.target.checked)} disabled={busy}/>Text me about my orders and bids. Message frequency varies. Msg &amp; data rates may apply. Reply STOP to opt out, HELP for help.</label>
       {error && <p role="alert" className="error">{error}</p>}
-      <button className="primary" disabled={busy}>{busy ? 'Saving…' : saved ? 'Saved!' : 'Save'}</button>
+      <SaveButton saving={busy} saved={saved}>Save</SaveButton>
     </form>
   </div>;
 }
@@ -1627,6 +1653,36 @@ function AdminReports() {
   if (list === undefined) return <p role="status">Loading reports…</p>;
   if (!list.length) return <p className="field-note">No open reports.</p>;
   return <div className="admin-list">{list.map(r => <AdminReportRow key={r.id} report={r} onResolve={resolve}/>)}</div>;
+}
+
+// The weekly SEO review: this week against last week from Google Search Console, what to fix first, and which listings are too thin to rank.
+function AdminSeo() {
+  const [report, setReport] = useState(undefined), [error, setError] = useState('');
+  useEffect(() => { service.adminSeoReport().then(setReport).catch(err => setError(err.message)); }, []);
+  if (error) return <p role="alert" className="error">{error}</p>;
+  if (report === undefined) return <p role="status">Loading the SEO report…</p>;
+  const { sync, last_7_days: now, previous_7_days: before } = report;
+  const change = (a, b) => (b ? `${a >= b ? '+' : ''}${Math.round(((a - b) / b) * 100)}% vs the week before` : 'first week of data');
+  const list = (rows, line) => rows.length ? <ul className="field-note seo-list">{rows.map((row, i) => <li key={i}>{line(row)}</li>)}</ul> : <p className="field-note">Nothing here yet.</p>;
+  const path = url => String(url).replace('https://credabilia.com', '') || '/';
+  return <div className="form-stack">
+    <div className="evidence-box"><h3>Search Console data</h3>
+      {!sync ? <p className="field-note">Waiting for the first sync. It runs daily once Google access is connected.</p>
+        : sync.status === 'ok' ? <p className="field-note saved-note"><Check size={15} aria-hidden="true"/>Last sync {new Date(sync.ran_at).toLocaleString()} · {sync.rows_saved} rows · data through {report.newest_day}</p>
+        : sync.status === 'not_configured' ? <p className="field-note">Google access is not connected yet, so there is no data. Add the Search Console service account to turn this on.</p>
+        : <p role="alert" className="error">The last sync failed: {sync.note}</p>}
+    </div>
+    {now && <div className="stat-grid">
+      <div className="evidence-box"><span className="field-note">Clicks, last 7 days</span><strong>{now.clicks}</strong><span className="field-note">{change(now.clicks, before?.clicks)}</span></div>
+      <div className="evidence-box"><span className="field-note">Views in search</span><strong>{now.impressions}</strong><span className="field-note">{change(now.impressions, before?.impressions)}</span></div>
+      <div className="evidence-box"><span className="field-note">Average position</span><strong>{now.position ?? '–'}</strong><span className="field-note">lower is better; 1 to 10 is page one</span></div>
+    </div>}
+    <div className="evidence-box"><h3>Do this first</h3>{list(report.suggestions.map(text => ({ text })), row => row.text)}</div>
+    <div className="evidence-box"><h3>Seen but not clicked</h3><p className="field-note">People see these in results and skip them. Improve the title and description.</p>{list(report.low_ctr, r => <>{path(r.page)} · “{r.query}” · {r.impressions} views, {r.clicks} clicks, position {r.avg_position}</>)}</div>
+    <div className="evidence-box"><h3>Close to page one</h3><p className="field-note">Positions 8–20. More detail and links to the page can lift them.</p>{list(report.striking_distance, r => <>{path(r.page)} · “{r.query}” · position {r.avg_position}, {r.impressions} views</>)}</div>
+    <div className="evidence-box"><h3>Searches that work</h3>{list(report.top_queries, r => <>“{r.query}” · {r.clicks} clicks, {r.impressions} views, position {r.avg_position}</>)}</div>
+    <div className="evidence-box"><h3>Listings too thin to rank</h3>{list(report.listing_issues, l => <><a href={`/item/${l.id}`} target="_blank" rel="noreferrer">{l.title}</a> · {l.issues.join(', ')}</>)}</div>
+  </div>;
 }
 
 function AdminSupportThread({ userId, onClosed }) {
@@ -1925,6 +1981,9 @@ function AdminDashboard() {
       <button aria-pressed={tab === 'risk'} className={tab === 'risk' ? 'active' : ''} onClick={() => setTab('risk')}>Order risk</button>
       <button aria-pressed={tab === 'certificates'} className={tab === 'certificates' ? 'active' : ''} onClick={() => setTab('certificates')}>Certificates</button>
       <button aria-pressed={tab === 'sellerAccounts'} className={tab === 'sellerAccounts' ? 'active' : ''} onClick={() => setTab('sellerAccounts')}>Seller accounts</button>
+      <button aria-pressed={tab === 'giveaway'} className={tab === 'giveaway' ? 'active' : ''} onClick={() => setTab('giveaway')}>Giveaway</button>
+      <button aria-pressed={tab === 'seo'} className={tab === 'seo' ? 'active' : ''} onClick={() => setTab('seo')}>SEO</button>
+      <button aria-pressed={tab === 'founding'} className={tab === 'founding' ? 'active' : ''} onClick={() => setTab('founding')}>Founding 100</button>
     </div>
     {tab === 'disputes' && <AdminDisputes/>}
     {tab === 'reports' && <AdminReports/>}
@@ -1935,6 +1994,9 @@ function AdminDashboard() {
     {tab === 'risk' && <AdminOrderRisk/>}
     {tab === 'certificates' && <AdminCertificates/>}
     {tab === 'sellerAccounts' && <AdminSellerAccounts/>}
+    {tab === 'giveaway' && <GiveawayAdmin service={service}/>}
+    {tab === 'seo' && <AdminSeo/>}
+    {tab === 'founding' && <AdminFounding service={service}/>}
   </div>;
 }
 
@@ -2031,7 +2093,7 @@ function DeleteAccount({ onDeleted }) {
   </div>;
 }
 
-function ProfileSettings({ profile, session, onSaved, onSignOut }) {
+function ProfileSettings({ profile, session, onSaved, onSignOut, onConnectPayouts }) {
   // A seller who hasn't connected payouts yet needs to see that prompt first, not a wall of zeros.
   const needsPayoutSetup = service.mode === 'live' && !profile?.stripe_charges_enabled && !profile?.stripe_details_submitted;
   const [tab, setTab] = useState(needsPayoutSetup ? 'settings' : 'dashboard');
@@ -2040,12 +2102,12 @@ function ProfileSettings({ profile, session, onSaved, onSignOut }) {
   const payoutBox = useRef(null);
   useEffect(() => { if (payoutPending && tab === 'settings') payoutBox.current?.scrollIntoView({ block: 'center', behavior: 'smooth' }); }, [tab]); // eslint-disable-line react-hooks/exhaustive-deps
   const [name, setName] = useState(profile?.display_name || '');
-  const [saving, setSaving] = useState(false), [error, setError] = useState('');
+  const [saving, setSaving] = useState(false), [saved, setSaved] = useState(false), [error, setError] = useState('');
   const [stripeBusy, setStripeBusy] = useState(false), [stripeError, setStripeError] = useState('');
   async function submit(event) {
     event.preventDefault(); if (saving) return;
     setSaving(true); setError('');
-    try { await service.updateProfile(name); onSaved(); }
+    try { await service.updateProfile(name); setSaving(false); await showSavedThen(setSaved, onSaved); }
     catch (err) { setError(err.message); } finally { setSaving(false); }
   }
   async function connectStripe() {
@@ -2070,7 +2132,7 @@ function ProfileSettings({ profile, session, onSaved, onSignOut }) {
         <label>Display name<input value={name} onChange={event=>setName(event.target.value)} minLength={1} maxLength={100} required/></label>
         <label>Email<input value={session?.user?.email || ''} readOnly disabled/></label>
         {error && <p role="alert" className="error">{error}</p>}
-        <button className="primary" disabled={saving}>{saving ? 'Saving…' : 'Save name'}</button>
+        <SaveButton saving={saving} saved={saved} disabled={saved}>Save name</SaveButton>
       </form>
       <StorefrontSettings profile={profile}/>
       <ShippingSettings profile={profile}/>
@@ -2080,7 +2142,7 @@ function ProfileSettings({ profile, session, onSaved, onSignOut }) {
         {service.mode !== 'live' ? <p className="field-note">Coming soon. You'll be able to add bank details here before real checkout launches — nothing is collected yet.</p>
           : profile?.stripe_charges_enabled ? <><p className="field-note">Payments are connected. Your sales pay out to your own Stripe account.</p><button type="button" className="text-button" onClick={openDashboard} disabled={stripeBusy}>{stripeBusy ? 'Opening…' : 'Open your Stripe dashboard'}</button></>
           : profile?.stripe_details_submitted ? <p className="field-note">Stripe is still reviewing your account. Check back soon.</p>
-          : <><p className="field-note">Connect a Stripe account to receive payouts before buyers can purchase your listings.</p><button type="button" className="text-button" onClick={connectStripe} disabled={stripeBusy}>{stripeBusy ? 'Opening…' : 'Connect payouts with Stripe'}</button></>}
+          : <><p className="field-note">Connect a Stripe account to receive payouts before buyers can purchase your listings.</p><button type="button" className="text-button" onClick={onConnectPayouts || connectStripe} disabled={stripeBusy}>{stripeBusy ? 'Opening…' : 'Connect payouts with Stripe'}</button></>}
         {stripeError && <p role="alert" className="error">{stripeError}</p>}
       </div>
       <DeleteAccount onDeleted={onSignOut}/>
@@ -2115,7 +2177,7 @@ function AuditQueue({ items, session, profile, onNeedLogin, onAudited, focusItem
   useEffect(() => { if (focusItemId) onFocused?.(); }, []);
   const [verdict, setVerdict] = useState(null);
   const [explanation, setExplanation] = useState('');
-  const [busy, setBusy] = useState(false);
+  const [busy, setBusy] = useState(false), [recorded, setRecorded] = useState(false);
   const [error, setError] = useState('');
   const [signatureBusy, setSignatureBusy] = useState(false);
   const [signatureError, setSignatureError] = useState('');
@@ -2125,14 +2187,14 @@ function AuditQueue({ items, session, profile, onNeedLogin, onAudited, focusItem
   function pickChip(value) { setVerdict(value); setExplanation(VERDICT_NOTES[value]); setError(''); }
 
   async function submit(event) {
-    event.preventDefault(); if (busy) return;
+    event.preventDefault(); if (busy || recorded) return;
     if (!session) { onNeedLogin(); return; }
     if (!profile?.can_audit) { setError("Auditing isn't enabled for your account."); return; }
     if (!verdict) { setError('Choose a quick take below.'); return; }
     const clean = explanation.trim();
     if (clean.length < 20 || clean.length > 2000) { setError('Explain your reasoning in 20–2,000 characters.'); return; }
     setBusy(true); setError('');
-    try { const result = await service.submitAudit(current.id, { verdict, explanation: clean }); onAudited(result); advance(); }
+    try { const result = await service.submitAudit(current.id, { verdict, explanation: clean }); onAudited(result); setBusy(false); await showSavedThen(setRecorded, advance); setRecorded(false); }
     catch (err) { setError(err.message); } finally { setBusy(false); }
   }
 
@@ -2187,8 +2249,8 @@ function AuditQueue({ items, session, profile, onNeedLogin, onAudited, focusItem
           <label>Explain your reasoning<textarea value={explanation} onChange={event => setExplanation(event.target.value)} rows={3} maxLength={2000} placeholder="Point to a specific detail, explain your concern, or describe what evidence is missing…" disabled={busy}/></label>
           {error && <p role="alert" className="error">{error}</p>}
           <div className="submit-row">
-            <button type="button" className="text-button" disabled={busy} onClick={advance}>Pass</button>
-            <button className="primary" disabled={busy}>{busy ? 'Recording…' : 'Submit and next'}<ArrowRight size={16}/></button>
+            <button type="button" className="text-button" disabled={busy || recorded} onClick={advance}>Pass</button>
+            <SaveButton saving={busy} saved={recorded} savingLabel="Recording…" savedLabel="Audit recorded" disabled={recorded}>Submit and next<ArrowRight size={16}/></SaveButton>
           </div>
         </form>}
   </div>;
@@ -2198,7 +2260,8 @@ function EmailLogin() {
   const [busy, setBusy] = useState(false), [sentTo, setSentTo] = useState(''), [error, setError] = useState(''), [resent, setResent] = useState(false);
   // App Review's test account: the button exists only while the review switch is on in the database.
   const [reviewOpen, setReviewOpen] = useState(false);
-  useEffect(() => { let alive = true; service.reviewSignInAvailable?.().then(on => { if (alive) setReviewOpen(!!on); }); return () => { alive = false; }; }, []);
+  // The Review Team button is for Apple and Google's reviewers inside the phone apps only. On the website it would let any visitor, including someone arriving from an ad, sign in as the shared review account.
+  useEffect(() => { let alive = true; if (isNativeApp()) service.reviewSignInAvailable?.().then(on => { if (alive) setReviewOpen(!!on); }); return () => { alive = false; }; }, []);
   async function reviewSignIn() { setBusy(true); setError(''); try { await service.signInAsReviewTeam(); } catch (err) { setError(err.message); setBusy(false); } }
   async function send(email) {
     setBusy(true); setError('');
@@ -2238,12 +2301,13 @@ export default function App() {
   const storefrontSlug = (() => { const segments = window.location.pathname.split('/').filter(Boolean); return segments.length === 1 && segments[0] !== 'auth' ? segments[0] : null; })();
   // /terms, /privacy, and /help are standalone, no-login-required pages -- checked before
   // storefrontSlug so they can never be shadowed by a seller's store name (also reserved server-side).
-  const legalPage = window.location.pathname === '/terms' ? 'terms' : window.location.pathname === '/privacy' ? 'privacy' : window.location.pathname === '/help' ? 'help' : window.location.pathname === '/certificate' ? 'certificate' : (window.location.pathname === '/sell' || (isSellHost(window.location.hostname) && window.location.pathname === '/')) ? 'sell' : null;
+  const legalPage = window.location.pathname === '/terms' ? 'terms' : window.location.pathname === '/privacy' ? 'privacy' : window.location.pathname === '/help' ? 'help' : window.location.pathname === '/certificate' ? 'certificate' : window.location.pathname === '/giveaway-rules' ? 'giveaway-rules' : window.location.pathname === '/founding' ? 'founding' : (window.location.pathname === '/sell' || (isSellHost(window.location.hostname) && window.location.pathname === '/')) ? 'sell' : null;
   // /item/<id> gives each listing its own shareable, bookmarkable, back-button-friendly URL --
   // parsed once here (same pattern as storefrontSlug/legalPage above) and reconciled against the
   // loaded `items`/`buyRequests` once they're fetched, below.
   const itemPathId = (() => { const segments = window.location.pathname.split('/').filter(Boolean); return segments.length === 2 && segments[0] === 'item' ? segments[1] : null; })();
   useState(captureListIntent); // runs once: a ?list=1 arrival becomes a stored intent for the effect below
+  useState(captureGiveawayParam); useState(captureReferralParam); // same idea: ?giveaway=1 and ?ref=code arrivals are remembered through sign-in (see giveaway.js)
   // True while someone who clicked "List your first item" is being taken through sign-in to the listing form: a focused screen covers
   // the marketplace so they never see unrelated content first (see the effect below and .list-handoff).
   const [listHandoff, setListHandoff] = useState(() => !legalPage && !storefrontSlug && hasFreshListIntent());
@@ -2254,11 +2318,16 @@ export default function App() {
   }, [listHandoff]);
   const [session, setSession] = useState(null), [authReady, setAuthReady] = useState(false), [profile, setProfile] = useState(null);
   const [workspace, setWorkspace] = useState('collector'), [items, setItems] = useState([]), [audits, setAudits] = useState([]);
-  const [category, setCategory] = useState('All items'), [query, setQuery] = useState(''), [selectedId, setSelectedId] = useState(null);
-  const [modal, setModal] = useState(null), [busy, setBusy] = useState(false), [loading, setLoading] = useState(true), [error, setError] = useState(''), [notice, setNotice] = useState('');
+  const [cardsShown, setCardsShown] = useState(CARDS_PER_VIEW);
+  const [category, setCategory] = useState(() => categoryFromPath(window.location.pathname) || 'All items'), [query, setQuery] = useState(''), [selectedId, setSelectedId] = useState(null);
+  const [modal, setModal] = useState(null), [createWhenReady, setCreateWhenReady] = useState(null), [busy, setBusy] = useState(false), [loading, setLoading] = useState(true), [error, setError] = useState(''), [notice, setNotice] = useState('');
   const [favoriteIds, setFavoriteIds] = useState([]), [purchases, setPurchases] = useState([]), [collectionFilter, setCollectionFilter] = useState('all');
+  useEffect(() => { setCardsShown(CARDS_PER_VIEW); }, [category, query, workspace, collectionFilter]); // a new view starts back at the first batch
   const [sales, setSales] = useState([]), [sellerTab, setSellerTab] = useState('active'), [endedListings, setEndedListings] = useState([]);
   const [payoutStatus, setPayoutStatus] = useState([]);
+  // Founding 100 status for the signed-in member, from the server. Only used to show the badge; it never decides a fee.
+  const [founding, setFounding] = useState(null);
+  const [giveaway, setGiveaway] = useState(null), [giveawayBusy, setGiveawayBusy] = useState(false), [giveawayWin, setGiveawayWin] = useState(null), [referralInfo, setReferralInfo] = useState(null);
   const payoutByPurchase = Object.fromEntries(payoutStatus.map(entry => [entry.purchase_id, entry]));
   const [buyRequests, setBuyRequests] = useState([]), [sellerBuyRequests, setSellerBuyRequests] = useState([]);
   const [notifications, setNotifications] = useState([]);
@@ -2292,6 +2361,34 @@ export default function App() {
   const [revision, setRevision] = useState(0);
   const [soldPreview, setSoldPreview] = useState(null);
   const refresh = () => setRevision(v => v + 1);
+  // Giveaway (docs/giveaway-and-tickets-spec.md): the pinned card, the member's own ticket numbers, a win banner, and the referral hand-off. Every call is optional so a
+  // missing backend (or a stub service) just shows no giveaway.
+  const loadGiveaway = () => Promise.resolve().then(() => service.currentGiveaway?.()).then(next => setGiveaway(next || null)).catch(() => {});
+  useEffect(() => { if (!authReady || storefrontSlug || legalPage) return; loadGiveaway(); }, [authReady, session?.user?.id, profile?.stripe_charges_enabled]);
+  useEffect(() => {
+    if (!authReady || !session || storefrontSlug || legalPage || service.mode === 'unconfigured') { setFounding(null); return undefined; }
+    let alive = true;
+    service.foundingStatus().then(value => { if (alive) setFounding(value); }).catch(() => { if (alive) setFounding(null); });
+    return () => { alive = false; };
+  }, [authReady, session?.user?.id]);
+  useEffect(() => {
+    if (!authReady || !session || storefrontSlug || legalPage) { setGiveawayWin(null); return; }
+    Promise.resolve().then(() => service.myGiveawayWin?.()).then(win => setGiveawayWin(win || null)).catch(() => {});
+  }, [authReady, session?.user?.id]);
+  useEffect(() => {
+    if (!session || !giveaway) { setReferralInfo(null); return; }
+    Promise.resolve().then(() => service.myReferralInfo?.()).then(info => setReferralInfo(info || null)).catch(() => {});
+  }, [session?.user?.id, giveaway?.id]);
+  useEffect(() => { // a member who arrived through someone's storefront or invite link: tell the server once they are signed in (it only accepts brand-new members)
+    if (!session || !profile) return;
+    const ref = readReferral();
+    if (!ref) return;
+    Promise.resolve().then(() => service.claimReferral?.(ref)).then(() => clearReferral()).catch(() => {});
+  }, [session?.user?.id, !!profile]);
+  useEffect(() => { // someone who tapped "Enter the giveaway" while signed out lands back on the entry step after sign-in
+    if (!session || !profile || !giveaway || giveaway.me?.entered || !hasFreshGiveawayIntent()) return;
+    clearGiveawayIntent(); setModal('giveaway-enter');
+  }, [session?.user?.id, !!profile, giveaway?.id]);
   useEffect(() => listenForExternalLinks(), []); // phone app: outside links open in the in-app browser
   useEffect(() => {
     if (service.mode === 'unconfigured' || storefrontSlug || legalPage) return;
@@ -2453,21 +2550,23 @@ export default function App() {
     // selectedId still null and immediately overwrites the good incoming URL with '/'.
     if (itemPathId && !appliedItemParam.current) return;
     if (soldPreview) return;
-    const target = selectedId ? `/item/${selectedId}` : '/';
+    // A category has its own address (/category/sports), so a filtered view can be shared and opened directly.
+    const target = selectedId ? `/item/${selectedId}` : pathForBrowse(category);
     if (window.location.pathname !== target) window.history.pushState(null, '', target);
-  }, [selectedId, authReady, items, soldPreview]);
+  }, [selectedId, category, authReady, items, soldPreview]);
   // Share-link previews (crawlers) get real per-page meta from the Vercel routing middleware --
   // this just keeps the browser tab title honest for an actual visitor, who never sees that HTML.
   useEffect(() => {
     if (legalPage === 'sell') return; // the seller landing page sets its own title
     const item = selectedId && items.find(x => x.id === selectedId);
-    document.title = item ? `${item.title} | Credabilia` : 'Credabilia | The Memorabilia Kingdom';
-  }, [selectedId, items]);
+    document.title = item ? `${item.title} | Credabilia` : category !== 'All items' ? categoryPageTitle(category) : 'Credabilia | The Memorabilia Kingdom';
+  }, [selectedId, items, category]);
   // Restores native browser back/forward support for item views.
   useEffect(() => {
     const onPopState = () => {
       const segments = window.location.pathname.split('/').filter(Boolean);
       setSelectedId(segments.length === 2 && segments[0] === 'item' ? segments[1] : null);
+      setCategory(categoryFromPath(window.location.pathname) || 'All items'); // back/forward restores the category view too
     };
     window.addEventListener('popstate', onPopState);
     return () => window.removeEventListener('popstate', onPopState);
@@ -2513,6 +2612,8 @@ export default function App() {
   if (legalPage === 'privacy') return <PrivacyPage/>;
   if (legalPage === 'help') return <HelpPage/>;
   if (legalPage === 'certificate') return <CertificateLookupPage service={service}/>;
+  if (legalPage === 'giveaway-rules') return <GiveawayRulesPage/>;
+  if (legalPage === 'founding') return <FoundingPage service={service} EmailLogin={EmailLogin}/>;
   if (legalPage === 'sell') return <SellPage/>;
   if (soldPreview) return <SoldItemPage item={soldPreview} onBack={() => { window.location.href = '/'; }}/>;
   if (storefrontSlug) return <Storefront slug={storefrontSlug} service={service} onBack={() => { window.location.href = '/'; }}/>;
@@ -2526,7 +2627,8 @@ export default function App() {
   const eligible = workspace === 'seller' ? items.filter(item => item.seller_id === session?.user.id)
     : workspace === 'auditor' ? items.filter(item => item.seller_id !== session?.user.id && !audits.some(a => a.listing_id === item.id))
     : collectionFilter === 'saved' ? items.filter(item => favoriteIds.includes(item.id)) : items;
-  const filtered = eligible.filter(item => (category === 'All items' || item.category === category) && listingMatches(item, query));
+  // The giveaway prize is shown only on its own pinned card (and its own page), never as a normal item in the grid.
+  const filtered = eligible.filter(item => (category === 'All items' || item.category === category) && listingMatches(item, query) && !(giveaway && item.id === giveaway.listing_id && workspace !== 'seller'));
   // A fully refunded order is not something the member owns any more (it went back to the seller); it stays in `purchases` for its messages and receipt.
   // Near me never hides anything by default: nearby pickup items come first (nearest first) and everything else, which ships to the buyer, follows.
   // The member can tick "only pickup items near me" for the narrow list.
@@ -2583,7 +2685,7 @@ export default function App() {
     setLoadingMore(true);
     try {
       const last = items[items.length - 1];
-      const more = await service.listings({ created_at: last.created_at, id: last.id });
+      const more = await service.listings({ created_at: last.sort_at || last.created_at, id: last.id }); // sort_at is the paging key: placeholder items sort after real sellers' items
       setItems(list => [...list, ...more]);
       setItemsHasMore(more.length >= LISTINGS_PAGE_SIZE);
     } catch (err) { setError(err.message); } finally { setLoadingMore(false); }
@@ -2598,6 +2700,9 @@ export default function App() {
     setWorkspace('seller'); setSellerTab('active'); setSelectedId(null);
     if (service.mode !== 'live' || profile?.stripe_details_submitted) { if (profile?.stripe_charges_enabled) setNotice('Your payouts are already connected.'); else if (service.mode === 'live') finishPayoutSetup(); else setModal('profile'); return; }
     if (profile?.stripe_charges_enabled) { setNotice('Your payouts are already connected.'); return; }
+    setModal('payout-intro'); // a plain-language screen about what Stripe asks for, before the Stripe page opens
+  }
+  async function startPayoutOnboarding() {
     setNotice('Opening Stripe…');
     try { const { url } = await service.startStripeOnboarding(); await openExternal(url, { onClosed: finishPayoutSetup }); }
     catch (err) { setNotice(''); setError(err.message); }
@@ -2618,8 +2723,21 @@ export default function App() {
   async function signIn(userId) { setBusy(true); setError(''); try { await service.signIn(userId); setModal(null); } catch (err) { setError(err.message); } finally { setBusy(false); } }
   async function signInApple() { setBusy(true); setError(''); try { await service.signInWithApple(); setModal(null); } catch (err) { setError(err.message); } finally { setBusy(false); } }
   async function signOut() { try { await service.signOut(); switchWorkspace('collector'); setNotice('You’re signed out.'); } catch (err) { setError(err.message); } }
-  function openCreate() { if (!session) setModal('login'); else if (profile?.can_sell) setModal('create'); else setError('Your account does not have selling permission.'); }
-  function openBulkCreate() { if (!session) setModal('login'); else if (profile?.can_sell) setModal('bulk-create'); else setError('Your account does not have selling permission.'); }
+  const giveawayItem = giveaway ? items.find(item => item.id === giveaway.listing_id) : null;
+  // Opening an item replaces the list on the same page, so the browser keeps the old scroll position and the item page used to appear part-way down. Always start at the top.
+  useEffect(() => { if (selectedId) window.scrollTo({ top: 0, left: 0, behavior: 'instant' }); }, [selectedId]);
+  const isAdminUser = session?.user?.email === 'kingcredion@credabilia.com'; // same check as the Admin tab in Profile and settings; the database also requires an operator
+  const [firstListingUntil, setFirstListingUntil] = useState(() => firstListingDismissedUntil());
+  const [celebratedItemId, setCelebratedItemId] = useState(null);
+  const showFirstListing = shouldShowFirstListing({ live: service.mode === 'live' || service.mode === 'demo', session, profile, isAdmin: isAdminUser, workspace, hasListed: hasEverListed({ items, endedListings, sales, userId: session?.user.id }), dismissedUntil: firstListingUntil });
+  async function enterGiveaway(stateCode) { setGiveawayBusy(true); try { const next = await service.enterGiveaway(stateCode); setGiveaway(next); return next; } finally { setGiveawayBusy(false); } }
+  function openGiveawayEntry() { if (!session) { rememberGiveawayIntent(); setModal('login'); return; } setModal('giveaway-enter'); }
+  // Right after sign-in the profile is still loading; a tap on "Create a listing" then waits for it instead of reporting a missing permission (Clarity: ad visitor's tap did nothing).
+  function openSellForm(which) { if (!session) setModal('login'); else if (!profile) { setNotice('Getting your account ready…'); setCreateWhenReady(which); } else if (profile.can_sell) setModal(which); else setError('Your account does not have selling permission.'); }
+  function openCreate() { openSellForm('create'); }
+  function openBulkCreate() { openSellForm('bulk-create'); }
+  useEffect(() => { if (createWhenReady && profile) { const which = createWhenReady; setCreateWhenReady(null); setNotice(''); if (profile.can_sell) setModal(which); else setError('Your account does not have selling permission.'); } }, [createWhenReady, profile]);
+  useEffect(() => { if (createWhenReady && !session) setCreateWhenReady(null); }, [createWhenReady, session]);
   async function toggleFavorite(listingId) {
     if (!session) { setModal('login'); return; }
     try { const now = await service.toggleFavorite(listingId); setFavoriteIds(ids => now ? [...ids, listingId] : ids.filter(id => id !== listingId)); }
@@ -2640,6 +2758,7 @@ export default function App() {
     setBusy(true); setError('');
     try {
       const r = await service.requestToBuy(listingId);
+      trackEvent('request_to_buy', { category: selected?.category || 'none' });
       setBuyRequests(list => [...list.filter(x => x.listing_id !== listingId), { ...r, title: selected?.title, category: selected?.category, price_cents: selected?.price_cents, media: selected?.media }]);
     } catch (err) { setError(err.message); } finally { setBusy(false); }
   }
@@ -2677,8 +2796,10 @@ export default function App() {
       </aside>
       <main>
         {error && <div className="message error" role="alert"><AlertCircle size={18}/><span>{error}</span><button onClick={() => setError('')} aria-label="Dismiss error"><X size={16}/></button></div>}
+        {giveawayWin && <GiveawayWinBanner win={giveawayWin} onClaim={() => setModal('giveaway-claim')}/>}
         {notice && <div className="message success" role="status"><Check size={18}/><span>{notice}</span><button onClick={() => setNotice('')} aria-label="Dismiss notification"><X size={16}/></button></div>}
         {workspace === 'auditor' ? <>
+          {showFirstListing && <FirstListingCard onStart={openCreate} onDismiss={() => { dismissFirstListing(); setFirstListingUntil(firstListingDismissedUntil()); }} payoutsReady={!!profile?.stripe_charges_enabled}/>}
           <section className="hero"><div className="hero-copy"><p className="eyebrow"><span className="small-line"/>OBSERVATION OVER ASSUMPTION</p><h1>Look closer.<br/><em>Share what you see.</em></h1><p>Help collectors make informed decisions. Review evidence, explain your reasoning, and keep learning.</p></div><div className="hero-mascot"><img src={HERO_IMAGES.auditor.src} width={HERO_IMAGES.auditor.width} height={HERO_IMAGES.auditor.height} alt={HERO_IMAGES.auditor.alt}/></div></section>
           <section className="community-note"><div className="note-icon"><BookOpen size={25}/></div><div><h3>Look closer before you decide.</h3><p>A quick guide to observing evidence, checking the story, and naming what's missing.</p></div><button className="icon-button" aria-label="Read the auditing guide" onClick={() => setModal('learn')}><ArrowUpRight size={24}/></button></section>
           <AuditQueue key={session?.user?.id || 'anon'} items={filtered} session={session} profile={profile} onNeedLogin={() => setModal('login')} onAudited={result => { setNotice(result.xp_earned ? 'Audit recorded. +5 participation XP.' : 'Your audit is already recorded.'); refresh(); }} focusItemId={focusAuditItemId} onFocused={() => setFocusAuditItemId(null)}/>
@@ -2687,26 +2808,30 @@ export default function App() {
           <div className="clarity-contents" data-clarity-mask="True"><MessagesInbox conversations={conversations} session={session} service={service} focusConversationId={focusConversationId} onFocused={() => setFocusConversationId(null)} selectedConversationId={selectedConversationId} onSelect={setSelectedConversationId} onOpenListing={openListingFromThread} onRead={refresh} onClear={clearConversation} purchases={purchases} sales={sales} payoutByPurchase={payoutByPurchase} actionConversationIds={actionConversationIds} onOrderChanged={refresh}/></div>
         </> : selected ? <>
           <button className="back-button" onClick={() => setSelectedId(null)}><ArrowLeft size={17}/>Back to listings</button>
+          {/* The giveaway details and rules are the first thing on the prize's page, above the photo. */}
+          {giveaway && selected.id === giveaway.listing_id && <GiveawayPanel giveaway={giveaway} item={selected} referral={referralInfo} busy={giveawayBusy} onEnter={openGiveawayEntry} isAdmin={isAdminUser}/>}
           {own && selected.status==='needs_review' && <p className="field-note">Only visible to you right now — this needs a quick review before buyers can see it. {selected.needs_review_reason || "It didn't clearly look like a collectible."} Edit it to add more detail and resubmit.</p>}
           {own && profile?.can_sell && <button className="text-button" onClick={()=>setModal('edit')}>Edit listing</button>}
           {own && profile?.can_sell && <DeleteListingButton item={selected} onDeleted={()=>{setSelectedId(null);setNotice('Your listing has been deleted.');refresh();}}/>}
           {session && !own && <button className="text-button" onClick={()=>toggleFavorite(selected.id)}><Heart size={16} fill={favoriteIds.includes(selected.id) ? 'currentColor' : 'none'}/>{favoriteIds.includes(selected.id) ? 'Saved' : 'Save to collection'}</button>}
           {session && !own && <ReportButton targetType="listing" targetId={selected.id} label="Report listing"/>}
           {session && !own && <BlockSellerButton sellerId={selected.seller_id}/>}
-          <div className="detail-grid"><div><ReservedPhoto reserved={selected.status === 'pending' && !buyRequests.some(r => r.listing_id === selected.id)}><LockedPhoto locked={listingLocked(selected)}>{selected.media?.some(asset=>asset.kind==='item') ? <PhotoGallery service={service} key={selected.id} media={selected.media} title={selected.title}/> : <ItemArt kind={selected.artwork} category={selected.category} large/>}</LockedPhoto></ReservedPhoto><PhotoGallery service={service} key={selected.id+'cert'} media={selected.media} kind="certificate" title={selected.title}/>{selected.media?.some(asset=>asset.kind==='signature') && <div className="evidence-box"><p className="field-note">Signature close-up</p><PhotoGallery service={service} key={selected.id+'sig'} media={selected.media} kind="signature" title={selected.title}/>{selected.signature_ai_label ? <KingOpinion label={selected.signature_ai_label} note={selected.signature_ai_note}/> : <p className="field-note">King Credion has not given an opinion on this signature yet.</p>}</div>}</div><section className="item-info"><span className="pill">{selected.category}</span>{selected.king_collection && <span className="king-badge"><Crown size={12}/>King's Collection</span>}<h1>{selected.title}</h1>{selected.attributes?.subject && selected.media?.some(asset=>asset.kind==='signature') && <p className="signer-badge"><img className="signed-by-quill" src="/brand/signed-by-quill.webp" alt="" aria-hidden="true"/> Signed by {selected.attributes.subject}</p>}<p className="seller-name">Shared by {selected.seller_name}{selected.seller_rating_count > 0 && <> · <RatingStars value={selected.seller_rating_avg} count={selected.seller_rating_count}/></>} · Member since {new Date(selected.seller_member_since).getFullYear()}{selected.seller_sales_count > 0 && <> · {selected.seller_sales_count} {selected.seller_sales_count === 1 ? 'sale' : 'sales'}</>}</p><SellerReviewsPeek key={`seller-reviews-${selected.id}`} listingId={selected.id} count={selected.seller_rating_count} service={service}/><p className="detail-price">{money(selected.price_cents)}</p>{selected.listing_type==='auction' && <p className="field-note">{selected.bid_count===0 ? 'Starting bid · ' : 'Current bid · '}{selected.bid_count} {selected.bid_count===1?'bid':'bids'} · {auctionTimeLeft(selected.auction_ends_at)}</p>}{!own && <ItemActions item={selected} session={session} service={service} busy={busy} request={myRequest} onCheckout={()=>setModal('checkout-address')} onRequestToBuy={requestToBuy} onMessage={messageSeller} onSignIn={()=>setModal('login')} onBid={refresh}/>}<p>{selected.description}</p>{selected.pickup_enabled && <PickupMeetup station={selected.pickup_station}/>}<ListingDetailSummary item={selected}/><div className="evidence-box"><h3><ShieldCheck size={18}/>Evidence notes</h3><p>{selected.evidence || 'No evidence has been provided yet. Ask for more information before reaching a conclusion.'}</p></div><CertificateDetails item={selected}/><CredibilityDetails item={selected} session={session} own={own} auditedLabel={previousAudit ? LABELS[previousAudit.verdict] : null} onAudit={()=>auditItem(selected.id)}/><ItemHistory key={selected.id+selected.version} item={selected} service={service}/><TriviaPanel key={selected.id} item={selected} service={service} signedIn={!!session}/><p className="field-note">Community assessments are opinions, not professional authentication.</p></section></div>
+          <div className="detail-grid"><div><ReservedPhoto reserved={selected.status === 'pending' && !buyRequests.some(r => r.listing_id === selected.id)}><LockedPhoto locked={listingLocked(selected)}>{selected.media?.some(asset=>asset.kind==='item') ? <PhotoGallery service={service} key={selected.id} media={selected.media} title={selected.title}/> : <ItemArt kind={selected.artwork} category={selected.category} large/>}</LockedPhoto></ReservedPhoto><PhotoGallery service={service} key={selected.id+'cert'} media={selected.media} kind="certificate" title={selected.title}/>{selected.media?.some(asset=>asset.kind==='signature') && <div className="evidence-box"><p className="field-note">Signature close-up</p><PhotoGallery service={service} key={selected.id+'sig'} media={selected.media} kind="signature" title={selected.title}/>{selected.signature_ai_label ? <KingOpinion label={selected.signature_ai_label} note={selected.signature_ai_note}/> : <p className="field-note">King Credion has not given an opinion on this signature yet.</p>}</div>}</div><section className="item-info"><span className="pill">{selected.category}</span>{selected.king_collection && <span className="king-badge"><Crown size={12}/>King's Collection</span>}<h1>{selected.title}</h1>{selected.attributes?.subject && selected.media?.some(asset=>asset.kind==='signature') && <p className="signer-badge"><img className="signed-by-quill" src="/brand/signed-by-quill-v2-600.webp" alt="" aria-hidden="true"/> Signed by {selected.attributes.subject}</p>}<p className="seller-name">Shared by {selected.seller_name}{selected.seller_founding && <FoundingChip/>}{selected.seller_rating_count > 0 && <> · <RatingStars value={selected.seller_rating_avg} count={selected.seller_rating_count}/></>} · Member since {new Date(selected.seller_member_since).getFullYear()}{selected.seller_sales_count > 0 && <> · {selected.seller_sales_count} {selected.seller_sales_count === 1 ? 'sale' : 'sales'}</>}</p><SellerReviewsPeek key={`seller-reviews-${selected.id}`} listingId={selected.id} count={selected.seller_rating_count} service={service}/>{!(giveaway && selected.id === giveaway.listing_id) && <p className="detail-price">{money(selected.price_cents)}</p>}{selected.listing_type==='auction' && <p className="field-note">{selected.bid_count===0 ? 'Starting bid · ' : 'Current bid · '}{selected.bid_count} {selected.bid_count===1?'bid':'bids'} · {auctionTimeLeft(selected.auction_ends_at)}</p>}{isAdminUser && selected.king_collection && <GiveawayItemControl item={selected} giveaway={giveaway} service={service} onChanged={() => { loadGiveaway(); refresh(); }}/>}{giveaway && selected.id === giveaway.listing_id ? null : !own && <ItemActions item={selected} session={session} service={service} busy={busy} request={myRequest} onCheckout={()=>setModal('checkout-address')} onRequestToBuy={requestToBuy} onMessage={messageSeller} onSignIn={()=>setModal('login')} onBid={refresh}/>}<p>{selected.description}</p>{selected.pickup_enabled && <PickupMeetup station={selected.pickup_station}/>}<ListingDetailSummary item={selected}/><div className="evidence-box"><h3><ShieldCheck size={18}/>Evidence notes</h3><p>{selected.evidence || 'No evidence has been provided yet. Ask for more information before reaching a conclusion.'}</p></div><CertificateDetails item={selected}/><CredibilityDetails item={selected} session={session} own={own} auditedLabel={previousAudit ? LABELS[previousAudit.verdict] : null} onAudit={()=>auditItem(selected.id)}/><ItemHistory key={selected.id+selected.version} item={selected} service={service}/><TriviaPanel key={selected.id} item={selected} service={service} signedIn={!!session}/><p className="field-note">Community assessments are opinions, not professional authentication.</p></section></div>
         </> : ownedItem ? <>
           <button className="back-button" onClick={() => setSelectedId(null)}><ArrowLeft size={17}/>Back to listings</button>
-          <div className="detail-grid"><div>{ownedItem.media?.some(asset=>asset.kind==='item') ? <PhotoGallery service={service} key={ownedItem.id} media={ownedItem.media} title={ownedItem.title}/> : <ItemArt category={ownedItem.category} large/>}<PhotoGallery service={service} key={ownedItem.id+'cert'} media={ownedItem.media} kind="certificate" title={ownedItem.title}/>{ownedItem.media?.some(asset=>asset.kind==='signature') && <div className="evidence-box"><p className="field-note">Signature close-up</p><PhotoGallery service={service} key={ownedItem.id+'sig'} media={ownedItem.media} kind="signature" title={ownedItem.title}/>{ownedItem.signature_ai_label ? <KingOpinion label={ownedItem.signature_ai_label} note={ownedItem.signature_ai_note}/> : <p className="field-note">King Credion has not given an opinion on this signature yet.</p>}</div>}</div><section className="item-info"><span className="pill">{ownedItem.category}</span><h1>{ownedItem.title}</h1>{ownedItem.attributes?.subject && ownedItem.media?.some(asset=>asset.kind==='signature') && <p className="signer-badge"><img className="signed-by-quill" src="/brand/signed-by-quill.webp" alt="" aria-hidden="true"/> Signed by {ownedItem.attributes.subject}</p>}<p className="seller-name">Purchased {new Date(ownedItem.purchased_at).toLocaleDateString()}</p><p className="detail-price">{money(ownedItem.price_cents)}</p><p>{ownedItem.description}</p><ListingDetailSummary item={ownedItem}/><PurchasedItemFulfillment item={ownedItem} payout={payoutByPurchase[ownedItem.purchase_id]} onOpenMessages={openOrderConversation}/><BuyerRefundPanel item={ownedItem} onRequested={refresh}/><SellerRatingForm item={ownedItem} onRated={refresh}/><MessageThread conversationId={ownedItem.conversation_id} service={service} session={session} counterpartyLabel="seller" messageCount={ownedItem.message_count} autoOpen={focusConversationId === ownedItem.conversation_id} onFocused={() => setFocusConversationId(null)} onRead={refresh} pickupStation={ownedItem.fulfillment_method === 'pickup' ? ownedItem.pickup_station : null}/><CertificateDetails item={ownedItem}/><button className="primary" onClick={()=>setModal('relist')}><RefreshCw size={16}/>Relist this item</button></section></div>
+          <div className="detail-grid"><div>{ownedItem.media?.some(asset=>asset.kind==='item') ? <PhotoGallery service={service} key={ownedItem.id} media={ownedItem.media} title={ownedItem.title}/> : <ItemArt category={ownedItem.category} large/>}<PhotoGallery service={service} key={ownedItem.id+'cert'} media={ownedItem.media} kind="certificate" title={ownedItem.title}/>{ownedItem.media?.some(asset=>asset.kind==='signature') && <div className="evidence-box"><p className="field-note">Signature close-up</p><PhotoGallery service={service} key={ownedItem.id+'sig'} media={ownedItem.media} kind="signature" title={ownedItem.title}/>{ownedItem.signature_ai_label ? <KingOpinion label={ownedItem.signature_ai_label} note={ownedItem.signature_ai_note}/> : <p className="field-note">King Credion has not given an opinion on this signature yet.</p>}</div>}</div><section className="item-info"><span className="pill">{ownedItem.category}</span><h1>{ownedItem.title}</h1>{ownedItem.attributes?.subject && ownedItem.media?.some(asset=>asset.kind==='signature') && <p className="signer-badge"><img className="signed-by-quill" src="/brand/signed-by-quill-v2-600.webp" alt="" aria-hidden="true"/> Signed by {ownedItem.attributes.subject}</p>}<p className="seller-name">Purchased {new Date(ownedItem.purchased_at).toLocaleDateString()}</p><p className="detail-price">{money(ownedItem.price_cents)}</p><p>{ownedItem.description}</p><ListingDetailSummary item={ownedItem}/><PurchasedItemFulfillment item={ownedItem} payout={payoutByPurchase[ownedItem.purchase_id]} onOpenMessages={openOrderConversation}/><BuyerRefundPanel item={ownedItem} onRequested={refresh}/><SellerRatingForm item={ownedItem} onRated={refresh}/><MessageThread conversationId={ownedItem.conversation_id} service={service} session={session} counterpartyLabel="seller" messageCount={ownedItem.message_count} autoOpen={focusConversationId === ownedItem.conversation_id} onFocused={() => setFocusConversationId(null)} onRead={refresh} pickupStation={ownedItem.fulfillment_method === 'pickup' ? ownedItem.pickup_station : null}/><CertificateDetails item={ownedItem}/><button className="primary" onClick={()=>setModal('relist')}><RefreshCw size={16}/>Relist this item</button></section></div>
         </> : pendingBuy ? <>
           <button className="back-button" onClick={() => setSelectedId(null)}><ArrowLeft size={17}/>Back to listings</button>
           <div className="detail-grid"><div>{pendingBuy.media?.some(asset=>asset.kind==='item') ? <PhotoGallery service={service} key={pendingBuy.listing_id} media={pendingBuy.media} title={pendingBuy.title}/> : <ItemArt category={pendingBuy.category} large/>}</div><section className="item-info"><span className="pill">{pendingBuy.category}</span><h1>{pendingBuy.title}</h1><p className="detail-price">{money(pendingBuy.price_cents)}</p>{pendingBuy.status === 'confirmed' ? <><p className="field-note">The seller confirmed this is still available.</p><button className="primary" disabled={busy} onClick={()=>setModal('checkout-address')}>Continue to checkout<ArrowRight size={16}/></button></> : <p role="status" className="field-note">Waiting for the seller to confirm this item is still available…</p>}</section></div>
         </> : <>
-          <section className={workspace === 'collector' && !isNativeApp() ? 'hero mobile-launch-hero' : 'hero'}><div className="hero-copy"><p className="eyebrow"><span className="small-line"/>{workspace === 'collector' ? (isNativeApp() ? 'YOUR KINGDOM. IN YOUR POCKET.' : 'YOUR KINGDOM. NOW ON ANDROID.') : workspace === 'seller' ? 'YOUR NEXT GREAT FIND STARTS HERE' : 'OBSERVATION OVER ASSUMPTION'}</p><h1>{workspace === 'collector' ? (isNativeApp() ? <>The Kingdom<br/><em>is in your hands.</em></> : <>The Kingdom<br/><em>is on Google Play.</em></>) : workspace === 'seller' ? <>Your collection.<br/><em>A new chapter.</em></> : <>Look closer.<br/><em>Share what you see.</em></>}</h1><p>{workspace === 'collector' ? (isNativeApp() ? 'Discover, collect and sell memorabilia with every piece looked over by King Credion. Browse the collection below.' : 'The Credabilia app is now on Google Play. The iPhone app is coming soon, and we’ll email our registered members the moment it’s ready. Keep discovering and collecting here in the meantime.') : workspace === 'seller' ? 'Give every piece the context it deserves. Share its story, its condition, and what you know.' : 'Help collectors make informed decisions. Review evidence, explain your reasoning, and keep learning.'}</p><img className="ai-marketplace-badge" src="/brand/ai-powered-marketplace-badge-v3.webp" width="920" height="307" alt="AI powered marketplace"/>{workspace === 'collector' && !isNativeApp() && <div className="store-links"><a className="store-link store-link-live" href={PLAY_STORE_URL} target="_blank" rel="noopener noreferrer"><span>Get it on</span><strong>Google Play</strong></a><span className="store-link store-link-soon" aria-label="iPhone app coming soon"><span>iPhone app</span><strong>Coming soon</strong></span></div>}<button className="primary" onClick={workspace === 'seller' ? openCreate : () => document.getElementById('listings').scrollIntoView({ behavior: 'smooth' })}>{workspace === 'seller' ? 'Create a listing' : workspace === 'auditor' ? 'Explore the audit queue' : 'Explore the collection'}<ArrowUpRight size={18}/></button>{workspace === 'seller' && <button className="text-button" onClick={openBulkCreate}><Layers size={16}/>Bulk list items</button>}</div><div className="hero-mascot"><img key={workspace} src={(workspace === 'collector' && isNativeApp() ? NATIVE_COLLECTOR_HERO : HERO_IMAGES[workspace]).src} width={(workspace === 'collector' && isNativeApp() ? NATIVE_COLLECTOR_HERO : HERO_IMAGES[workspace]).width} height={(workspace === 'collector' && isNativeApp() ? NATIVE_COLLECTOR_HERO : HERO_IMAGES[workspace]).height} alt={(workspace === 'collector' && isNativeApp() ? NATIVE_COLLECTOR_HERO : HERO_IMAGES[workspace]).alt} fetchPriority={workspace === 'collector' ? 'high' : 'auto'} /></div></section>
+          {showFirstListing && <FirstListingCard onStart={openCreate} onDismiss={() => { dismissFirstListing(); setFirstListingUntil(firstListingDismissedUntil()); }} payoutsReady={!!profile?.stripe_charges_enabled}/>}
+          {showFoundingBadge(session, founding) && <FoundingWelcome userId={session.user.id}/>}<section className={workspace === 'collector' && !isNativeApp() ? 'hero mobile-launch-hero' : 'hero'}><div className="hero-copy"><p className="eyebrow"><span className="small-line"/>{workspace === 'collector' ? (isNativeApp() ? 'YOUR KINGDOM. IN YOUR POCKET.' : 'YOUR KINGDOM. NOW ON ANDROID.') : workspace === 'seller' ? 'YOUR NEXT GREAT FIND STARTS HERE' : 'OBSERVATION OVER ASSUMPTION'}</p><h1>{workspace === 'collector' ? (isNativeApp() ? <>The Kingdom<br/><em>is in your hands.</em></> : <>The Kingdom<br/><em>is on Google Play.</em></>) : workspace === 'seller' ? <>Your collection.<br/><em>A new chapter.</em></> : <>Look closer.<br/><em>Share what you see.</em></>}</h1><p>{workspace === 'collector' ? (isNativeApp() ? 'Discover, collect and sell memorabilia with every piece looked over by King Credion. Browse the collection below.' : 'The Credabilia app is now on Google Play. The iPhone app is coming soon, and we’ll email our registered members the moment it’s ready. Keep discovering and collecting here in the meantime.') : workspace === 'seller' ? 'Give every piece the context it deserves. Share its story, its condition, and what you know.' : 'Help collectors make informed decisions. Review evidence, explain your reasoning, and keep learning.'}</p>{showFoundingBadge(session, founding) ? <FoundingHeroBadge/> : <img className="ai-marketplace-badge" src="/brand/ai-powered-marketplace-badge-v3.webp" width="920" height="307" alt="AI powered marketplace"/>}{workspace === 'collector' && !isNativeApp() && <div className="store-links"><a className="store-link store-link-live" href={PLAY_STORE_URL} target="_blank" rel="noopener noreferrer"><span>Get it on</span><strong>Google Play</strong></a><span className="store-link store-link-soon" aria-label="iPhone app coming soon"><span>iPhone app</span><strong>Coming soon</strong></span></div>}<button className="primary" onClick={workspace === 'seller' ? openCreate : () => document.getElementById('listings').scrollIntoView({ behavior: 'smooth' })}>{workspace === 'seller' ? 'Create a listing' : workspace === 'auditor' ? 'Explore the audit queue' : 'Explore the collection'}<ArrowUpRight size={18}/></button>{workspace === 'seller' && <button className="text-button" onClick={openBulkCreate}><Layers size={16}/>Bulk list items</button>}</div><div className="hero-mascot"><img key={workspace} src={(workspace === 'collector' && isNativeApp() ? NATIVE_COLLECTOR_HERO : HERO_IMAGES[workspace]).src} width={(workspace === 'collector' && isNativeApp() ? NATIVE_COLLECTOR_HERO : HERO_IMAGES[workspace]).width} height={(workspace === 'collector' && isNativeApp() ? NATIVE_COLLECTOR_HERO : HERO_IMAGES[workspace]).height} alt={(workspace === 'collector' && isNativeApp() ? NATIVE_COLLECTOR_HERO : HERO_IMAGES[workspace]).alt} srcSet={(workspace === 'collector' && isNativeApp() ? NATIVE_COLLECTOR_HERO : HERO_IMAGES[workspace]).srcSet} sizes="(max-width: 720px) 360px, 460px" fetchPriority={workspace === 'collector' ? 'high' : 'auto'} /></div></section>
           <div className="values-strip"><span><Search size={16}/>Discover the details</span><span><ClipboardCheck size={16}/>Share your perspective</span><span><BookOpen size={16}/>Keep learning</span></div>
           <section id="listings" className="listings-section"><div className="section-heading"><div><p className="eyebrow">{workspace === 'auditor' ? 'A FRESH PERSPECTIVE' : 'THE COLLECTION'}</p><h2>{workspace === 'seller' ? (sellerTab === 'sold' ? 'Sold items' : sellerTab === 'requests' ? 'Buy requests' : 'Your listings') : workspace === 'auditor' ? 'Ready for a closer look' : collectionFilter === 'owned' ? 'Items you own' : collectionFilter === 'saved' ? 'Items you saved' : 'Discover something worth keeping'}</h2></div><span className="item-count">{workspace === 'seller' && sellerTab === 'sold' ? sales.length : workspace === 'seller' && sellerTab === 'requests' ? sellerBuyRequests.length : collectionItems.length} {(workspace === 'seller' && sellerTab === 'sold' ? sales.length : workspace === 'seller' && sellerTab === 'requests' ? sellerBuyRequests.length : collectionItems.length) === 1 ? 'item' : 'items'}</span></div>
-            {workspace === 'seller' && session && service.mode === 'live' && profile && !profile.stripe_charges_enabled && <div className="evidence-box lock-banner" role="status"><h3><Lock size={16}/> Your listings are locked</h3><p className="field-note">Buyers can see them, but nobody can buy or bid until you connect payouts with Stripe. It takes a couple of minutes, and everything opens automatically when you're done.</p><button type="button" className="primary" onClick={beginPayoutSetup}>{profile.stripe_details_submitted ? 'Check payout status' : 'Set up payouts'}<ArrowRight size={16}/></button></div>}
+            {workspace === 'seller' && session && service.mode === 'live' && profile && !profile.stripe_charges_enabled && <div className="evidence-box lock-banner" role="status"><h3><Lock size={16}/> Your listings are locked</h3><p className="field-note">Buyers can see them, but nobody can buy or bid until you connect payouts with Stripe. It takes about five minutes, you can stop and finish later, and everything opens automatically when you're done.</p><button type="button" className="primary" onClick={beginPayoutSetup}>{profile.stripe_details_submitted ? 'Check payout status' : 'Set up payouts'}<ArrowRight size={16}/></button></div>}
             {workspace === 'seller' && session && <div className="categories" aria-label="Your listings"><button aria-pressed={sellerTab === 'active'} className={sellerTab === 'active' ? 'active' : ''} onClick={() => setSellerTab('active')}>Active</button><button aria-pressed={sellerTab === 'requests'} className={`${sellerTab === 'requests' ? 'active' : ''}${sellerTab !== 'requests' ? requestsTabGlow : ''}`} onClick={() => { markSeen(notifications.filter(isKind(['buy_request_pending']))); setSellerTab('requests'); }}>Requests {sellerBuyRequests.length ? `(${sellerBuyRequests.length})` : ''}</button><button aria-pressed={sellerTab === 'sold'} className={`${sellerTab === 'sold' ? 'active' : ''}${sellerTab !== 'sold' ? soldTabGlow : ''}`} onClick={() => { markSeen(notifications.filter(isKind(['ship_pending', 'pickup_awaiting_handoff', 'refund_pending']))); setSellerTab('sold'); }}>Sold {sales.length ? `(${sales.length})` : ''}</button>{(endedListings.length > 0 || sellerTab === 'ended') && <button aria-pressed={sellerTab === 'ended'} className={`${sellerTab === 'ended' ? 'active' : ''}${sellerTab !== 'ended' ? endedTabGlow : ''}`} onClick={() => { markSeen(notifications.filter(isKind(['auction_relist']))); setSellerTab('ended'); }}>Ended {endedListings.length ? `(${endedListings.length})` : ''}</button>}</div>}
             {workspace === 'seller' && sellerTab === 'active' && session && <SellerStorefrontBanner slug={profile?.slug} onSetup={() => setModal('profile')}/>}
+            {workspace === 'seller' && sellerTab === 'active' && session && giveaway && <ReferralCard service={service}/>}
             {workspace === 'collector' && session && <div className="categories" aria-label="My collection"><button aria-pressed={collectionFilter === 'all'} className={collectionFilter === 'all' ? 'active' : ''} onClick={() => setCollectionFilter('all')}>All items</button><button aria-pressed={collectionFilter === 'saved'} className={collectionFilter === 'saved' ? 'active' : ''} onClick={() => setCollectionFilter('saved')}><Heart size={14}/> Saved</button><button aria-pressed={collectionFilter === 'owned'} className={`${collectionFilter === 'owned' ? 'active' : ''}${collectionFilter !== 'owned' ? ownedGlow : ''}`} onClick={() => { markSeen(notifications.filter(isKind(BUYER_ORDER_KINDS))); setCollectionFilter('owned'); }}>Owned</button></div>}
             {workspace === 'seller' && sellerTab === 'ended' ? <EndedListings items={endedListings} onChanged={() => { setSellerTab('active'); setNotice('Your item is listed again.'); refresh(); }}/>
               : workspace === 'seller' && sellerTab === 'sold' ? (!sales.length ? <div className="empty-state"><Layers size={34}/><h3>Nothing sold yet.</h3><p>Sales will show up here, ready to ship.</p></div>
@@ -2715,8 +2840,10 @@ export default function App() {
               : <div className="items-grid">{sellerBuyRequests.map(request => <BuyRequestCard key={request.id} request={request} onResolved={id => setSellerBuyRequests(list => list.filter(r => r.id !== id))}/>)}</div>) : <>
             {collectionFilter !== 'owned' && <div className="filters"><div className="categories" aria-label="Filter by category">{['All items', ...CATEGORIES].map(c => <button key={c} aria-pressed={category === c} className={category === c ? 'active' : ''} onClick={() => setCategory(c)}>{c}</button>)}{workspace === 'collector' && collectionFilter === 'all' && <button type="button" aria-pressed={nearMeOpen || !!nearMe} className={nearMeOpen || nearMe ? 'active' : ''} onClick={() => setNearMeOpen(open => !open)}><MapPin size={14}/> Near me</button>}</div><label className="search"><Search size={17}/><input aria-label="Search listings" value={query} onChange={e => setQuery(e.target.value)} placeholder="Find your next discovery"/></label></div>}
             {nearMeOpen && workspace === 'collector' && collectionFilter === 'all' && <NearMePanel nearMe={nearMe} savedAddress={profile?.shipping_address} onChange={setNearMe} onClose={() => setNearMeOpen(false)} matchCount={nearItems ? nearItems.length : 0}/>}
+            {workspace === 'collector' && collectionFilter === 'all' && giveaway && !loading && !query && <GiveawayCard giveaway={giveaway} item={giveawayItem} busy={giveawayBusy} onOpen={() => giveawayItem ? setSelectedId(giveawayItem.id) : window.location.assign('/item/' + giveaway.listing_id)} onEnter={openGiveawayEntry} isAdmin={isAdminUser}/>}
+            {workspace === 'collector' && collectionFilter === 'all' && !loading && <KingsCollectionCarousel items={collectionItems.filter(item => item.king_collection && item.status === 'active' && !listingLocked(item) && (item.listing_type !== 'auction' || new Date(item.auction_ends_at).getTime() > Date.now())).slice(0, 12)} onSelect={id => { setSelectedId(id); window.scrollTo({ top: 0 }); }}/>}
             {loading ? <p role="status" className="empty-state">Loading the collection…</p> : !collectionItems.length ? <div className="empty-state"><Layers size={34}/><h3>{nearItems ? 'No pickup items near you.' : workspace === 'seller' ? 'Your first listing starts here.' : collectionFilter === 'owned' ? 'Nothing purchased yet.' : collectionFilter === 'saved' ? 'Nothing saved yet.' : 'No items here yet.'}</h3><p>{nearItems ? 'Try a bigger distance, or untick “only pickup items” to see everything that ships.' : workspace === 'seller' ? 'Add a piece and tell its story.' : collectionFilter === 'owned' ? 'Items you buy will show up here.' : collectionFilter === 'saved' ? 'Tap the heart on an item to save it here.' : 'Try a different category or search.'}</p>{workspace === 'seller' && <button className="primary" onClick={openCreate}>Create a listing <Plus size={17}/></button>}</div>
-              : <div className="items-grid">{collectionItems.map(item => <button className={`${item.king_collection ? 'item-card king-collection' : 'item-card'}${listingLocked(item) ? ' locked' : ''}${collectionFilter === 'owned' && ownedNeedsAction(item.id) ? ' needs-action attention-glow' : ''}`} key={item.id} onClick={() => { const order = notifications.find(n => BUYER_ORDER_KINDS.includes(n.kind) && n.listing_id === item.id); if (collectionFilter === 'owned' && order?.conversation_id) { focusNotification(order); return; } setSelectedId(item.id); window.scrollTo({ top: 0 }); }} aria-label={`View ${item.title}`}>{collectionFilter === 'owned' && ownedNeedsAction(item.id) && <span className="action-badge">Action needed: open your order</span>}{item.king_collection && <span className="king-badge"><Crown size={12}/>King's Collection</span>}{listingLocked(item) && <span className="lock-overlay"><img src="/brand/royal-lock-v1-optimized.webp" alt="" width="84" height="84"/><span>Seller notified. Waiting on Stripe setup.</span></span>}<ItemArt kind={item.artwork} category={item.category} photo={item.media?.find(asset=>asset.kind==='item')?.url} thumbId={item.status === 'active' && !item.sample ? item.id : undefined}/><div className={`item-card-content${item.listing_type === 'auction' ? ' has-auction-watermark' : item.attributes?.subject && item.media?.some(asset=>asset.kind==='signature') ? ' has-signature-watermark' : ''}`}><div className="card-meta"><span>{item.category}</span>{collectionFilter === 'owned' ? <span>OWNED</span> : <><span className="listing-type-label">{item.status !== 'needs_review' && item.listing_type === 'auction' && <img className="auction-gavel-icon" src="/brand/auction-gavel-v1.webp" alt="" aria-hidden="true" width="20" height="20"/>}{item.status==='needs_review' ? 'NEEDS REVIEW' : item.listing_type==='auction' ? 'AUCTION' : item.sample ? 'SAMPLE' : 'NEW LISTING'}</span>{session && item.seller_id !== session.user.id && <span role="button" tabIndex={0} className="icon-button" aria-label={favoriteIds.includes(item.id) ? 'Remove from saved' : 'Save to collection'} onClick={event => { event.stopPropagation(); toggleFavorite(item.id); }}><Heart size={14} fill={favoriteIds.includes(item.id) ? 'currentColor' : 'none'}/></span>}{session && item.seller_id !== session.user.id && <span role="button" tabIndex={0} className="icon-button" aria-label="Message seller" onClick={event => { event.stopPropagation(); messageSeller(item.id); }}><MessageCircle size={14}/></span>}</>}</div><h3>{item.title}</h3>{item.pickup_enabled && collectionFilter !== 'owned' && <p className="pickup-badge"><MapPin size={13}/> Local pickup{item.distance_miles != null ? ` · ${formatDistance(item.distance_miles, item.distance_precision)}` : item.pickup_station?.city ? ` · ${item.pickup_station.city}` : ''}</p>}{item.attributes?.subject && item.media?.some(asset=>asset.kind==='signature') && <p className="signer-badge compact"><img className="signed-by-quill" src="/brand/signed-by-quill.webp" alt="" aria-hidden="true"/> Signed by {item.attributes.subject}</p>}<p>{collectionFilter === 'owned' ? `Purchased ${new Date(item.purchased_at).toLocaleDateString()}` : item.seller_name}</p>{collectionFilter !== 'owned' && <CredibilityMeter score={item.credibility_score} compact/>}<div className="card-bottom"><strong>{money(item.price_cents)}</strong>{collectionFilter !== 'owned' && (item.listing_type==='auction' ? <span>{item.bid_count} {item.bid_count===1?'bid':'bids'} · {auctionTimeLeft(item.auction_ends_at)}</span> : <span><ClipboardCheck size={14}/>{item.audit_count || 0} audits</span>)}</div></div></button>)}</div>}
+              : <><div className="items-grid">{collectionItems.slice(0, cardsShown).map(item => <button className={`${item.king_collection ? 'item-card king-collection' : 'item-card'}${listingLocked(item) ? ' locked' : ''}${collectionFilter === 'owned' && ownedNeedsAction(item.id) ? ' needs-action attention-glow' : ''}`} key={item.id} onClick={() => { const order = notifications.find(n => BUYER_ORDER_KINDS.includes(n.kind) && n.listing_id === item.id); if (collectionFilter === 'owned' && order?.conversation_id) { focusNotification(order); return; } setSelectedId(item.id); window.scrollTo({ top: 0 }); }} aria-label={`View ${item.title}`}>{collectionFilter === 'owned' && ownedNeedsAction(item.id) && <span className="action-badge">Action needed: open your order</span>}{item.king_collection && <span className="king-badge"><Crown size={12}/>King's Collection</span>}{listingLocked(item) && <span className="lock-overlay"><img src="/brand/royal-lock-v1-optimized.webp" alt="" width="84" height="84"/><span>Seller notified. Waiting on Stripe setup.</span></span>}<div className={item.king_collection ? 'marketplace-photo' : 'marketplace-photo marketplace-photo-trim'}><ItemArt kind={item.artwork} category={item.category} photo={item.media?.find(asset=>asset.kind==='item')?.url} thumbId={item.status === 'active' && !item.sample ? item.id : undefined}/></div><div className={`item-card-content${item.listing_type === 'auction' ? ' has-auction-watermark' : item.attributes?.subject && item.media?.some(asset=>asset.kind==='signature') ? ' has-signature-watermark' : ''}`}><div className="card-meta"><span>{item.category}</span>{collectionFilter === 'owned' ? <span>OWNED</span> : <><span className="listing-type-label">{item.status !== 'needs_review' && item.listing_type === 'auction' && <img className="auction-gavel-icon" src="/brand/auction-gavel-v1.webp" alt="" aria-hidden="true" width="20" height="20"/>}{item.status==='needs_review' ? 'NEEDS REVIEW' : item.listing_type==='auction' ? 'AUCTION' : item.sample ? 'SAMPLE' : 'NEW LISTING'}</span>{session && item.seller_id !== session.user.id && <span role="button" tabIndex={0} className="icon-button" aria-label={favoriteIds.includes(item.id) ? 'Remove from saved' : 'Save to collection'} onClick={event => { event.stopPropagation(); toggleFavorite(item.id); }}><Heart size={14} fill={favoriteIds.includes(item.id) ? 'currentColor' : 'none'}/></span>}{session && item.seller_id !== session.user.id && <span role="button" tabIndex={0} className="icon-button" aria-label="Message seller" onClick={event => { event.stopPropagation(); messageSeller(item.id); }}><MessageCircle size={14}/></span>}</>}</div><h3>{item.title}</h3>{item.pickup_enabled && collectionFilter !== 'owned' && <p className="pickup-badge"><MapPin size={13}/> Local pickup{item.distance_miles != null ? ` · ${formatDistance(item.distance_miles, item.distance_precision)}` : item.pickup_station?.city ? ` · ${item.pickup_station.city}` : ''}</p>}{item.attributes?.subject && item.media?.some(asset=>asset.kind==='signature') && <p className="signer-badge compact"><img className="signed-by-quill" src="/brand/signed-by-quill-v2-600.webp" alt="" aria-hidden="true"/> Signed by {item.attributes.subject}</p>}<p>{collectionFilter === 'owned' ? `Purchased ${new Date(item.purchased_at).toLocaleDateString()}` : <>{item.seller_name}{item.seller_founding && <FoundingChip/>}</>}</p>{collectionFilter !== 'owned' && <CredibilityMeter score={item.credibility_score} compact/>}<div className="card-bottom"><strong>{money(item.price_cents)}</strong>{collectionFilter !== 'owned' && (item.listing_type==='auction' ? <span>{item.bid_count} {item.bid_count===1?'bid':'bids'} · {auctionTimeLeft(item.auction_ends_at)}</span> : <span><ClipboardCheck size={14}/>{item.audit_count || 0} audits</span>)}</div></div></button>)}</div>{collectionItems.length > cardsShown && <button type="button" className="text-button load-more" onClick={() => setCardsShown(n => n + CARDS_PER_VIEW)}>Show more ({collectionItems.length - cardsShown} more)</button>}</>}
             {collectionFilter !== 'owned' && itemsHasMore && <button type="button" className="text-button load-more" onClick={loadMore} disabled={loadingMore}>{loadingMore ? 'Loading…' : 'Load more'}</button>}
             </>}
           </section>{workspace === 'collector' && <section className="community-note"><div className="note-icon"><ShieldCheck size={25}/></div><div><h3>Confidence grows with evidence.</h3><p>A community opinion is a starting point. For valuable purchases, seek qualified authentication.</p></div></section>}
@@ -2727,11 +2854,15 @@ export default function App() {
     <BottomNav sellGlow={sellGlow} messagesGlow={messagesGlow} session={session} workspace={workspace} onSwitchWorkspace={switchWorkspace} profile={profile} authReady={authReady} onProfile={() => setModal('profile')} onSignIn={() => setModal('login')}/>
     {modal === 'login' && <Modal className="login-dialog" title={listHandoff ? 'Sign in to list your item' : <img className="login-title-img" src="/brand/the-memorabilia-kingdom-gold-quill-v1-trimmed.webp" width="1024" height="163" alt="The Memorabilia Kingdom"/>} onClose={() => { setModal(null); setListHandoff(false); }}><div className="login-layout"><div className="login-art"><div className="login-sparks" aria-hidden="true">{LOGIN_SPARKS.map((spark, index) => <i key={index} style={{ '--x': spark.x + '%', '--s': spark.size + 'px', '--d': spark.duration + 's', '--delay': spark.delay + 's', '--drift': spark.drift + 'px' }}/>)}</div><img src="/brand/king-credion-login-welcome-ai-v2.webp" width="640" height="640" alt="King Credion welcomes you through the royal gate"/></div><div className="login-form"><p className="muted login-intro">{listHandoff ? 'One quick sign-in, then King Credion drafts your listing from your photos. You pay a fee only when it sells.' : 'Sign in or join to collect, sell, and explore.'}</p>{service.mode === 'demo' ? <><div className="evidence-box"><h3>Try the local preview</h3><p>These two separate practice accounts stay in this browser. Each can switch between all three workspaces. Real sign-in is available when the Supabase project is connected.</p></div><div className="form-stack">{DEMO_ACCOUNTS.map(account => <button key={account.id} className="primary full-width" onClick={() => signIn(account.id)} disabled={busy}>{busy ? 'Opening…' : `Continue as ${account.display_name}`}<ArrowRight size={18}/></button>)}</div></> : <><button className="primary full-width" onClick={() => signIn()} disabled={busy}>{busy ? 'Opening…' : 'Continue with Google'}<ArrowRight size={18}/></button>{APPLE_SIGNIN_ENABLED && <button type="button" className="apple-signin full-width" onClick={signInApple} disabled={busy}><AppleLogo/> Continue with Apple</button>}<div className="login-divider"><span>or use email</span></div><EmailLogin/><p className="field-note">By continuing, you agree to Credabilia's <a href="/terms" target="_blank" rel="noreferrer">Terms of Service</a> and <a href="/privacy" target="_blank" rel="noreferrer">Privacy Policy</a>.</p></>}</div></div></Modal>}
     {modal === 'checkout-address' && (selected || pendingBuy) && <CheckoutAddress item={selected || pendingBuy} profile={profile} busy={busy} onClose={() => setModal(null)} onConfirm={(address, applyCreditCents, wantInsurance, fulfillmentMethod, shippingChoice, disclosureAck) => { const id = selected?.id || pendingBuy?.listing_id; setModal(null); buyNow(id, address, applyCreditCents, wantInsurance, fulfillmentMethod, shippingChoice, disclosureAck); }}/>}
-    {modal === 'create' && <CreateListing onClose={() => setModal(null)} onCreated={(id,fit) => { setModal(null); setNotice(fit ? `Your listing was saved, but it needs a quick review before buyers can see it — ${fit.reason || "it didn't clearly look like a collectible."}` : service.mode === 'live' && profile && !profile.stripe_charges_enabled ? 'Your listing is published, but it is locked until you connect payouts with Stripe. Buyers can see it, and it opens for sale automatically when you are done. Open Sell to set up payouts.' : 'Your listing is published.'); setSelectedId(id); refresh(); }}/>}
+    {modal === 'create' && <CreateListing onClose={() => setModal(null)} onCreated={(id,fit) => { const celebrate = shouldCelebrateFirstListing({ live: service.mode === 'live', profile, held: !!fit, hadListedBefore: hasEverListed({ items, endedListings, sales, userId: session?.user.id }) }); setCelebratedItemId(celebrate ? id : null); setModal(celebrate ? 'first-listing-celebrate' : null); setNotice(celebrate ? '' : fit ? `Your listing was saved, but it needs a quick review before buyers can see it — ${fit.reason || "it didn't clearly look like a collectible."}` : service.mode === 'live' && profile && !profile.stripe_charges_enabled ? 'Your listing is published, but it is locked until you connect payouts with Stripe. Buyers can see it, and it opens for sale automatically when you are done. Open Sell to set up payouts.' : 'Your listing is published.'); setSelectedId(id); refresh(); }}/>}
     {modal === 'bulk-create' && <BulkListing onClose={() => setModal(null)} onAllDone={() => { setModal(null); setNotice('Bulk listing complete.'); refresh(); }}/>}
     {modal === 'relist' && ownedItem && <CreateListing relistFrom={ownedItem} onClose={() => setModal(null)} onCreated={(id,fit) => { setModal(null); setNotice(fit ? `Your relisted item was saved, but it needs a quick review before buyers can see it — ${fit.reason || "it didn't clearly look like a collectible."}` : 'Your relisted item is published.'); switchWorkspace('seller'); setSelectedId(id); refresh(); }}/>}
     {modal === 'edit' && selected && own && <EditListing key={selected.id} item={selected} onClose={()=>setModal(null)} onSaved={()=>{setModal(null);setNotice('Your listing changes are saved.');refresh();}}/>}
-    {modal === 'profile' && <Modal title="Profile and settings" onClose={() => setModal(null)}><ProfileSettings profile={profile} session={session} onSaved={() => { setModal(null); setNotice('Your profile is saved.'); refresh(); }} onSignOut={() => { setModal(null); signOut(); }}/></Modal>}
+    {modal === 'giveaway-enter' && giveaway && <Modal title="Enter the giveaway" onClose={() => setModal(null)}><GiveawayEnterForm giveaway={giveaway} onEnter={enterGiveaway} onConnectStripe={() => { setModal(null); beginPayoutSetup(); }} onDone={() => setModal(null)}/></Modal>}
+    {modal === 'first-listing-celebrate' && <Modal className="celebrate-dialog" title="Your first listing is live!" onClose={() => setModal(null)}><FirstListingCelebration service={service} slug={profile?.slug} itemId={celebratedItemId} giveawayActive={!!giveaway} onStoreNameSaved={() => refresh()} onSetUpPayouts={() => { setModal(null); beginPayoutSetup(); }} onLater={() => { setModal(null); setNotice('Your listing is published, but it is locked until you connect payouts with Stripe. You can set it up any time from Sell.'); }}/></Modal>}
+    {modal === 'payout-intro' && <Modal title="Set up payouts" onClose={() => setModal(null)}><PayoutIntro onContinue={() => { setModal(null); startPayoutOnboarding(); }} onLater={() => setModal(null)}/></Modal>}
+    {modal === 'giveaway-claim' && giveawayWin && <Modal title="Claim your prize" onClose={() => setModal(null)}><GiveawayClaimForm onSubmit={async address => { await service.claimGiveawayPrize(address); setGiveawayWin(await service.myGiveawayWin()); }} onDone={() => setModal(null)}/></Modal>}
+    {modal === 'profile' && <Modal title="Profile and settings" onClose={() => setModal(null)}><ProfileSettings profile={profile} session={session} onSaved={() => { setModal(null); setNotice('Your profile is saved.'); refresh(); }} onSignOut={() => { setModal(null); signOut(); }} onConnectPayouts={() => setModal('payout-intro')}/></Modal>}
     {modal === 'support' && <Modal title="Ask King Credion" onClose={() => setModal(null)}><SupportChat service={service}/></Modal>}
     {modal === 'learn' && <Modal title="Start with the evidence" onClose={() => setModal(null)}><ol className="guide"><li><strong>Observe before deciding.</strong><p>Look at condition, markings, materials, and the description. Record what you can actually see.</p></li><li><strong>Check the story.</strong><p>Provenance and certificates need verification. A familiar name alone does not prove authenticity.</p></li><li><strong>Say what is missing.</strong><p>Ask for clearer photos or documentation. Uncertainty is more useful than unsupported confidence.</p></li></ol><p className="field-note">Participation XP does not certify expertise.</p></Modal>}
   </div>;

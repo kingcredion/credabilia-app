@@ -1,9 +1,13 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { ArrowLeft } from 'lucide-react';
 import { Brand } from './Brand.jsx';
+import { MAILIN_EMAIL, statesNote } from './giveaway.js';
+import { FOUNDING_FEE_NOTE, FOUNDING_TERMS, SAME_EMAIL_NOTE, claimView, isAppleRelayEmail } from './founding.js';
+import { FoundingBadgeImage } from './FoundingBadge.jsx';
+import { isNativeApp } from './nativeAuth.js';
 
 const LAST_UPDATED = 'October 5, 2026';
-const TERMS_UPDATED = 'October 5, 2026';
+const TERMS_UPDATED = 'October 20, 2026';
 
 const LEGAL_PATHS = ['/terms', '/privacy', '/help'];
 const RETURN_KEY = 'credabilia-legal-return';
@@ -38,7 +42,7 @@ function LegalShell({ title, children, updated = LAST_UPDATED, current }) {
     <LegalNav current={current}/>
     <a className="legal-back brand" href="/"><Brand/></a>
     <h1>{title}</h1>
-    <p className="legal-updated">Last updated: {updated}</p>
+    {updated !== false && <p className="legal-updated">Last updated: {updated}</p>}
     {children}
     <LegalNav current={current} footer/>
   </div>;
@@ -86,6 +90,7 @@ export function TermsPage() {
 
     <h2>7. Fees</h2>
     <p>Credabilia charges sellers a platform fee on completed sales and, where applicable, a 10% service charge on shipping and insurance costs (King's Collection items are charged at the carrier's rate with no service charge). The exact fee is shown before you publish a listing or complete a purchase. Fees may change; the fee in effect at the time of a transaction is the one that applies to it.</p>
+    <p><strong>Founding 100 program.</strong> {FOUNDING_TERMS.join(' ')}</p>
     <p><strong>Sales tax.</strong> Where the law requires it, Credabilia collects sales tax on purchases and pays it to the state. Tax is worked out from the address the order is delivered to (or the meetup location for a local pickup), is shown as its own line at checkout before you pay, and is added to the price. It is not part of the item price, the platform fee, or the seller's payout. If an order is refunded, the matching tax is refunded with it.</p>
 
     <h2>8. Payments, holds and payouts</h2>
@@ -215,5 +220,130 @@ export function PrivacyPage() {
 
     <h2>12. Contact us</h2>
     <p>Credabilia LLC<br/>732 S 6th St, Ste 7531<br/>Las Vegas, NV 89101<br/>Email: <a href="mailto:support@credabilia.com">support@credabilia.com</a></p>
+  </LegalShell>;
+}
+
+// Official rules for a Credabilia giveaway. They describe exactly what the system enforces (see docs/giveaway-and-tickets-spec.md): free entry two ways, a fixed end date with no early end,
+// a prize worth under the $5,000 registration level, and the excluded states from src/giveaway.js. Apple (guideline 5.3.2) wants these rules in the app, so this page is the one the giveaway links to.
+// Written without a lawyer: re-read it before each giveaway and keep it consistent with the card.
+export function GiveawayRulesPage() {
+  return <LegalShell title="Giveaway Official Rules" updated="October 14, 2026" current="giveaway">
+    <section>
+      <p><strong>NO PURCHASE NECESSARY. A purchase or payment of any kind will not increase your chances of winning.</strong> Void where prohibited. There are two free ways to enter (section 4).</p>
+    </section>
+
+    <h2>1. Sponsor</h2>
+    <p>Credabilia LLC, 732 S 6th St, Ste 7531, Las Vegas, NV 89101 (the "Sponsor"), support@credabilia.com. Apple Inc. is not a sponsor of this giveaway and is not involved in the activity in any manner. Google LLC and Stripe are not sponsors either, and no person whose name is used to describe the prize sponsors or endorses it.</p>
+
+    <h2>2. Who can enter</h2>
+    <p>You must be at least 18 years old, or the age of majority where you live if that is higher (19 in Alabama and Nebraska, 21 in Mississippi). {statesNote()} Credabilia owners, employees, operators and their households cannot enter, and accounts that are banned or deleted are not eligible. The giveaway is open only to people who live in an eligible state on the day they enter, and the prize can only be delivered to an address in an eligible state.</p>
+
+    <h2>3. Entry period</h2>
+    <p>The giveaway starts when it appears on Credabilia and ends on the end date shown on the giveaway card. That end date is fixed when the giveaway starts. It will not be moved earlier or later, and the giveaway does not end early. Entries must be confirmed before the end date.</p>
+
+    <h2>4. How to enter (free)</h2>
+    <ul>
+      <li><strong>In Credabilia.</strong> Sign in, tap "Enter the giveaway", choose the state where you live and agree to these rules. To keep the giveaway fair and free of fake accounts, your entry is confirmed when Stripe, our payment partner, verifies your account (payout setup). It costs nothing. Stripe collects the identification and bank details, and Credabilia never sees them.</li>
+      <li><strong>By email.</strong> No account and no Stripe setup needed. Before the end date, email {MAILIN_EMAIL} with your full name, your email address, the state where you live, and the words "Enter giveaway". Each email address can enter once this way.</li>
+    </ul>
+    <p>Each person may enter once. If someone is found to have entered more than once, or with a false name or state, their entries do not count.</p>
+
+    <h2>5. Tickets</h2>
+    <p>The drawing uses tickets. Each ticket has an equal chance, so more tickets mean better odds.</p>
+    <ul>
+      <li>1 ticket for a confirmed entry, whether made in Credabilia or by email.</li>
+      <li>In Credabilia, 1 extra ticket for each item you list on Credabilia that has been live for 7 days during the entry period (no limit). Removed, deleted, held or draft listings do not count.</li>
+      <li>In Credabilia, 1 extra ticket for each person who joins through your invite link during the entry period and whose account Stripe has verified.</li>
+    </ul>
+    <p>Listing an item is free. Buying or selling anything does not earn tickets and will not increase your chances. Tickets are counted from your activity and checked again when the winner is drawn.</p>
+
+    <h2>6. Prize</h2>
+    <p>One (1) prize: the item named on the giveaway card, with the certificate shown there. Its approximate retail value is shown on the item page and is under $5,000. There is no cash alternative. Number of prizes: one. Nothing has to be paid to receive or use the prize: the Sponsor pays standard shipping within the United States, and there are no other charges. There is no sales presentation, and the Sponsor does not claim that anyone is a winner unless they have won.</p>
+
+    <h2>7. Drawing and prize dates</h2>
+    <p>On or within one day after the end date, the winner is chosen at random by computer from all valid tickets. At the same time an alternate winner is chosen. The prize will be awarded unless nobody has a valid entry. The odds of winning cannot be known in advance because they depend on how many tickets are entered. The giveaway card shows the total tickets entered and your own tickets, and your odds are your tickets divided by all tickets, for one prize.</p>
+
+    <h2>8. Winner</h2>
+    <p>The winner is told by email (and in the app for members) and has 14 days to confirm a delivery address in an eligible state. Members must also have finished Stripe setup. If the winner does not respond in time or is not eligible, the prize goes to the alternate, who also has 14 days. The Sponsor ships the prize within 30 days after the winner confirms an address. The prize cannot be transferred. The winner is responsible for any taxes, and the Sponsor may ask for a tax form (W-9) if the law requires reporting.</p>
+
+    <h2>9. Other terms</h2>
+    <p>The winner agrees that the Sponsor may announce their first name and state. Information collected for the giveaway is used only to run it and under the <a href="/privacy">Privacy Policy</a>. The Sponsor may cancel or change the giveaway if fraud or a technical failure affects its fairness; the end date and these rules will not otherwise change after it starts. The Sponsor is not responsible for entries that are late, lost or not received. These rules are governed by the laws of the State of Nevada.</p>
+
+    <h2>10. Winner list</h2>
+    <p>The winner's first name and state, and the date of the drawing, are available for 90 days after the end date. Write to {MAILIN_EMAIL} to ask for them.</p>
+  </LegalShell>;
+}
+
+// The invitation claim page (/founding). Signing in with the invited email address is the proof of ownership: the sign-in code is sent to that address, and the
+// server only grants a spot to a verified account whose email matches an invitation. Not indexed. Nothing here decides anything about money.
+export function FoundingPage({ service, EmailLogin }) {
+  const [session, setSession] = useState(undefined), [status, setStatus] = useState(null), [busy, setBusy] = useState(false), [error, setError] = useState('');
+  useEffect(() => {
+    const meta = document.createElement('meta'); meta.name = 'robots'; meta.content = 'noindex, nofollow'; document.head.appendChild(meta);
+    const before = document.title; document.title = 'Founding 100 | Credabilia';
+    return () => { meta.remove(); document.title = before; };
+  }, []);
+  useEffect(() => {
+    let alive = true;
+    service.getSession().then(value => { if (alive) setSession(value); }).catch(() => { if (alive) setSession(null); });
+    const off = service.onAuthChange(value => { if (alive) { setSession(value); setStatus(null); setError(''); } });
+    return () => { alive = false; if (typeof off === 'function') off(); };
+  }, [service]);
+  useEffect(() => {
+    if (!session) { setStatus(null); return undefined; }
+    let alive = true;
+    service.foundingStatus().then(value => { if (alive) setStatus(value); }).catch(err => { if (alive) setError(err.message); });
+    return () => { alive = false; };
+  }, [session?.user?.id]);
+  async function claim() {
+    setBusy(true); setError('');
+    try { await service.claimFoundingSpot(); setStatus(await service.foundingStatus()); }
+    catch (err) { setError(err.message); }
+    finally { setBusy(false); }
+  }
+  async function signOut() { setBusy(true); try { await service.signOut(); } catch (err) { setError(err.message); } finally { setBusy(false); } }
+  const when = status?.expires_at ? new Date(status.expires_at).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' }) : '';
+  const view = session === undefined ? 'loading' : !session ? 'signed-out' : claimView(status);
+  // Claiming happens on the website. Inside the phone apps a non-member is sent to the browser; a member just sees their status.
+  const webOnly = isNativeApp() && (view === 'signed-out' || view === 'invited' || view === 'not-invited' || view === 'closed');
+  return <LegalShell title="Founding 100" updated={false} current="">
+    <div className="founding-claim">
+      <FoundingBadgeImage/>
+      {view === 'loading' && <p role="status">Loading…</p>}
+      {webOnly && <div className="founding-box"><h3>Claim your spot in your web browser</h3><p>Please open <strong>credabilia.com/founding</strong> in your phone's web browser to claim your Founding spot. Afterwards, sign in here with the same email address and the same method you used there.</p></div>}
+      {!webOnly && view === 'signed-out' && <>
+        <p>Founding 100 is an invitation-only group of 100 sellers who pay no Credabilia selling fees for as long as their account stays open and in good standing. Payment-processing fees still apply.</p>
+        <div className="founding-box"><h3>Claim your spot</h3>
+          <p className="field-note">Enter the email address we invited. We'll send a sign-in code to that address, which proves it's yours.</p>
+          <p className="field-note"><strong>{SAME_EMAIL_NOTE}</strong></p>
+          <EmailLogin/>
+        </div>
+      </>}
+      {!webOnly && view === 'invited' && <div className="founding-box ok"><h3>You're invited</h3>
+        <p>This invitation is for {session?.user?.email ? <strong>{session.user.email}</strong> : 'your account'}. <span className="founding-spots">{status.spots_left} of 100 spots left</span>, open until {when}.</p>
+        {error && <p role="alert" className="error">{error}</p>}
+        <button type="button" className="primary" disabled={busy} onClick={claim}>{busy ? 'Claiming…' : 'Claim my Founding spot'}</button></div>}
+      {view === 'member' && <div className="founding-box ok"><h3>You're a Founding seller</h3>
+        <p>Spot {status.spot_number} of 100. {FOUNDING_FEE_NOTE}</p>
+        <p><a className="primary" href="/?list=1">List your first item</a></p></div>}
+      {!webOnly && view === 'not-invited' && <div className="founding-box"><h3>No invitation for this email</h3>
+        <p>You're signed in{session?.user?.email && <> as <strong>{session.user.email}</strong></>}, and we don't have a Founding invitation for {session?.user?.email ? 'that address' : 'this account'}.</p>
+        {isAppleRelayEmail(session?.user?.email) && <p>That is an Apple "Hide My Email" address, which can't be matched to an invitation.</p>}
+        <p>If we contacted you, sign out and sign in again with the exact email address we used.</p>
+        <button type="button" className="text-button" disabled={busy} onClick={signOut}>Sign out</button></div>}
+      {!webOnly && view === 'closed' && <div className="founding-box"><h3>The Founding 100 invitation has closed</h3>
+        <p>All 100 spots have been claimed or the invitation window has ended. You can still sell on Credabilia under our standard fees.</p></div>}
+      {error && view !== 'invited' && <p role="alert" className="error">{error}</p>}
+      {view !== 'closed' && <>
+        <h2>How it works</h2>
+        <ul className="founding-facts">
+          <li>Founding sellers pay no Credabilia selling fee on their sales, for as long as their account stays open and in good standing.</li>
+          <li>Payment-processing fees still apply. They are shown as their own line on each sale and are separate from Credabilia's selling fee.</li>
+          <li>The benefit belongs to the account, so changing the email later does not affect it.</li>
+          <li>Each invitation is tied to one email address. It closes on the date shown once you sign in, or sooner if all 100 spots are taken.</li>
+        </ul>
+      </>}
+      <p className="field-note">Full terms: <a href="/terms">Terms of Service, section 7</a>.</p>
+    </div>
   </LegalShell>;
 }

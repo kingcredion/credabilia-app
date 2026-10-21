@@ -4,6 +4,8 @@
 // close-auctions/release-stale-escrow). Retries the Photoroom call for listings whose main item
 // photo couldn't have its background removed at publish time -- see
 // 202609300049_background_removal_retry.sql for why publish no longer blocks on this.
+import { keptShare, cutoutIsTooSmall } from './cutoutQuality.js';
+
 export function createHandler({createClient,env,fetcher=fetch,wait=ms=>new Promise(resolve=>setTimeout(resolve,ms))}) {
   const cors={'Access-Control-Allow-Origin':'*','Access-Control-Allow-Headers':'authorization, content-type','Access-Control-Allow-Methods':'POST, OPTIONS'};
   const reply=(body,status=200)=>Response.json(body,{status,headers:cors});
@@ -42,6 +44,8 @@ async function retryOne(service, env, fetcher, row) {
   });
   if(!response.ok) { await bumpAttempts(service,row); return false; }
   const result=new Uint8Array(await response.arrayBuffer());
+  // The cutout kept only a small patch of the picture: Photoroom cannot do this photo well, so keep the original for good rather than retrying the same result.
+  if(cutoutIsTooSmall(await keptShare(result))) { await service.from('listing_media').update({bg_pending:false}).eq('path',row.path); return false; }
 
   const owner=row.path.split('/')[0];
   const newPath=owner+'/'+crypto.randomUUID()+'.png';

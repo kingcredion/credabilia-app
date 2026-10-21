@@ -3,13 +3,14 @@ import assert from 'node:assert/strict';
 
 process.env.VITE_SUPABASE_URL = 'https://db.example.test';
 process.env.VITE_SUPABASE_PUBLISHABLE_KEY = 'anon';
-const {default: middleware, shorten, productJsonLd} = await import('../middleware.js');
+const {default: middleware, shorten, productJsonLd, clearSeoCache} = await import('../middleware.js');
 
 const GOOGLEBOT = 'Mozilla/5.0 (compatible; Googlebot/2.1; +http://www.google.com/bot.html)';
 const BROWSER = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/120 Safari/537.36';
 const SHELL = '<html><head><title>Credabilia | The Memorabilia Kingdom</title><meta name="description" content="x" /><link rel="canonical" href="https://credabilia.com/" /></head><body><div id="root"></div></body></html>';
 
 function withFetch(rpc) {
+  clearSeoCache();
   const original = globalThis.fetch, requested = [];
   globalThis.fetch = async url => {
     requested.push(String(url));
@@ -28,7 +29,7 @@ test('an item page for a crawler carries its own text, a self canonical and Prod
   const f = withFetch({get_listing_preview: () => ({body: ITEM})});
   try {
     const html = await (await middleware(request('/item/' + ITEM_ID, GOOGLEBOT))).text();
-    assert.match(html, /<div id="root"><main><h1>Signed Ball &lt;b&gt;<\/h1>/);
+    assert.match(html, /<div id="root"><main><nav aria-label="Breadcrumb">.*<\/nav><h1>Signed Ball &lt;b&gt;<\/h1>/);
     assert.match(html, /\$125\.00 · Sports/);
     assert.match(html, new RegExp('rel="canonical" href="https://credabilia.com/item/' + ITEM_ID + '"'));
     const json = JSON.parse(html.match(/<script type="application\/ld\+json">(.*?)<\/script>/)[1]);
@@ -67,7 +68,7 @@ test('help, terms, privacy, certificate and sell each get their own title and ca
 
 test('the home page gives a crawler real links to the featured items, storefronts and key pages', async () => {
   const f = withFetch({
-    merchant_feed_listings: () => ({body: [{id: ITEM_ID, title: 'Signed Ball', price_cents: 5000}]}),
+    seo_listing_index: () => ({body: [{id: ITEM_ID, title: 'Signed Ball', price_cents: 5000}]}),
     sitemap_entries: () => ({body: {listings: [], storefronts: ['kingcredion']}}),
   });
   try {
@@ -109,4 +110,19 @@ test('descriptions are cut at a word, never mid-word', () => {
   assert.ok(text.startsWith(kept));
   assert.equal(text[kept.length], ' ', 'the cut falls on a space');
   assert.equal(shorten('short', 60), 'short');
+});
+
+test('an item page for a crawler shows the AI tags as plain related terms, without repeating the title or escaping badly', async () => {
+  const f = withFetch({get_listing_preview: () => ({body: {...ITEM, title: 'Ken Griffey Jr. Framed Display', tags: ['ken griffey jr.', 'seattle mariners', 'Seattle Mariners', 'baseball <b>', '']}})});
+  try {
+    const html = await (await middleware(request('/item/' + ITEM_ID, GOOGLEBOT))).text();
+    assert.match(html, /<p>Related terms: seattle mariners, baseball &lt;b&gt;<\/p>/);
+  } finally { f.restore(); }
+});
+
+test('no tags, no related terms line', async () => {
+  const f = withFetch({get_listing_preview: () => ({body: ITEM})});
+  try {
+    assert.doesNotMatch(await (await middleware(request('/item/' + ITEM_ID, GOOGLEBOT))).text(), /Related terms/);
+  } finally { f.restore(); }
 });

@@ -24,7 +24,7 @@ test('a Fiterman certificate is scored lower than a numbered one but above havin
   const numbered = credibilityScore({certificate_issuer: 'psa', certificate_number: '00001234'});
   const none = credibilityScore({});
   assert.equal(fiterman.certificate_supplied, true);
-  assert.equal(fiterman.certificate_score, 50);
+  assert.equal(fiterman.certificate_score, 55);
   assert.ok(fiterman.credibility_score < numbered.credibility_score);
   assert.ok(fiterman.credibility_score > none.credibility_score);
 });

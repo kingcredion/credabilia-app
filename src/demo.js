@@ -33,8 +33,11 @@ export function createDemoService(storage = window.localStorage) {
   let state;
   try { const saved = JSON.parse(storage.getItem(key)); state = saved && Array.isArray(saved.listings) && Array.isArray(saved.audits) ? saved : fresh(); } catch { state = fresh(); }
   state.uploads ||= {}; state.names ||= {}; state.favorites ||= {}; state.purchases ||= []; state.revisions ||= []; state.slugs ||= {}; state.shippingAddresses ||= {}; state.phones ||= {}; state.smsOptIns ||= {}; state.messages ||= []; state.conversations ||= []; state.credits ||= []; state.supportMessages ||= []; state.refundRequests ||= []; state.buyRequests ||= []; state.sellerRatings ||= []; state.bids ||= []; state.reports ||= []; state.blocks ||= [];
+  // The practice preview always has a giveaway running so the pinned card can be tried without the connected app.
+  state.giveaway ||= { id: 'demo-giveaway', listing_id: 'sample-1', status: 'active', starts_at: new Date(Date.now() - 10 * 86400000).toISOString(), ends_at: new Date(Date.now() + 170 * 86400000).toISOString(), rules_url: '/giveaway-rules' };
+  state.giveawayEntries ||= {};
   // "Pat Buyer Jones" -> "Pat J.", the way the real storefront shows reviewers.
-const reviewerLabel = name => { const parts = String(name || '').trim().split(/\s+/).filter(Boolean); return !parts.length ? 'Collector' : parts.length === 1 ? parts[0] : parts[0] + ' ' + parts[parts.length - 1][0].toUpperCase() + '.'; };
+const reviewerLabel = name => { const parts = String(name || '').trim().split(/\s+/).filter(Boolean); return !parts.length ? 'Royal Member' : parts.length === 1 ? parts[0] : parts[0] + ' ' + parts[parts.length - 1][0].toUpperCase() + '.'; };
 const demoReview = r => { const purchase = state.purchases.find(p => p.id === r.purchase_id); const item = state.listings.find(x => x.id === purchase?.listing_id); return { id: r.id, rating: r.rating, comment: r.comment, created_at: r.created_at, reviewer: reviewerLabel(state.names[r.buyer_id] || DEMO_ACCOUNTS.find(u => u.id === r.buyer_id)?.display_name), item_title: item?.title || null }; };
   function sellerRatingStats(sellerId) {
     const ratings=state.sellerRatings.filter(r=>r.seller_id===sellerId);
@@ -282,7 +285,10 @@ const demoReview = r => { const purchase = state.purchases.find(p => p.id === r.
       return state.purchases.filter(p=>p.seller_id===state.userId).map(p=>{
         const item=state.listings.find(x=>x.id===p.listing_id) || {};
         const refund=state.refundRequests.find(r=>r.purchase_id===p.id);
-        return {id:p.id,listing_id:item.id,title:item.title,category:item.category,price_cents:p.price_cents,created_at:p.created_at,shipping_address:p.shipping_address,
+        // Practice preview only (/?founding-preview=1): show a sale the way a Founding seller sees it.
+        const previewFounder=typeof window!=='undefined' && new URLSearchParams(window.location.search).get('founding-preview')==='1';
+        return {id:p.id,listing_id:item.id,title:item.title,category:item.category,price_cents:p.price_cents,created_at:p.created_at,
+          selling_fee_waived:previewFounder,waived_selling_fee_cents:previewFounder?p.platform_fee_cents||0:0,processing_fee_cents:previewFounder?Math.round(p.price_cents*0.029)+30:null,shipping_address:p.shipping_address,
           shipping_cost_cents:p.shipping_cost_cents || 0,seller_shipping_charge_cents:p.seller_shipping_charge_cents || 0,
           tracking_number:p.tracking_number || null,tracking_url:p.tracking_url || null,tracking_status:p.tracking_status || 'UNKNOWN',label_url:p.label_url || null,shipped_at:p.shipped_at || null,
           escrow_status:p.escrow_status || 'held',funds_released_at:p.funds_released_at || null,
@@ -332,7 +338,7 @@ const demoReview = r => { const purchase = state.purchases.find(p => p.id === r.
       requireUser();
       const conv=state.conversations.find(c=>c.id===conversationId && (c.buyer_id===state.userId || c.seller_id===state.userId));
       if(!conv) throw new Error('Conversation not found.');
-      return state.messages.filter(m=>m.conversation_id===conversationId).map(m=>({...m,sender_name:state.names[m.sender_id] || DEMO_ACCOUNTS.find(user=>user.id===m.sender_id)?.display_name || 'Collector'}));
+      return state.messages.filter(m=>m.conversation_id===conversationId).map(m=>({...m,sender_name:state.names[m.sender_id] || DEMO_ACCOUNTS.find(user=>user.id===m.sender_id)?.display_name || 'Royal Member'}));
     },
     async sendMessage(conversationId, body) {
       requireUser();
@@ -387,7 +393,7 @@ const demoReview = r => { const purchase = state.purchases.find(p => p.id === r.
           const convMessages=state.messages.filter(m=>m.conversation_id===c.id).sort((a,b)=>a.created_at<b.created_at?-1:1);
           const last=convMessages[convMessages.length-1];
           return {id:c.id,listing_id:item.id,listing_title:item.title,listing_status:item.status,listing_price_cents:item.price_cents,
-            role:mine?'buyer':'seller',counterparty_name:state.names[mine?c.seller_id:c.buyer_id] || DEMO_ACCOUNTS.find(u=>u.id===(mine?c.seller_id:c.buyer_id))?.display_name || 'Collector',
+            role:mine?'buyer':'seller',counterparty_name:state.names[mine?c.seller_id:c.buyer_id] || DEMO_ACCOUNTS.find(u=>u.id===(mine?c.seller_id:c.buyer_id))?.display_name || 'Royal Member',
             last_message_at:last?.created_at || null,last_message_body:last?.body || null,
             unread:!!(last && last.sender_id!==state.userId && (!lastRead || last.created_at>lastRead)),
             media:(item.media||[]).filter(asset=>asset.kind==='item').slice(0,1),
@@ -555,7 +561,39 @@ const demoReview = r => { const purchase = state.purchases.find(p => p.id === r.
     async isOperator() { requireUser(); return false; },
     async adminListRefundRequests() { requireUser(); return []; },
     async adminResolveRefundRequest() { throw new Error('The admin dashboard requires the connected app. Not available in this practice preview.'); },
+    // Giveaway: in the practice preview a signed-in member who enters counts as Stripe-ready, so the whole flow can be tried.
+    async currentGiveaway() {
+      const g = state.giveaway;
+      if (!g || g.status !== 'active') return null;
+      const entrants = Object.keys(state.giveawayEntries).length;
+      const listingsOf = uid => state.listings.filter(item => item.seller_id === uid && item.status === 'active').length;
+      const tickets = Object.keys(state.giveawayEntries).reduce((sum, uid) => sum + 1 + listingsOf(uid), 0);
+      const me = !state.userId ? null : (() => { const entered = !!state.giveawayEntries[state.userId]; const listings = entered ? listingsOf(state.userId) : 0; return { entered, ready: entered, signup: entered ? 1 : 0, listings, referrals: 0, tickets: entered ? 1 + listings : 0 }; })();
+      return { id: g.id, listing_id: g.listing_id, title: state.listings.find(item => item.id === g.listing_id)?.title || 'Prize', starts_at: g.starts_at, ends_at: g.ends_at, rules_url: g.rules_url, early_draw_tickets: null, entrants, pending_entrants: 0, tickets, me };
+    },
+    async enterGiveaway(stateCode) {
+      requireUser();
+      if (!String(stateCode || '').trim()) throw new Error('Choose the state where you live.');
+      if (['NY', 'FL', 'RI'].includes(String(stateCode).trim().toUpperCase())) throw new Error('This giveaway is not open to residents of that state.');
+      state.giveawayEntries[state.userId] = true; save(); return this.currentGiveaway();
+    },
+    async myGiveawayWin() { requireUser(); return null; },
+    async claimGiveawayPrize() { throw new Error('Claiming a prize requires the connected app. Not available in this practice preview.'); },
+    async claimReferral() { requireUser(); return false; },
+    async myReferralInfo() { requireUser(); const slug = state.slugs[state.userId] || null; return { code: 'demo1234', slug, signed_up: 0, verified: 0 }; },
+    async adminGiveawayOverview() { throw new Error('The admin dashboard requires the connected app. Not available in this practice preview.'); },
+    async adminStartGiveaway() { throw new Error('The admin dashboard requires the connected app. Not available in this practice preview.'); },
+    async adminAddMailinEntry() { throw new Error('The admin dashboard requires the connected app. Not available in this practice preview.'); },
+    async adminRecordMailinClaim() { throw new Error('The admin dashboard requires the connected app. Not available in this practice preview.'); },
+    async adminCancelGiveaway() { throw new Error('The admin dashboard requires the connected app. Not available in this practice preview.'); },
     async adminListReports() { requireUser(); return []; },
+    async adminSeoReport() { requireUser(); return {sync:null,newest_day:null,last_7_days:null,previous_7_days:null,low_ctr:[],striking_distance:[],no_clicks:[],top_queries:[],listing_issues:[],suggestions:[]}; },
+    // Practice preview only. /?founding-preview=1 shows a Founding seller; =invited, =not-invited and =closed show the other claim-page states. The real site gets this from the database.
+    async foundingStatus() { requireUser(); const mode=typeof window!=='undefined' ? new URLSearchParams(window.location.search).get('founding-preview') : null; const soon=new Date(Date.now()+90*86400000).toISOString(); const states={'1':{member:true,spot_number:7,open:false,invited:false,spots_left:null,expires_at:null},invited:{member:false,spot_number:null,open:true,invited:true,spots_left:63,expires_at:soon},'not-invited':{member:false,spot_number:null,open:true,invited:false,spots_left:63,expires_at:soon},closed:{member:false,spot_number:null,open:false,invited:false,spots_left:null,expires_at:null}}; return states[mode]||{member:false,spot_number:null,open:false,invited:false,spots_left:null,expires_at:null}; },
+    async claimFoundingSpot() { throw new Error('Claiming a Founding spot requires the connected app. Not available in this practice preview.'); },
+    async adminFoundingOverview() { requireUser(); return {started_at:null,expires_at:null,window_days:90,spot_limit:100,closed_reason:null,invitations_loaded:0,invitations_open:0,claimed:0,spots_left:100,removed_unclaimed:0,members:[]}; },
+    async adminFoundingInvitations() { requireUser(); return []; },
+    async adminStartFounding() { throw new Error('Starting the campaign requires the connected app. Not available in this practice preview.'); },
     async adminResolveReport() { throw new Error('The admin dashboard requires the connected app. Not available in this practice preview.'); },
     async adminListSupportConversations() { requireUser(); return []; },
     async adminGetSupportThread() { requireUser(); return []; },
@@ -607,7 +645,7 @@ const demoReview = r => { const purchase = state.purchases.find(p => p.id === r.
     },
     async myBlockedUsers() {
       requireUser();
-      return (state.blocks || []).filter(b=>b.blocker_id===state.userId).map(b=>({user_id:b.blocked_id,display_name:state.names[b.blocked_id] || DEMO_ACCOUNTS.find(u=>u.id===b.blocked_id)?.display_name || 'Collector'}));
+      return (state.blocks || []).filter(b=>b.blocker_id===state.userId).map(b=>({user_id:b.blocked_id,display_name:state.names[b.blocked_id] || DEMO_ACCOUNTS.find(u=>u.id===b.blocked_id)?.display_name || 'Royal Member'}));
     },
     async deleteMyAccount() {
       requireUser();
@@ -646,7 +684,7 @@ const demoReview = r => { const purchase = state.purchases.find(p => p.id === r.
       const slug=state.slugs[listing.seller_id] || null;
       const {avg,count}=sellerRatingStats(listing.seller_id);
       const all=state.sellerRatings.filter(r=>r.seller_id===listing.seller_id).sort((a,b)=>new Date(b.created_at)-new Date(a.created_at));
-      return {seller_name:listing.seller_name || 'Collector',slug,rating_avg:avg,rating_count:count,reviews:all.slice(offset,offset+limit).map(r=>demoReview(r))};
+      return {seller_name:listing.seller_name || 'Royal Member',slug,rating_avg:avg,rating_count:count,reviews:all.slice(offset,offset+limit).map(r=>demoReview(r))};
     },
     async getStorefront(slug) {
       const clean=String(slug || '').trim().toLowerCase();
@@ -656,7 +694,7 @@ const demoReview = r => { const purchase = state.purchases.find(p => p.id === r.
       const sellerListings=state.listings.filter(item=>item.seller_id===userId && item.status==='active');
       const {avg,count}=sellerRatingStats(userId);
       return {
-        display_name:state.names[userId] || account?.display_name || 'Collector',
+        display_name:state.names[userId] || account?.display_name || 'Royal Member',
         slug:clean,
         member_since:new Date().toISOString(),
         sales_count:state.purchases.filter(p=>p.seller_id===userId).length,
@@ -684,11 +722,14 @@ const demoReview = r => { const purchase = state.purchases.find(p => p.id === r.
       return item ? { id: item.id, title: item.title, category: item.category, media: item.media?.[0] ? [{ path: item.media[0].path, url: item.media[0].url }] : [] } : null;
     },
     async listings(after) {
+      // Practice preview only (/?founding-preview=1): every third seller shows the Founding chip.
+      const previewChips=typeof window!=='undefined' && new URLSearchParams(window.location.search).get('founding-preview')==='1';
       const scored = state.listings.filter(item => item.status === 'active' || (item.status === 'needs_review' && item.seller_id === state.userId)).map(item => { const current=state.audits.filter(a => a.listing_id === item.id && (a.listing_version||1) === (item.version||1)); const {avg,count}=sellerRatingStats(item.seller_id); const signed=item.media?.some(asset=>asset.kind==='signature'); return { ...item, ...(signed ? credibilityScore(item,current) : {}), audit_count: current.length, seller_member_since:new Date().toISOString(), seller_sales_count:state.purchases.filter(p=>p.seller_id===item.seller_id).length, seller_rating_avg:avg, seller_rating_count:count }; })
         .sort((a,b) => a.created_at === b.created_at ? (a.id < b.id ? 1 : -1) : (a.created_at < b.created_at ? 1 : -1));
-      if (!after) return scored;
-      const idx = scored.findIndex(item => item.created_at === after.created_at && item.id === after.id);
-      return idx === -1 ? [] : scored.slice(idx + 1);
+      const shown = previewChips ? scored.map((item, i) => i % 3 === 0 ? { ...item, seller_founding: true } : item) : scored;
+      if (!after) return shown;
+      const idx = shown.findIndex(item => item.created_at === after.created_at && item.id === after.id);
+      return idx === -1 ? [] : shown.slice(idx + 1);
     },
     async myAudits() { requireUser(); return state.audits.filter(a => a.auditor_id === state.userId); },
     async getListingHistory(listingId) {

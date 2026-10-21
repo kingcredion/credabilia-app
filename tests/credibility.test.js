@@ -30,7 +30,8 @@ test('server and preview agree for all issuer ratings and every blend boundary',
       create function auth.uid() returns uuid language sql stable as $$select nullif(current_setting('request.jwt.claim.sub',true),'')::uuid$$;
       grant usage on schema public,auth to anon,authenticated;`);
     for(const file of ['202609100001_foundation.sql','202609100002_certificates.sql','202609100003_credibility.sql','202609300027_credibility_low_default.sql']) await db.exec(await readFile(new URL('../supabase/migrations/'+file,import.meta.url),'utf8'));
-    for(const issuer of ISSUERS) assert.equal((await db.query('select public.certificate_rating($1) as score',[issuer.id])).rows[0].score,issuer.rating);
+    // Frameworth and the Fiterman re-rating came with later migrations than this older chain; their database ratings are checked against the full chain in tests/frameworthIssuer.test.js.
+    for(const issuer of ISSUERS.filter(issuer=>!['frameworth','fiterman'].includes(issuer.id))) assert.equal((await db.query('select public.certificate_rating($1) as score',[issuer.id])).rows[0].score,issuer.rating);
     const owner='11111111-1111-4111-8111-111111111111';
     await db.query('insert into auth.users(id) values ($1)',[owner]);
     await db.exec(`set role authenticated;set request.jwt.claim.sub='${owner}';`);

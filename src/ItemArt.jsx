@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { Layers, Star } from 'lucide-react';
+import { thumbUrl } from './thumbUrl.js';
 
 export const money = cents => new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: cents % 100 ? 2 : 0 }).format(cents / 100);
 
@@ -12,9 +13,6 @@ export function RatingStars({ value, count, size = 14 }) {
   </span>;
 }
 
-// A small, cached copy of an active listing's main photo at an address that never expires (api/email-image.js, ?fmt=webp). Cards use it first:
-// it loads much faster than the full-size photo and cannot go stale while the app sits in the background.
-export const thumbUrl = id => 'https://credabilia.com/img/item/' + id + '?fmt=webp&w=640';
 
 // Photos are served through temporary links. When one stops working the app is told (once every 30 seconds at most) so it can fetch fresh links.
 let lastStaleSignal = 0;
@@ -32,7 +30,7 @@ function ListingPhoto({ kind, category, large, photo, thumbId }) {
   useEffect(() => { setStage(thumbId ? 0 : 1); }, [photo, thumbId]);
   if (stage > 1) return <ItemArt kind={kind} category={category} large={large}/>;
   const onError = () => { if (stage === 0) { setStage(1); return; } setStage(2); signalStaleMedia(); };
-  return <img className="listing-cover" loading={large ? 'eager' : 'lazy'} decoding="async" src={stage === 0 ? thumbUrl(thumbId) : photo} onError={onError} alt={`${category} item photo`}/>;
+  return <img className="listing-cover" loading={large ? 'eager' : 'lazy'} decoding="async" src={stage === 0 ? thumbUrl(thumbId, photo) : photo} onError={onError} alt={`${category} item photo`}/>;
 }
 
 export function ItemArt({ kind = 'generic', category, large = false, photo, thumbId }) {

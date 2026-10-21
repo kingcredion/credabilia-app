@@ -5,6 +5,7 @@ import { createDemoService } from './demo.js';
 import { listingInput, auditInput } from './domain.js';
 import { pushSupported, currentPushSubscription, enablePush, disablePush } from './push.js';
 import { handleNativeBack } from './nativeBack.js';
+import { trackEvent } from './events.js';
 import { NATIVE_REDIRECT, isNativeApp, parseAuthRedirect, cleanEmailCode, EMAIL_CODE_MIN, EMAIL_CODE_MAX, externalLinkUrl, APP_REVIEW_EMAIL } from './nativeAuth.js';
 
 // Opens an outside page (Stripe's payout setup). On the website it is an ordinary redirect. In the phone app it opens in the in-app browser so the member can
@@ -98,7 +99,8 @@ export function makeService() {
     // The email carries both a link and a 6-digit code. The code works everywhere, including the apps, where a link opens the browser instead.
     async signInWithEmail(email) {
       // App Review's test account: while the review switch is on, this address signs straight in. When it is off (or for anyone else) this falls through to the normal emailed code.
-      if (email.trim().toLowerCase() === APP_REVIEW_EMAIL) {
+      // Only inside the phone apps: on the website the review address gets the normal emailed code like anyone else's.
+      if (email.trim().toLowerCase() === APP_REVIEW_EMAIL && isNativeApp()) {
         const { data, error } = await invokeFn('review-sign-in', { body: { email: email.trim() } });
         if (!error && data?.token_hash) { unwrap(await client.auth.verifyOtp({ token_hash: data.token_hash, type: data.type || 'magiclink' })); return { signedIn: true }; }
       }
@@ -258,6 +260,7 @@ export function makeService() {
     async startStripeOnboarding() {
       const {data,error}=await invokeFn('stripe-connect-onboarding',{body:{}});
       if(error) { let detail; try {detail=await error.context?.json();} catch {} throw new Error(detail?.error || 'Stripe onboarding is not available right now.'); }
+      trackEvent('payout_setup_started');
       return data;
     },
     async refreshStripeOnboardingStatus() {
@@ -375,7 +378,26 @@ export function makeService() {
     async isOperator() { return unwrap(await client.rpc('is_operator')); },
     async adminListRefundRequests(status) { return unwrap(await client.rpc('admin_list_refund_requests', { p_status: status || null })); },
     async adminResolveRefundRequest(requestId, action, amountCents, note) { return unwrap(await client.rpc('admin_resolve_refund_request', { p_request_id: requestId, p_action: action, p_amount_cents: amountCents || null, p_note: note || null })); },
+    // Giveaway + referrals (supabase/migrations/202610140142_giveaways.sql). currentGiveaway() is public; the rest need sign-in, and admin* are operator-only.
+    async currentGiveaway() { return unwrap(await client.rpc('current_giveaway')); },
+    async enterGiveaway(state) { return unwrap(await client.rpc('enter_giveaway', { p_state: state || null })); },
+    async myGiveawayWin() { return unwrap(await client.rpc('my_giveaway_win')); },
+    async claimGiveawayPrize(address) { unwrap(await client.rpc('claim_giveaway_prize', { p_address: address })); },
+    async claimReferral(ref) { return unwrap(await client.rpc('claim_referral', { p_slug: ref?.slug || null, p_code: ref?.code || null })); },
+    async myReferralInfo() { return unwrap(await client.rpc('my_referral_info')); },
+    async adminGiveawayOverview() { return unwrap(await client.rpc('admin_giveaway_overview')); },
+    async adminStartGiveaway(listingId, endsAt) { return unwrap(await client.rpc('admin_start_giveaway', { p_listing_id: listingId, p_ends_at: endsAt || null })); },
+    async adminAddMailinEntry(name, email, state) { unwrap(await client.rpc('admin_add_mailin_entry', { p_name: name, p_email: email, p_state: state })); },
+    async adminRecordMailinClaim(winnerId, address) { unwrap(await client.rpc('admin_record_mailin_claim', { p_winner_id: winnerId, p_address: address })); },
+    async adminCancelGiveaway(id) { unwrap(await client.rpc('admin_cancel_giveaway', { p_id: id })); },
     async adminListReports(status) { return unwrap(await client.rpc('admin_list_reports', { p_status: status || null })); },
+    async adminSeoReport() { return unwrap(await client.rpc('admin_seo_report')); },
+    // Founding 100 (the rules are enforced by the database; these only ask it).
+    async foundingStatus() { return unwrap(await client.rpc('founding_status')); },
+    async claimFoundingSpot() { return unwrap(await client.rpc('claim_founding_spot')); },
+    async adminFoundingOverview() { return unwrap(await client.rpc('admin_founding_overview')); },
+    async adminStartFounding() { return unwrap(await client.rpc('admin_start_founding_campaign')); },
+    async adminFoundingInvitations(search) { return unwrap(await client.rpc('admin_founding_invitations', { p_search: search || null, p_limit: 200 })); },
     async adminResolveReport(reportId, status, note, removeListing) { return unwrap(await client.rpc('admin_resolve_report', { p_report_id: reportId, p_status: status, p_note: note || null, p_remove_listing: !!removeListing })); },
     async adminListSupportConversations() { return unwrap(await client.rpc('admin_list_support_conversations')); },
     async adminGetSupportThread(userId) { return unwrap(await client.rpc('admin_get_support_thread', { p_user_id: userId })); },

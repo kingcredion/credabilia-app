@@ -1,0 +1,36 @@
+<!-- Klaviyo "Giveaway Won" body (HTML block between the logo and the footer).
+     Trigger metric: "Giveaway Won", sent by the giveaway draw (public.draw_giveaway / run_giveaway_maintenance, migration 202610140142) to the winning member, and again to the alternate if the winner does not claim in time.
+     Event properties: title (the prize), claim_deadline_display (for example "October 28, 2026", 14 days after the notice), action_url.
+     Art: public/brand/email/giveaway-won-art.png (King Credion opening a gift chest), user-supplied.
+     Subject: You won the giveaway!   |   Preview: King Credion has a prize for you. Claim it within 14 days.
+     Email winners (people who entered by email, no account) are not sent this: the operator gets an "Admin Alert: Giveaway Drawn" naming them and writes to them by hand. -->
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="max-width:560px;margin:0 auto;font-family:Georgia,'Times New Roman',serif;color:#1d2b25;">
+  <tr><td style="height:4px;background:#c9a227;font-size:0;line-height:0;">&nbsp;</td></tr>
+  <tr><td align="center" style="padding:28px 16px 6px 16px;">
+    <div style="font-size:12px;letter-spacing:2px;text-transform:uppercase;color:#8a6d12;font-family:Arial,Helvetica,sans-serif;">The Memorabilia Kingdom</div>
+    <h1 style="margin:10px 0 0 0;font-size:30px;line-height:36px;color:#0d3b2e;font-weight:normal;">You won the giveaway!</h1>
+  </td></tr>
+  <tr><td align="center" style="padding:16px 16px 0 16px;">
+    <img src="https://credabilia.com/brand/email/giveaway-won-art.png" width="220" alt="King Credion opening a golden gift chest" style="display:block;width:220px;max-width:100%;height:auto;margin:0 auto;">
+  </td></tr>
+  <tr><td style="padding:18px 24px 6px 24px;font-family:Arial,Helvetica,sans-serif;font-size:15px;line-height:23px;color:#33423b;">
+    Congratulations! Your ticket was drawn at random, and the prize is yours:<br>
+    <strong style="font-size:17px;color:#0d3b2e;">{{ event.title|default:'the giveaway prize' }}</strong>
+  </td></tr>
+  <tr><td style="padding:6px 24px 4px 24px;font-family:Arial,Helvetica,sans-serif;font-size:15px;line-height:23px;color:#33423b;">
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+      <tr><td width="34" valign="top" style="padding:6px 0;"><div style="width:26px;height:26px;border-radius:13px;background:#0d3b2e;color:#f3d77a;text-align:center;line-height:26px;font-weight:bold;font-size:14px;">1</div></td><td style="padding:6px 0;"><strong>Open Credabilia.</strong> A "You won" banner waits at the top. Tap <em>Claim my prize</em>.</td></tr>
+      <tr><td width="34" valign="top" style="padding:6px 0;"><div style="width:26px;height:26px;border-radius:13px;background:#0d3b2e;color:#f3d77a;text-align:center;line-height:26px;font-weight:bold;font-size:14px;">2</div></td><td style="padding:6px 0;"><strong>Confirm your delivery address</strong> by {{ event.claim_deadline_display|default:'the date shown in the app' }}. It must be an address in an eligible state, and your payout setup with Stripe needs to be finished.</td></tr>
+      <tr><td width="34" valign="top" style="padding:6px 0;"><div style="width:26px;height:26px;border-radius:13px;background:#0d3b2e;color:#f3d77a;text-align:center;line-height:26px;font-weight:bold;font-size:14px;">3</div></td><td style="padding:6px 0;"><strong>We ship it free.</strong> The prize goes out within 30 days after you confirm your address, and there is nothing to pay.</td></tr>
+    </table>
+  </td></tr>
+  <tr><td align="center" style="padding:22px 24px 8px 24px;">
+    <a href="{{ event.action_url|default:'https://credabilia.com/' }}" style="display:inline-block;background:#0d3b2e;color:#f3d77a;text-decoration:none;font-family:Arial,Helvetica,sans-serif;font-size:16px;font-weight:bold;padding:14px 32px;border-radius:8px;border:1px solid #c9a227;">Claim my prize</a>
+  </td></tr>
+  <tr><td align="center" style="padding:8px 24px 0 24px;font-family:Arial,Helvetica,sans-serif;font-size:13px;line-height:20px;color:#5b6a63;">
+    If we do not hear from you by {{ event.claim_deadline_display|default:'the date shown in the app' }}, the prize goes to the alternate winner, as the official rules explain. <a href="https://credabilia.com/giveaway-rules" style="color:#0d3b2e;">Official rules</a>
+  </td></tr>
+  <tr><td align="center" style="padding:14px 24px 28px 24px;font-family:Georgia,'Times New Roman',serif;font-size:15px;line-height:22px;color:#33423b;font-style:italic;">
+    Questions? Just reply to this email, or ask me in the chat.<br>&mdash; King Credion
+  </td></tr>
+</table>

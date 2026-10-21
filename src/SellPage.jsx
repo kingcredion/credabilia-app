@@ -38,7 +38,8 @@ export function SellPage() {
   }, []);
   return <div className="sell-page">
     <header className="sell-top">
-      <span className="brand" aria-label="Credabilia"><Brand/></span>
+      {/* Tapping the logo is the first thing many visitors try; it scrolls to the top rather than sending them off the landing page. */}
+      <a className="brand" href="#top" aria-label="Credabilia, back to the top" onClick={e => { e.preventDefault(); window.scrollTo({ top: 0, behavior: 'smooth' }); }}><Brand/></a>
       <a className="sell-cta sell-cta-small" href={LIST_URL}>List an item</a>
     </header>
 
