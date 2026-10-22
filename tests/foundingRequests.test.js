@@ -169,6 +169,22 @@ test('the page offers the form to visitors and to signed-in people without an in
   assert.doesNotMatch(body, /free|guarantee/i, 'no promises beyond the approved wording');
 });
 
+test('a request remembers a short clean source label, which only staff can see', async () => {
+  const {db, as} = await world();
+  await as(null, 'anon');
+  await db.query("select public.submit_founding_request('ad@example.test','Ad Person','Ad Shop',null,null,null,null,'instagram/founding100')");
+  await db.query("select public.submit_founding_request('odd@example.test','Odd Person','Odd Shop',null,null,null,null,$1)", ['<script>alert(1)</script>meta' + 'x'.repeat(200)]);
+  await ask(db, {email: 'plain@example.test'});
+  await as(OP);
+  const rows = (await db.query("select public.admin_founding_requests('pending',50) as r")).rows[0].r;
+  const by = email => rows.find(r => r.email === email);
+  assert.equal(by('ad@example.test').source, 'instagram/founding100');
+  assert.equal(by('plain@example.test').source, null, 'older callers that send no source still work');
+  const odd = by('odd@example.test').source;
+  assert.doesNotMatch(odd, /[<>()]/, 'only plain label characters are kept');
+  assert.ok(odd.length <= 100);
+});
+
 test('the request form never decides anything about money', async () => {
   const form = squash(await read('src/FoundingRequest.jsx'));
   assert.doesNotMatch(form, /fee_cents|platform_fee|checkout|purchase/i);

@@ -4,6 +4,7 @@ import { isSellHost } from './listIntent.js';
 import { inject } from '@vercel/analytics';
 import { SpeedInsights } from '@vercel/speed-insights/react';
 import { startClarity } from './clarity.js';
+import { startMetaPixel } from './metaPixel.js';
 import './theme.css';
 import './styles.css';
 import './branding.css';
@@ -13,6 +14,8 @@ import './showroom.css';
 if (/^(www\.)?credabilia\.(com|app)$/.test(window.location.hostname)) inject();
 // Microsoft Clarity session recordings (real sites only; see src/clarity.js for who is excluded).
 startClarity();
+// Meta (Instagram) pixel: real sites only, off in Europe and for Global Privacy Control, and does nothing until its ID is set (see src/metaPixel.js).
+startMetaPixel();
 const collectSpeedInsights = import.meta.env.PROD && /^(www\.)?credabilia\.com$/.test(window.location.hostname);
 
 // The seller landing page (credabilia.app root and /sell) is a simple page: it loads on its own, without the ~700 KB marketplace code that every other page needs.

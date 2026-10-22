@@ -28,6 +28,17 @@ export const FOUNDING_TERMS = [
   'We may end the benefit for an account that is closed, or that breaks our rules, for example by listing items on behalf of other sellers to avoid fees. Unclaimed invitations and requests, and the contact details kept for them, are deleted when the window closes.',
 ];
 
+// A short plain label for where a request came from, read from the link's own utm_source and utm_campaign (a link from Instagram that only carries
+// Meta's fbclid counts as "meta"). Never anything about the person; the database also strips it down to letters, digits and . _ / -.
+export function requestSource(search) {
+  try {
+    const q = new URLSearchParams(String(search || ''));
+    const label = [q.get('utm_source'), q.get('utm_campaign')].map(v => String(v || '').trim()).filter(Boolean).join('/');
+    if (label) return label.slice(0, 100);
+    return q.get('fbclid') ? 'meta' : '';
+  } catch { return ''; }
+}
+
 // The email staff send after approving a request: where to claim, and which address to use. Approving does not email the person by itself.
 export function approvalMailto(request) {
   const first = String(request.contact_name || '').trim().split(/\s+/)[0] || 'there';

@@ -1,4 +1,5 @@
 import { track } from '@vercel/analytics';
+import { trackMeta } from './metaPixel.js';
 
 // Funnel events for Vercel Web Analytics (and Microsoft Clarity, when it is running), so we can see where people drop off:
 // sign_up, listing_published, payout_setup_started, request_to_buy. Real sites only, never localhost, previews or the native apps.
@@ -13,6 +14,7 @@ export function trackEvent(name, props) {
     if (typeof window === 'undefined' || !REAL_SITE.test(window.location.hostname)) return false;
     track(name, props);
     if (typeof window.clarity === 'function') window.clarity('event', name);
+    trackMeta(name);
     return true;
   } catch { return false; }
 }

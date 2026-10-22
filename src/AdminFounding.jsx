@@ -48,10 +48,10 @@ export function AdminFounding({ service }) {
     {approved && <div className="founding-box ok" role="status"><p><strong>{approved.business_name} is approved.</strong> Let them know:</p>
       <p><a href={approvalMailto(approved)}>Email {approved.contact_name}</a></p></div>}
     {requests === null ? <p role="status">Loading…</p> : requests.length === 0 ? <p className="field-note">No requests are waiting.</p>
-      : <div className="table-scroll"><table><thead><tr><th>Shop</th><th>Contact</th><th>Link</th><th>Sells</th><th>Heard from</th><th>Asked</th><th></th></tr></thead><tbody>
+      : <div className="table-scroll"><table><thead><tr><th>Shop</th><th>Contact</th><th>Link</th><th>Sells</th><th>Heard from</th><th>Source</th><th>Asked</th><th></th></tr></thead><tbody>
         {requests.map(r => <tr key={r.id}><td>{r.business_name}</td><td>{r.contact_name}<br/>{r.email}</td>
           <td className="founding-request-note">{/^https?:\/\//i.test(r.store_link || '') ? <a href={r.store_link} target="_blank" rel="noreferrer noopener">{r.store_link}</a> : (r.store_link || '—')}</td>
-          <td className="founding-request-note">{r.what_they_sell || '—'}</td><td className="founding-request-note">{r.how_heard || '—'}</td><td>{day(r.created_at)}</td>
+          <td className="founding-request-note">{r.what_they_sell || '—'}</td><td className="founding-request-note">{r.how_heard || '—'}</td><td className="founding-request-note">{r.source || '—'}</td><td>{day(r.created_at)}</td>
           <td><div className="founding-actions"><button type="button" className="primary compact" disabled={busy} onClick={() => decide(r, true)}>Approve</button><button type="button" className="text-button" disabled={busy} onClick={() => decide(r, false)}>Decline</button></div></td></tr>)}
       </tbody></table></div>}
     <h3>Founding sellers</h3>

@@ -6,7 +6,7 @@
 export const CLARITY_PROJECT_ID = 'ysofrrayq2';
 
 const REAL_SITE = /^(www\.)?credabilia\.(com|app)$/;
-const EUROPE_LIKE_ZONES = /^(Europe\/|Atlantic\/(Azores|Canary|Faroe|Madeira|Reykjavik)$|Africa\/Ceuta$)/;
+export const EUROPE_LIKE_ZONES = /^(Europe\/|Atlantic\/(Azores|Canary|Faroe|Madeira|Reykjavik)$|Africa\/Ceuta$)/;
 
 export function shouldStartClarity(hostname, timeZone) {
   if (!REAL_SITE.test(hostname || '')) return false;

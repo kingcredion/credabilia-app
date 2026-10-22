@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { trackEvent } from './events.js';
+import { requestSource } from './founding.js';
 import './founding.css';
 
 // "Request a Founding invitation": for people who land on /founding (for example from an ad) and were not on the invitation list. Nothing here grants anything.
@@ -11,7 +12,7 @@ export function FoundingRequestForm({ service, defaultEmail = '' }) {
   async function submit(event) {
     event.preventDefault(); if (busy) return;
     setBusy(true); setError('');
-    try { await service.requestFoundingInvitation(fields); setDone(true); trackEvent('founding_request'); }
+    try { await service.requestFoundingInvitation({ ...fields, source: requestSource(window.location.search) }); setDone(true); trackEvent('founding_request'); }
     catch (err) { setError(err.message); }
     finally { setBusy(false); }
   }
