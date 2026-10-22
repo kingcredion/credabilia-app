@@ -398,6 +398,13 @@ export function makeService() {
     async adminFoundingOverview() { return unwrap(await client.rpc('admin_founding_overview')); },
     async adminStartFounding() { return unwrap(await client.rpc('admin_start_founding_campaign')); },
     async adminFoundingInvitations(search) { return unwrap(await client.rpc('admin_founding_invitations', { p_search: search || null, p_limit: 200 })); },
+    // Requests for an invitation from people who land on /founding. Anyone can ask; only staff can read or decide (and approving only adds an invitation).
+    async foundingOpenInfo() { return unwrap(await client.rpc('founding_open_info')); },
+    async requestFoundingInvitation(fields) {
+      return unwrap(await client.rpc('submit_founding_request', { p_email: fields.email, p_name: fields.name, p_business: fields.business, p_link: fields.link || null, p_sells: fields.sells || null, p_heard: fields.heard || null, p_website: fields.website || null }));
+    },
+    async adminFoundingRequests(status) { return unwrap(await client.rpc('admin_founding_requests', { p_status: status || null, p_limit: 200 })); },
+    async adminDecideFoundingRequest(id, approve) { return unwrap(await client.rpc('admin_founding_decide_request', { p_id: id, p_approve: !!approve })); },
     async adminResolveReport(reportId, status, note, removeListing) { return unwrap(await client.rpc('admin_resolve_report', { p_report_id: reportId, p_status: status, p_note: note || null, p_remove_listing: !!removeListing })); },
     async adminListSupportConversations() { return unwrap(await client.rpc('admin_list_support_conversations')); },
     async adminGetSupportThread(userId) { return unwrap(await client.rpc('admin_get_support_thread', { p_user_id: userId })); },

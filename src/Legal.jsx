@@ -4,10 +4,11 @@ import { Brand } from './Brand.jsx';
 import { MAILIN_EMAIL, statesNote } from './giveaway.js';
 import { FOUNDING_FEE_NOTE, FOUNDING_TERMS, SAME_EMAIL_NOTE, claimView, isAppleRelayEmail } from './founding.js';
 import { FoundingBadgeImage } from './FoundingBadge.jsx';
+import { FoundingRequestForm } from './FoundingRequest.jsx';
 import { isNativeApp } from './nativeAuth.js';
 
 const LAST_UPDATED = 'October 5, 2026';
-const TERMS_UPDATED = 'October 20, 2026';
+const TERMS_UPDATED = 'October 22, 2026';
 
 const LEGAL_PATHS = ['/terms', '/privacy', '/help'];
 const RETURN_KEY = 'credabilia-legal-return';
@@ -160,6 +161,8 @@ export function PrivacyPage() {
     <p>Messages you send to another user about an order, and messages you send to our AI support assistant, King Credion, including by phone if you call our support line. If you use "Report a problem", we also record the page you were on and your browser type to help us find the problem.</p>
     <h3>Mobile number and notification choices</h3>
     <p>If you opt in to text-message alerts, we collect your mobile number, the time you opted in, and your notification preferences. Adding a mobile number is optional, and alerts stay off unless you turn them on.</p>
+    <h3>Founding seller requests</h3>
+    <p>If you ask for a Founding 100 invitation, we collect the name, shop or business name, email address and any store link or other answers you enter. We use them only to review your request, and we keep them only until the Founding 100 closes, when we delete them.</p>
     <h3>Community activity</h3>
     <p>Assessments you submit on other members' listings, and your trivia responses and participation/learning XP.</p>
     <h3>Information we don't collect</h3>
@@ -278,6 +281,12 @@ export function GiveawayRulesPage() {
 // server only grants a spot to a verified account whose email matches an invitation. Not indexed. Nothing here decides anything about money.
 export function FoundingPage({ service, EmailLogin }) {
   const [session, setSession] = useState(undefined), [status, setStatus] = useState(null), [busy, setBusy] = useState(false), [error, setError] = useState('');
+  const [info, setInfo] = useState(null);   // is the program taking people right now, and how many spots remain; anyone may ask
+  useEffect(() => {
+    let alive = true;
+    service.foundingOpenInfo().then(value => { if (alive) setInfo(value); }).catch(() => { if (alive) setInfo({ open: true, spots_left: null }); });
+    return () => { alive = false; };
+  }, [service]);
   useEffect(() => {
     const meta = document.createElement('meta'); meta.name = 'robots'; meta.content = 'noindex, nofollow'; document.head.appendChild(meta);
     const before = document.title; document.title = 'Founding 100 | Credabilia';
@@ -303,7 +312,7 @@ export function FoundingPage({ service, EmailLogin }) {
   }
   async function signOut() { setBusy(true); try { await service.signOut(); } catch (err) { setError(err.message); } finally { setBusy(false); } }
   const when = status?.expires_at ? new Date(status.expires_at).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' }) : '';
-  const view = session === undefined ? 'loading' : !session ? 'signed-out' : claimView(status);
+  const view = session === undefined ? 'loading' : !session ? (info === null ? 'loading' : info.open ? 'signed-out' : 'closed') : claimView(status);
   // Claiming happens on the website. Inside the phone apps a non-member is sent to the browser; a member just sees their status.
   const webOnly = isNativeApp() && (view === 'signed-out' || view === 'invited' || view === 'not-invited' || view === 'closed');
   return <LegalShell title="Founding 100" updated={false} current="">
@@ -312,8 +321,10 @@ export function FoundingPage({ service, EmailLogin }) {
       {view === 'loading' && <p role="status">Loading…</p>}
       {webOnly && <div className="founding-box"><h3>Claim your spot in your web browser</h3><p>Please open <strong>credabilia.com/founding</strong> in your phone's web browser to claim your Founding spot. Afterwards, sign in here with the same email address and the same method you used there.</p></div>}
       {!webOnly && view === 'signed-out' && <>
-        <p>Founding 100 is an invitation-only group of 100 sellers who pay no Credabilia selling fees for as long as their account stays open and in good standing. Payment-processing fees still apply.</p>
-        <div className="founding-box"><h3>Claim your spot</h3>
+        <p>Founding 100 is a group of 100 sellers who pay no Credabilia selling fees for as long as their account stays open and in good standing. Payment-processing fees still apply.{info?.spots_left != null && <> <span className="founding-spots">{info.spots_left} of 100 spots left.</span></>}</p>
+        <p className="founding-jump">Already invited? <a href="#founding-claim">Claim your spot</a>.</p>
+        <FoundingRequestForm service={service}/>
+        <div className="founding-box" id="founding-claim"><h3>Already invited? Claim your spot</h3>
           <p className="field-note">Enter the email address we invited. We'll send a sign-in code to that address, which proves it's yours.</p>
           <p className="field-note"><strong>{SAME_EMAIL_NOTE}</strong></p>
           <EmailLogin/>
@@ -329,8 +340,9 @@ export function FoundingPage({ service, EmailLogin }) {
       {!webOnly && view === 'not-invited' && <div className="founding-box"><h3>No invitation for this email</h3>
         <p>You're signed in{session?.user?.email && <> as <strong>{session.user.email}</strong></>}, and we don't have a Founding invitation for {session?.user?.email ? 'that address' : 'this account'}.</p>
         {isAppleRelayEmail(session?.user?.email) && <p>That is an Apple "Hide My Email" address, which can't be matched to an invitation.</p>}
-        <p>If we contacted you, sign out and sign in again with the exact email address we used.</p>
+        <p>If we contacted you, sign out and sign in again with the exact email address we used. Otherwise, you can ask for an invitation below.</p>
         <button type="button" className="text-button" disabled={busy} onClick={signOut}>Sign out</button></div>}
+      {!webOnly && view === 'not-invited' && <FoundingRequestForm service={service} defaultEmail={isAppleRelayEmail(session?.user?.email) ? '' : (session?.user?.email || '')}/>}
       {!webOnly && view === 'closed' && <div className="founding-box"><h3>The Founding 100 invitation has closed</h3>
         <p>All 100 spots have been claimed or the invitation window has ended. You can still sell on Credabilia under our standard fees.</p></div>}
       {error && view !== 'invited' && <p role="alert" className="error">{error}</p>}

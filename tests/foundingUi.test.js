@@ -54,7 +54,7 @@ test('the hero swaps the badge for a qualified member only, and keeps the old ba
 test('the badge and the founding status can never control a fee: no money code reads them', async () => {
   const service = squash(await read('src/service.js')), demo = squash(await read('src/demo.js'));
   for (const [name, source] of [['service.js', service], ['demo.js', demo]]) {
-    const outside = source.split('\n').filter(line => !/^\s*\/\//.test(line) && /founding/i.test(line) &&!/async (founding|claimFounding|adminFounding|adminStartFounding)/.test(line) && !/Founding 100/.test(line) && !/founding-preview/.test(line) && !/seller_founding: true/.test(line));
+    const outside = source.split('\n').filter(line => !/^\s*\/\//.test(line) && /founding/i.test(line) &&!/async (founding|claimFounding|adminFounding|adminStartFounding|requestFoundingInvitation|adminDecideFoundingRequest)/.test(line) && !/rpc\('submit_founding_request'/.test(line) && !/Founding 100/.test(line) && !/founding-preview/.test(line) && !/seller_founding: true/.test(line));
     assert.deepEqual(outside, [], name + ': nothing but the Founding methods mentions the program');
   }
   assert.doesNotMatch(service.split("async startCheckout")[1]?.split('\n    async ')[0] || '', /founding/i, 'checkout never looks at founding status');
@@ -76,7 +76,8 @@ test('/founding is a real page, kept out of search, not claimable as a store nam
   assert.match(terms, /Payment-processing|payment-processing/, 'the terms say processing is separate');
   assert.match(terms, /good standing/);
   assert.match(terms, /cannot be transferred or sold/);
-  assert.match(terms, /Unclaimed invitations, and the contact details kept for them, are deleted when the window closes/);
+  assert.match(terms, /Unclaimed invitations and requests, and the contact details kept for them, are deleted when the window closes/);
+  assert.match(terms, /we review each request by hand and may approve or decline it/, 'the terms say a request is reviewed and not guaranteed');
 });
 
 test('the admin dashboard has a Founding 100 tab backed by operator-only calls', async () => {

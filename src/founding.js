@@ -23,10 +23,17 @@ export function claimView(status) {
 }
 
 export const FOUNDING_TERMS = [
-  'The Founding 100 is an invitation-only program for sellers we contacted directly. An invitation is tied to one email address and can be claimed once, by signing in with that address and verifying it, until the date shown on the claim page or until all 100 spots are taken, whichever comes first.',
+  'The Founding 100 is an invitation-only program. Invitations go to sellers we contact directly, and anyone who visits the Founding page can also ask to be considered. Asking does not guarantee an invitation: we review each request by hand and may approve or decline it. An invitation is tied to one email address and can be claimed once, by signing in with that address and verifying it, until the date shown on the claim page or until all 100 spots are taken, whichever comes first.',
   'A Founding seller pays no Credabilia selling fee on their sales for as long as their account stays open and in good standing. The benefit belongs to that account and cannot be transferred or sold. It does not cover payment-processing charges, which are shown separately on each sale, or shipping, insurance or taxes.',
-  'We may end the benefit for an account that is closed, or that breaks our rules, for example by listing items on behalf of other sellers to avoid fees. Unclaimed invitations, and the contact details kept for them, are deleted when the window closes.',
+  'We may end the benefit for an account that is closed, or that breaks our rules, for example by listing items on behalf of other sellers to avoid fees. Unclaimed invitations and requests, and the contact details kept for them, are deleted when the window closes.',
 ];
+
+// The email staff send after approving a request: where to claim, and which address to use. Approving does not email the person by itself.
+export function approvalMailto(request) {
+  const first = String(request.contact_name || '').trim().split(/\s+/)[0] || 'there';
+  const body = `Hi ${first},\n\nThanks for asking to join the Credabilia Founding 100. I've approved your request.\n\nTo claim your spot, go to credabilia.com/founding and sign in with this same email address (${request.email}). A different address, or Apple's "Hide My Email", will not work.\n\nFounding sellers pay no Credabilia selling fees for as long as their account stays open and in good standing. Stripe's normal payment-processing fees still apply.\n\nDavid Ortiz\nFounder, Credabilia LLC`;
+  return `mailto:${encodeURIComponent(request.email)}?subject=${encodeURIComponent('Your Credabilia Founding seller invitation')}&body=${encodeURIComponent(body)}`;
+}
 
 // Apple's "Hide My Email" gives an app a random forwarding address, which can never match an invitation sent to the person's real address.
 export const isAppleRelayEmail = email => /@privaterelay\.appleid\.com$/i.test(String(email || '').trim());

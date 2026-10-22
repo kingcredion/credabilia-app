@@ -26,7 +26,18 @@
 .founding-claim .field-note { margin: 0 0 10px; }
 .founding-spots { font-weight: 700; }
 
+/* The request form for people who were not on the invitation list. The "hp" field is a trap for bots: off-screen, never shown to a person. */
+.founding-request { display: flex; flex-direction: column; gap: 10px; }
+.founding-request label { display: flex; flex-direction: column; gap: 4px; font-weight: 600; font-size: 14px; }
+.founding-request input, .founding-request textarea { font: inherit; font-weight: 400; padding: 9px 11px; border: 1px solid var(--border); border-radius: 10px; background: var(--surface); color: var(--text); width: 100%; box-sizing: border-box; }
+.founding-request .field-note { font-weight: 400; margin: 0; }
+.founding-request button.primary { align-self: flex-start; }
+.founding-hp { position: absolute !important; left: -9999px; width: 1px; height: 1px; overflow: hidden; }
+.founding-claim .founding-jump { margin: 0; font-size: 14px; }
+
 .admin-founding { display: flex; flex-direction: column; gap: 16px; }
+.admin-founding .founding-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+.admin-founding .founding-request-note { max-width: 320px; word-break: break-word; }
 .admin-founding .stat-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 10px; }
 .admin-founding .stat { border: 1px solid var(--border); border-radius: 12px; padding: 10px 12px; background: var(--surface); }
 .admin-founding .stat strong { display: block; font-size: 22px; }

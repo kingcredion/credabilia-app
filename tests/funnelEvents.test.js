@@ -6,8 +6,8 @@ import {trackSignUpIfNew} from '../src/analytics.js';
 
 const read = name => readFile(new URL('../src/' + name, import.meta.url), 'utf8');
 
-test('the four funnel events are the only ones that can be sent, and nothing is sent off the real sites', () => {
-  assert.deepEqual(FUNNEL_EVENTS, ['sign_up', 'listing_published', 'payout_setup_started', 'request_to_buy']);
+test('the five funnel events are the only ones that can be sent, and nothing is sent off the real sites', () => {
+  assert.deepEqual(FUNNEL_EVENTS, ['sign_up', 'listing_published', 'payout_setup_started', 'request_to_buy', 'founding_request']);
   assert.equal(trackEvent('listing_published'), false, 'no window at all (tests, server)');
   globalThis.window = {location: {hostname: 'localhost'}};
   try {

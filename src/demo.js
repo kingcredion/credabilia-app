@@ -593,6 +593,11 @@ const demoReview = r => { const purchase = state.purchases.find(p => p.id === r.
     async claimFoundingSpot() { throw new Error('Claiming a Founding spot requires the connected app. Not available in this practice preview.'); },
     async adminFoundingOverview() { requireUser(); return {started_at:null,expires_at:null,window_days:90,spot_limit:100,closed_reason:null,invitations_loaded:0,invitations_open:0,claimed:0,spots_left:100,removed_unclaimed:0,members:[]}; },
     async adminFoundingInvitations() { requireUser(); return []; },
+    // Practice preview only: the request form works on screen but nothing is stored. /?founding-preview=closed shows the closed page.
+    async foundingOpenInfo() { const mode=typeof window!=='undefined' ? new URLSearchParams(window.location.search).get('founding-preview') : null; return mode==='closed' ? {open:false,spots_left:null} : {open:true,spots_left:63}; },
+    async requestFoundingInvitation() { return {received:true}; },
+    async adminFoundingRequests() { requireUser(); return []; },
+    async adminDecideFoundingRequest() { throw new Error('Reviewing requests requires the connected app. Not available in this practice preview.'); },
     async adminStartFounding() { throw new Error('Starting the campaign requires the connected app. Not available in this practice preview.'); },
     async adminResolveReport() { throw new Error('The admin dashboard requires the connected app. Not available in this practice preview.'); },
     async adminListSupportConversations() { requireUser(); return []; },
