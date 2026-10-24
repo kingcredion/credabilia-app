@@ -42,7 +42,9 @@ import { captureGiveawayParam, captureReferralParam, clearGiveawayIntent, clearR
 import { FirstListingCard, FirstListingCelebration, PayoutIntro } from './FirstListing.jsx';
 import { SaveButton, showSavedThen, useSavedFlash } from './SaveButton.jsx';
 import { categoryFromPath, categoryPageTitle, pathForBrowse } from './seoRoutes.js';
-import { dismissFirstListing, firstListingDismissedUntil, hasEverListed, shouldCelebrateFirstListing, shouldShowFirstListing } from './firstListing.js';
+import PodcastBar from './PodcastBar.jsx';
+import { dismissPodcastBar, podcastBarDismissedUntil, shouldShowPodcastBar } from './podcastBar.js';
+import { dismissFirstListing,firstListingDismissedUntil, hasEverListed, shouldCelebrateFirstListing, shouldShowFirstListing } from './firstListing.js';
 import { GiveawayAdmin, GiveawayCard, GiveawayClaimForm, GiveawayEnterForm, GiveawayItemControl, GiveawayPanel, GiveawayWinBanner, ReferralCard } from './Giveaway.jsx';
 const SupportChat = React.lazy(() => import('./SupportChat.jsx').then(module => ({ default: module.SupportChat })));
 import { CATEGORIES, WORKSPACES, priceInCents } from './domain.js';
@@ -2731,6 +2733,8 @@ export default function App() {
   useEffect(() => { if (selectedId) window.scrollTo({ top: 0, left: 0, behavior: 'instant' }); }, [selectedId]);
   const isAdminUser = session?.user?.email === 'kingcredion@credabilia.com'; // same check as the Admin tab in Profile and settings; the database also requires an operator
   const [firstListingUntil, setFirstListingUntil] = useState(() => firstListingDismissedUntil());
+  const [podcastBarUntil, setPodcastBarUntil] = useState(() => podcastBarDismissedUntil());
+  const showPodcastBar = shouldShowPodcastBar({ workspace, native: isNativeApp(), dismissedUntil: podcastBarUntil }) && !selectedId;
   const [celebratedItemId, setCelebratedItemId] = useState(null);
   const showFirstListing = shouldShowFirstListing({ live: service.mode === 'live' || service.mode === 'demo', session, profile, isAdmin: isAdminUser, workspace, hasListed: hasEverListed({ items, endedListings, sales, userId: session?.user.id }), dismissedUntil: firstListingUntil });
   async function enterGiveaway(stateCode) { setGiveawayBusy(true); try { const next = await service.enterGiveaway(stateCode); setGiveaway(next); return next; } finally { setGiveawayBusy(false); } }
@@ -2787,6 +2791,7 @@ export default function App() {
       <nav aria-label="Main navigation"><button className={workspace === 'collector' ? 'nav-current' : ''} onClick={() => switchWorkspace('collector')}>Discover</button><button className={workspace === 'auditor' ? 'nav-current' : ''} onClick={() => switchWorkspace('auditor')}>Community audits</button></nav>
       <div className="account-actions"><ThemeToggle/>{session && <button className="icon-button king-credion-button" aria-label="Ask King Credion" title="Ask King Credion" onClick={() => setModal('support')}><img src="/brand/screen-face-v1/chat.webp" alt="" style={{objectFit:'contain'}}/></button>}{session && <NotificationBell notifications={notifications} onNavigate={focusNotification} glow={bellGlow} onOpen={markSeen}/>}{session ? <><button className="avatar" aria-label="Profile and settings" title={profile?.display_name} onClick={() => setModal('profile')}>{profile?.display_name?.slice(0,1) || 'C'}</button><button className="icon-button" aria-label="Sign out" title="Sign out" onClick={signOut}><LogOut size={18}/></button></> : <button className="primary compact" onClick={() => setModal('login')} disabled={!authReady}>Sign in <ArrowUpRight size={16}/></button>}</div>
     </header>
+    {showPodcastBar && <PodcastBar onDismiss={() => { dismissPodcastBar(); setPodcastBarUntil(podcastBarDismissedUntil()); }}/>}
     <div className="page-layout">
       <aside className="sidebar">
         <p className="eyebrow">YOUR WORKSPACE</p>

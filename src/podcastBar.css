@@ -1,0 +1,8 @@
+/* The thin podcast announcement bar under the header. Fixed brand colours in both themes, like the podcast page buttons. */
+.podcast-bar { display: flex; align-items: center; justify-content: center; gap: 8px; padding: 6px 16px; background: #0d3b2c; border-bottom: 1px solid #c9a227; }
+.podcast-bar .podcast-bar-link { display: inline-flex; align-items: center; gap: 10px; color: #f3d77a; font-size: 14px; font-weight: 700; text-decoration: none; }
+.podcast-bar .podcast-bar-link:hover span { text-decoration: underline; }
+.podcast-bar img { display: block; flex-shrink: 0; }
+.podcast-bar-close { color: #f3d77a; border-radius: 50%; width: 28px; height: 28px; display: inline-flex; align-items: center; justify-content: center; margin-left: 4px; }
+.podcast-bar-close:hover { background: rgba(243, 215, 122, .15); }
+@media (max-width: 520px) { .podcast-bar .podcast-bar-link { font-size: 13px; } }
