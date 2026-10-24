@@ -23,6 +23,7 @@ import { publicOrigin } from './publicOrigin.js';
 const Storefront = React.lazy(() => import('./Storefront.jsx').then(module => ({ default: module.Storefront })));
 const TermsPage = React.lazy(() => import('./Legal.jsx').then(module => ({ default: module.TermsPage })));
 const GiveawayRulesPage = React.lazy(() => import('./Legal.jsx').then(module => ({ default: module.GiveawayRulesPage })));
+const PodcastPage = React.lazy(() => import('./Legal.jsx').then(module => ({ default: module.PodcastPage })));
 const FoundingPage = React.lazy(() => import('./Legal.jsx').then(module => ({ default: module.FoundingPage })));
 const PrivacyPage = React.lazy(() => import('./Legal.jsx').then(module => ({ default: module.PrivacyPage })));
 const CertificateLookupPage = React.lazy(() => import('./CertificateLookup.jsx').then(module => ({ default: module.CertificateLookupPage })));
@@ -2302,7 +2303,7 @@ export default function App() {
   const storefrontSlug = (() => { const segments = window.location.pathname.split('/').filter(Boolean); return segments.length === 1 && segments[0] !== 'auth' ? segments[0] : null; })();
   // /terms, /privacy, and /help are standalone, no-login-required pages -- checked before
   // storefrontSlug so they can never be shadowed by a seller's store name (also reserved server-side).
-  const legalPage = window.location.pathname === '/terms' ? 'terms' : window.location.pathname === '/privacy' ? 'privacy' : window.location.pathname === '/help' ? 'help' : window.location.pathname === '/certificate' ? 'certificate' : window.location.pathname === '/giveaway-rules' ? 'giveaway-rules' : window.location.pathname === '/founding' ? 'founding' : (window.location.pathname === '/sell' || (isSellHost(window.location.hostname) && window.location.pathname === '/')) ? 'sell' : null;
+  const legalPage = window.location.pathname === '/terms' ? 'terms' : window.location.pathname === '/privacy' ? 'privacy' : window.location.pathname === '/help' ? 'help' : window.location.pathname === '/certificate' ? 'certificate' : window.location.pathname === '/giveaway-rules' ? 'giveaway-rules' : window.location.pathname === '/podcast' ? 'podcast' : window.location.pathname === '/founding' ? 'founding' : (window.location.pathname === '/sell' || (isSellHost(window.location.hostname) && window.location.pathname === '/')) ? 'sell' : null;
   // /item/<id> gives each listing its own shareable, bookmarkable, back-button-friendly URL --
   // parsed once here (same pattern as storefrontSlug/legalPage above) and reconciled against the
   // loaded `items`/`buyRequests` once they're fetched, below.
@@ -2614,6 +2615,7 @@ export default function App() {
   if (legalPage === 'help') return <HelpPage/>;
   if (legalPage === 'certificate') return <CertificateLookupPage service={service}/>;
   if (legalPage === 'giveaway-rules') return <GiveawayRulesPage/>;
+  if (legalPage === 'podcast') return <PodcastPage/>;
   if (legalPage === 'founding') return <FoundingPage service={service} EmailLogin={EmailLogin}/>;
   if (legalPage === 'sell') return <SellPage/>;
   if (soldPreview) return <SoldItemPage item={soldPreview} onBack={() => { window.location.href = '/'; }}/>;
@@ -2849,7 +2851,7 @@ export default function App() {
             </>}
           </section>{workspace === 'collector' && <section className="community-note"><div className="note-icon"><ShieldCheck size={25}/></div><div><h3>Confidence grows with evidence.</h3><p>A community opinion is a starting point. For valuable purchases, seek qualified authentication.</p></div></section>}
         </>}
-        <footer><span>© {new Date().getFullYear()} Credabilia LLC · 732 S 6th St, Ste 7531, Las Vegas, NV 89101</span><img className="footer-tagline" src="/brand/the-memorabilia-kingdom-gold-quill-v1-optimized.webp" alt="The Memorabilia Kingdom" width="2172" height="724"/><span className="footer-legal"><a href="tel:+18667500255">1 (866) 750-0255</a><a href="/help">Help</a><a href="/terms">Terms</a><a href="/privacy">Privacy</a></span></footer>
+        <footer><span>© {new Date().getFullYear()} Credabilia LLC · 732 S 6th St, Ste 7531, Las Vegas, NV 89101</span><img className="footer-tagline" src="/brand/the-memorabilia-kingdom-gold-quill-v1-optimized.webp" alt="The Memorabilia Kingdom" width="2172" height="724"/><span className="footer-legal"><a href="tel:+18667500255">1 (866) 750-0255</a><a href="/podcast">Podcast</a><a href="/help">Help</a><a href="/terms">Terms</a><a href="/privacy">Privacy</a></span></footer>
       </main>
     </div>
     <BottomNav sellGlow={sellGlow} messagesGlow={messagesGlow} session={session} workspace={workspace} onSwitchWorkspace={switchWorkspace} profile={profile} authReady={authReady} onProfile={() => setModal('profile')} onSignIn={() => setModal('login')}/>

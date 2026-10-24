@@ -3,6 +3,7 @@ import { CATEGORIES } from './src/domain.js';
 import { ISSUERS } from './src/certificates.js';
 import { DETAIL_FIELDS } from './src/listingDetails.js';
 import { categoryFromSlug, categoryPath } from './src/seoRoutes.js';
+import { PODCAST, PODCAST_LISTEN_LINKS, podcastJsonLd } from './src/podcast.js';
 
 // Search and link-preview layer. The app is a single page that draws itself with JavaScript, so a crawler that does not run it would see the same empty page for every
 // address. For known crawler user agents (BOT_UA) this gives each public address its own title, description, canonical, social tags, structured data and a plain-HTML copy
@@ -12,7 +13,7 @@ const SUPABASE_URL = process.env.VITE_SUPABASE_URL;
 const SUPABASE_KEY = process.env.VITE_SUPABASE_PUBLISHABLE_KEY;
 const SITE_ORIGIN = 'https://credabilia.com';
 const DEFAULT_IMAGE = SITE_ORIGIN + '/brand/app-icons/crown-c/web/icon-512.png';
-const RESERVED_SLUGS = new Set(['terms', 'privacy', 'help', 'auth', 'item', 'sell', 'certificate', 'giveaway-rules', 'category']);
+const RESERVED_SLUGS = new Set(['terms', 'privacy', 'help', 'auth', 'item', 'sell', 'certificate', 'giveaway-rules', 'category', 'podcast']);
 // Includes Google's other fetchers (Search Console's live URL test is "Google-InspectionTool", which does not say "bot"), speed-test tools, and spiders that call themselves spider or crawler.
 const BOT_UA = /bot|spider|crawl|google-|googleother|lighthouse|pagespeed|facebookexternalhit|facebookcatalog|twitterbot|slackbot|discordbot|linkedinbot|whatsapp|telegrambot|applebot|pinterest|redditbot|vkshare|skypeuripreview|embedly|quora|outbrain|iframely|w3c_validator/i;
 export const isCrawler = userAgent => BOT_UA.test(userAgent || '');
@@ -113,7 +114,7 @@ const CATEGORY_INTRO = {
 };
 export { categoryFromSlug };
 
-const NAV_LINKS = '<nav><a href="/">Credabilia</a> · <a href="/help">Help</a> · <a href="/terms">Terms</a> · <a href="/privacy">Privacy</a> · <a href="/certificate">Certificate lookup</a> · <a href="/sell">Sell</a> · <a href="/giveaway-rules">Giveaway rules</a></nav>';
+const NAV_LINKS = '<nav><a href="/">Credabilia</a> · <a href="/help">Help</a> · <a href="/terms">Terms</a> · <a href="/privacy">Privacy</a> · <a href="/certificate">Certificate lookup</a> · <a href="/sell">Sell</a> · <a href="/giveaway-rules">Giveaway rules</a> · <a href="/podcast">Podcast</a></nav>';
 const CATEGORY_LINKS = '<nav aria-label="Categories">' + CATEGORIES.map(c => '<a href="' + categoryPath(c) + '">' + escapeHtml(c) + '</a>').join(' · ') + '</nav>';
 
 const issuerName = item => {
@@ -261,6 +262,14 @@ async function buildMeta(pathname) {
     };
   }
   if (segments.length === 0) return { title: 'Credabilia | The Memorabilia Kingdom', description: HOME_DESCRIPTION, image: DEFAULT_IMAGE, body: await homeBody() };
+  if (segments.length === 1 && segments[0] === 'podcast') {
+    return {
+      title: `${PODCAST.name} | ${SITE_NAME}`, description: PODCAST.seoDescription, image: DEFAULT_IMAGE,
+      body: '<main><h1>' + escapeHtml(PODCAST.name) + '</h1><p>' + escapeHtml(PODCAST.description) + '</p><p>' + escapeHtml(PODCAST.aiNote) + '</p><ul>' +
+        PODCAST_LISTEN_LINKS.map(([label, href]) => '<li><a href="' + escapeHtml(href) + '">Listen on ' + escapeHtml(label) + '</a></li>').join('') + '</ul>' + NAV_LINKS + '</main>',
+      jsonLd: [breadcrumbJsonLd([['Home', SITE_ORIGIN + '/'], [PODCAST.name, SITE_ORIGIN + '/podcast']]), podcastJsonLd(SITE_ORIGIN)],
+    };
+  }
   if (segments.length === 1 && STATIC_PAGES[segments[0]]) {
     const page = STATIC_PAGES[segments[0]];
     return { title: page.title, description: page.description, image: DEFAULT_IMAGE, body: '<main><h1>' + escapeHtml(page.heading) + '</h1><p>' + escapeHtml(page.text) + '</p>' + NAV_LINKS + '</main>' };
@@ -286,7 +295,7 @@ async function buildMeta(pathname) {
 // ---- Sitemaps ----------------------------------------------------------------------------------------------------------------------------------------------------------
 // Public means an active listing from a member in good standing (see sitemap_entries): a new public listing is in the next sitemap, and one that is sold, archived, removed or
 // made private is gone from it. lastmod is only written when the database has a real date for the page; home and the information pages have none, so they carry none.
-const STATIC_URLS = ['/', '/help', '/terms', '/privacy', '/certificate', '/sell', '/giveaway-rules'];
+const STATIC_URLS = ['/', '/help', '/terms', '/privacy', '/certificate', '/sell', '/giveaway-rules', '/podcast'];
 const day = value => (value ? String(value).slice(0, 10) : '');
 
 export function sitemapUrls(data, origin = SITE_ORIGIN) {
