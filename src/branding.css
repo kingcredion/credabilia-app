@@ -85,6 +85,9 @@
 .store-link strong { font-size: 16px; }
 .store-link-live { background: #0d3b2e; color: #f3d77a; border: 1px solid #c9a227; }
 .store-link-live:hover { box-shadow: 0 0 0 3px rgba(243, 184, 35, .28); }
+.store-link-podcast { flex-direction: row; align-items: center; gap: 10px; padding-left: 12px; }
+.store-link-podcast img { display: block; flex-shrink: 0; }
+.store-link-podcast div { display: flex; flex-direction: column; line-height: 1.15; }
 .store-link-soon { background: transparent; color: var(--text-muted); border: 1px dashed var(--border); }
 .storefront-hero .hero-mascot img {
   width: 100%;

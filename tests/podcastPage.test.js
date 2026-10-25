@@ -88,6 +88,15 @@ test('the page is routed, linked, and the Spotify player loads only when a visit
   assert.match(legal, /<strong>Spotify<\/strong>/);
 });
 
+test('the home page hero has a podcast button next to the store buttons, on the website only, and no Spotify code loads there', async () => {
+  const app = squash(await read('src/App.jsx'));
+  assert.match(app, /workspace === 'collector' && !isNativeApp\(\) && <div className="store-links">/, 'website Discover only: the phone apps carry their own bundle and /podcast is a website page');
+  const storeRow = app.split('<div className="store-links">')[1].split('</div>}')[0];
+  assert.match(storeRow, /Google Play[\s\S]*Coming soon[\s\S]*<a className="store-link store-link-live store-link-podcast" href="\/podcast"><img src="\/brand\/podcast-microphone-96\.webp"[\s\S]*Listen to the[\s\S]*Podcast/, 'after the two app buttons');
+  assert.doesNotMatch(storeRow, /spotify/i, 'the player stays on /podcast and loads only when a visitor asks');
+  assert.doesNotMatch(app, /PodcastBar|podcast-bar/, 'the separate bar is gone: the hero button replaced it');
+});
+
 test('no member can claim "podcast" as a store name, and the reserved list is patched without losing the others', async () => {
   const sql = squash(await read('supabase/migrations/202610240164_reserve_podcast_slug.sql'));
   assert.match(sql, /'giveaway-rules'',''podcast'/);
