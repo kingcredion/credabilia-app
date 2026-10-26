@@ -405,6 +405,12 @@ export function makeService() {
     },
     async adminFoundingRequests(status) { return unwrap(await client.rpc('admin_founding_requests', { p_status: status || null, p_limit: 200 })); },
     async adminDecideFoundingRequest(id, approve) { return unwrap(await client.rpc('admin_founding_decide_request', { p_id: id, p_approve: !!approve })); },
+    // Podcast episode pages: anyone can read them; only staff can open an episode to search engines, close it, or hide it (the feed sync saves the episodes themselves).
+    async podcastEpisodes() { return unwrap(await client.rpc('podcast_episodes_list')); },
+    async podcastEpisode(slug) { return unwrap(await client.rpc('podcast_episode', { p_slug: slug })); },
+    async adminPodcastOverview() { return unwrap(await client.rpc('admin_podcast_overview')); },
+    async adminPodcastSetIndex(guid, state) { return unwrap(await client.rpc('admin_podcast_set_index', { p_guid: guid, p_state: state || null })); },
+    async adminPodcastSetHidden(guid, hidden) { return unwrap(await client.rpc('admin_podcast_set_hidden', { p_guid: guid, p_hidden: !!hidden })); },
     async adminResolveReport(reportId, status, note, removeListing) { return unwrap(await client.rpc('admin_resolve_report', { p_report_id: reportId, p_status: status, p_note: note || null, p_remove_listing: !!removeListing })); },
     async adminListSupportConversations() { return unwrap(await client.rpc('admin_list_support_conversations')); },
     async adminGetSupportThread(userId) { return unwrap(await client.rpc('admin_get_support_thread', { p_user_id: userId })); },

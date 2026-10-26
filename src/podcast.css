@@ -6,3 +6,10 @@
 .legal-page .podcast-button { display: inline-block; padding: 10px 18px; border-radius: 999px; border: 1px solid #c9a227; background: #0d3b2c; color: #f3d77a; font-weight: 700; text-decoration: none; }
 .legal-page .podcast-button:hover { background: #06231a; color: #fff3c4; }
 .podcast-player { border: 0; border-radius: 14px; max-width: 100%; }
+.podcast-meta { margin: 0; font-size: 13px; color: var(--text-muted); }
+.podcast-episodes { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 14px; }
+.podcast-episodes li { display: flex; flex-direction: column; gap: 4px; padding: 14px 16px; border: 1px solid var(--border); border-radius: 12px; background: var(--surface); }
+.legal-page .podcast-episode-title { font-weight: 700; font-size: 16px; line-height: 1.35; }
+.podcast-episode-summary { font-size: 13px; line-height: 1.6; color: var(--text); }
+.podcast-audio { width: 100%; max-width: 680px; min-height: 54px; }
+.podcast-body { white-space: pre-line; }

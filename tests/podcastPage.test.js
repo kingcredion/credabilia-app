@@ -75,10 +75,10 @@ test('the sitemap lists the podcast page', async () => {
 test('the page is routed, linked, and the Spotify player loads only when a visitor asks for it', async () => {
   const app = squash(await read('src/App.jsx')), legal = squash(await read('src/Legal.jsx'));
   assert.match(app, /window\.location\.pathname === '\/podcast' \? 'podcast'/);
-  assert.match(app, /if \(legalPage === 'podcast'\) return <PodcastPage\/>;/);
+  assert.match(app, /if \(legalPage === 'podcast'\) return <PodcastPage service=\{service\}\/>;/);
   assert.match(app, /<a href="\/podcast">Podcast<\/a>/, 'in the site footer');
   assert.match(legal, /\['\/podcast', 'Podcast', 'podcast'\]/, 'in the legal-page navigation');
-  const page = legal.split('export function PodcastPage()')[1].split('// The invitation claim page')[0];
+  const page = legal.split('export function PodcastPage(')[1].split('// One episode (/podcast/<slug>)')[0];
   assert.match(page, /const \[player, setPlayer\] = useState\(false\)/);
   assert.match(page, /\{player\s*\n?\s*\? <iframe[^>]*src=\{PODCAST\.spotifyEmbed\}/, 'the iframe exists only after the visitor clicks');
   assert.match(page, /onClick=\{\(\) => setPlayer\(true\)\}/);

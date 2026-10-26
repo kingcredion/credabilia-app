@@ -5,11 +5,11 @@ import { MAILIN_EMAIL, statesNote } from './giveaway.js';
 import { FOUNDING_FEE_NOTE, FOUNDING_TERMS, SAME_EMAIL_NOTE, claimView, isAppleRelayEmail } from './founding.js';
 import { FoundingBadgeImage } from './FoundingBadge.jsx';
 import { FoundingRequestForm } from './FoundingRequest.jsx';
-import { PODCAST, PODCAST_LISTEN_LINKS } from './podcast.js';
+import { PODCAST, PODCAST_LISTEN_LINKS, episodePath, VOICE_NOTES, KIND_LABELS, formatDuration, formatEpisodeDate, paragraphsOf } from './podcast.js';
 import './podcast.css';
 import { isNativeApp } from './nativeAuth.js';
 
-const LAST_UPDATED = 'October 24, 2026';
+const LAST_UPDATED = 'October 26, 2026';
 const TERMS_UPDATED = 'October 22, 2026';
 
 const LEGAL_PATHS = ['/terms', '/privacy', '/help'];
@@ -197,7 +197,7 @@ export function PrivacyPage() {
       <li><strong>Microsoft</strong> — Microsoft Clarity, which records how visitors use our website so we can improve it, as described in Section 5;</li>
       <li><strong>Google</strong> — sign-in, if you choose to use "Continue with Google," and advertising measurement as described in Section 5;</li>
       <li><strong>Meta</strong> — advertising measurement on Instagram and Facebook, as described in Section 5;</li>
-      <li><strong>Spotify</strong> — the optional episode player on our podcast page, as described in Section 5.</li>
+      <li><strong>Spotify</strong> — the optional episode player on our podcast page, and the audio hosting for our podcast episodes, as described in Section 5.</li>
     </ul>
     <p>We also share the information a transaction requires with the other party to it — for example, a seller receives the buyer's shipping address to ship an order, and a buyer can see a seller's storefront name. We may disclose information if required by law, or to protect the rights, safety, or property of Credabilia or our users. We do not sell your personal information. We do not share your mobile number or your text-message opt-in with third parties or affiliates for their own marketing or promotional purposes; it is used only to send you the alerts you asked for.</p>
 
@@ -206,7 +206,7 @@ export function PrivacyPage() {
     <p>We advertise on Google, and we use Google's advertising tag on credabilia.com to measure which ads lead to actions on our site, such as publishing a listing. This tag may set cookies or similar identifiers in your browser and sends Google information such as the pages you visit, your device and browser details, and whether you completed one of those actions. We do not send Google your name, email address, or the content of your listings for this purpose. Google handles that information under its own privacy policy. You can manage Google's ad personalization at adssettings.google.com, or block cookies in your browser settings. If you are in the European Economic Area, the United Kingdom, or Switzerland, we do not enable Google's advertising storage or personalization for you.</p>
     <p>We also use Vercel Web Analytics to count visits and see which pages are used, and Vercel Speed Insights to measure how quickly our pages load. Neither uses cookies or follows you across other websites, and neither collects your name or email address.</p>
     <p>We also use Microsoft Clarity, a free tool that records how visitors use credabilia.com: the pages you view, where you click, tap and scroll, and a replay of your visit. We use it to find and fix confusing parts of the site. Clarity sets cookies in your browser (named _clck and _clsk) and Microsoft handles the data under its own privacy statement. What you type into form fields is masked, and we also hide your messages, support chats, shipping address fields and our own admin tools from these recordings. We do not use Clarity for visitors in the European Economic Area, the United Kingdom, or Switzerland. You can block Clarity's cookies in your browser settings or with a content blocker.</p>
-    <p>We also advertise on Instagram and Facebook, and we use the Meta pixel on credabilia.com to measure which of those ads lead to actions on our site, such as asking for a Founding 100 invitation or creating an account. The pixel may set cookies or similar identifiers in your browser and sends Meta information such as the pages you visit, your device and browser details, and whether you completed one of those actions. We do not send Meta your name, email address, or the content of your listings or requests for this purpose. Meta handles that information under its own privacy policy, and you can manage ad preferences in your Instagram or Facebook settings. We do not use the Meta pixel for visitors in the European Economic Area, the United Kingdom, or Switzerland, or for browsers that send a Global Privacy Control opt-out signal. Our podcast page (credabilia.com/podcast) offers an optional Spotify player. It loads only if you choose to show it, and Spotify may then set cookies or similar identifiers and receive your device and browser details under its own privacy policy. We do not use other advertising or analytics trackers beyond those described in this section. If this changes, we'll update this policy.</p>
+    <p>We also advertise on Instagram and Facebook, and we use the Meta pixel on credabilia.com to measure which of those ads lead to actions on our site, such as asking for a Founding 100 invitation or creating an account. The pixel may set cookies or similar identifiers in your browser and sends Meta information such as the pages you visit, your device and browser details, and whether you completed one of those actions. We do not send Meta your name, email address, or the content of your listings or requests for this purpose. Meta handles that information under its own privacy policy, and you can manage ad preferences in your Instagram or Facebook settings. We do not use the Meta pixel for visitors in the European Economic Area, the United Kingdom, or Switzerland, or for browsers that send a Global Privacy Control opt-out signal. Our podcast page (credabilia.com/podcast) offers an optional Spotify player. It loads only if you choose to show it, and Spotify may then set cookies or similar identifiers and receive your device and browser details under its own privacy policy. Each episode page on that site (credabilia.com/podcast/…) also has an audio player. The audio file is hosted by our podcast host, Spotify for Creators (anchor.fm), and is only requested when you press play, at which point it receives your device and browser details under its own privacy policy. We do not use other advertising or analytics trackers beyond those described in this section. If this changes, we'll update this policy.</p>
 
     <h2>6. Data retention</h2>
     <p>We retain your information for as long as your account is active and as needed to provide the Service, resolve disputes, and comply with our legal obligations. If you close your account, we delete your profile and listing data within 90 days, except that we retain transaction records (purchases, sales, and payout history) for 7 years as required for tax and accounting purposes.</p>
@@ -284,24 +284,72 @@ export function GiveawayRulesPage() {
 
 // The podcast page (/podcast): what the show is, where to hear it, and that its voices are AI-generated. The Spotify player is only loaded when a visitor asks for it,
 // so simply opening this page does not contact Spotify.
-export function PodcastPage() {
+export function PodcastPage({ service }) {
   const [player, setPlayer] = useState(false);
+  const [episodes, setEpisodes] = useState(null);
   useEffect(() => {
     const before = document.title; document.title = `${PODCAST.name} | Credabilia`;
     return () => { document.title = before; };
   }, []);
+  useEffect(() => {
+    let alive = true;
+    service?.podcastEpisodes?.().then(list => { if (alive) setEpisodes(Array.isArray(list) ? list : []); }).catch(() => { if (alive) setEpisodes([]); });
+    return () => { alive = false; };
+  }, [service]);
   return <LegalShell title={PODCAST.name} updated={false} current="podcast">
     <div className="podcast-page">
       <p>{PODCAST.description}</p>
       <p className="field-note podcast-ai-note">{PODCAST.aiNote}</p>
       <h2>Listen on</h2>
       <p className="podcast-listen">{PODCAST_LISTEN_LINKS.map(([label, href]) => <a key={label} className="podcast-button" href={href} target="_blank" rel="noopener noreferrer">{label}</a>)}</p>
+      {episodes && episodes.length > 0 && <>
+        <h2>Episodes</h2>
+        <ul className="podcast-episodes">{episodes.map(e => <li key={e.slug}>
+          <a className="podcast-episode-title" href={episodePath(e.slug)}>{e.title}</a>
+          <span className="podcast-meta">{[KIND_LABELS[e.kind], formatEpisodeDate(e.published_at), formatDuration(e.duration_seconds)].filter(Boolean).join(' · ')}</span>
+          <span className="podcast-episode-summary">{e.summary}</span>
+        </li>)}</ul>
+      </>}
       <h2>Play episodes here</h2>
       {player
         ? <iframe className="podcast-player" title={`${PODCAST.name} on Spotify`} src={PODCAST.spotifyEmbed} width="100%" height="352" frameBorder="0" allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture" loading="lazy" referrerPolicy="strict-origin-when-cross-origin"/>
         : <div className="founding-box"><p>The player is provided by Spotify. It loads only if you choose to play it here, and Spotify may set cookies when it does.</p><button type="button" className="primary" onClick={() => setPlayer(true)}>Show the episode player</button></div>}
       <p className="field-note">New to the Kingdom? <a href="/">Explore Credabilia</a>, or <a href="/sell">sell your own memorabilia</a>.</p>
     </div>
+  </LegalShell>;
+}
+
+// One episode (/podcast/<slug>), saved from the show's feed by the hourly sync. The page says whether the voices are real or AI for THIS episode, plays the audio only when
+// asked (nothing is requested from the audio host until play is pressed), and shows the story's source links when the show provided them.
+export function PodcastEpisodePage({ service, slug }) {
+  const [episode, setEpisode] = useState(undefined); // undefined: loading, null: no such episode
+  const [failed, setFailed] = useState(false);
+  useEffect(() => {
+    let alive = true;
+    setEpisode(undefined); setFailed(false);
+    service.podcastEpisode(slug).then(value => { if (alive) setEpisode(value || null); }).catch(() => { if (alive) setFailed(true); });
+    return () => { alive = false; };
+  }, [service, slug]);
+  useEffect(() => {
+    if (!episode) return undefined;
+    const before = document.title; document.title = `${episode.title} | Credabilia`;
+    return () => { document.title = before; };
+  }, [episode]);
+  if (failed) return <LegalShell title="Podcast episode" updated={false} current="podcast"><p role="alert">We could not load this episode right now. Please try again in a moment, or <a href="/podcast">see all episodes</a>.</p></LegalShell>;
+  if (episode === undefined) return <LegalShell title="Podcast episode" updated={false} current="podcast"><p role="status">Loading…</p></LegalShell>;
+  if (episode === null) return <LegalShell title="Episode not found" updated={false} current="podcast"><p>We could not find that episode. <a href="/podcast">See all episodes</a>.</p></LegalShell>;
+  return <LegalShell title={episode.title} updated={false} current="podcast">
+    <article className="podcast-page podcast-episode">
+      <p className="podcast-meta">{[KIND_LABELS[episode.kind], formatEpisodeDate(episode.published_at), formatDuration(episode.duration_seconds)].filter(Boolean).join(' · ')}</p>
+      <p className="field-note podcast-ai-note">{VOICE_NOTES[episode.kind]}</p>
+      {episode.audio_url && <audio className="podcast-audio" controls preload="none" src={episode.audio_url} aria-label={`Play: ${episode.title}`}>Your browser cannot play this audio here. Use one of the listen links below.</audio>}
+      <p className="podcast-listen">{episode.spotify_url && <a className="podcast-button" href={episode.spotify_url} target="_blank" rel="noopener noreferrer">Listen on Spotify</a>}{PODCAST_LISTEN_LINKS.filter(([label]) => label !== 'Spotify').map(([label, href]) => <a key={label} className="podcast-button" href={href} target="_blank" rel="noopener noreferrer">{label}</a>)}</p>
+      {paragraphsOf(episode.body).map((p, i) => <p key={i} className="podcast-body">{p}</p>)}
+      {episode.sources?.length > 0 && <><h2>Sources</h2><ul>{episode.sources.map(s => <li key={s}><a href={s} target="_blank" rel="noopener noreferrer nofollow">{s}</a></li>)}</ul></>}
+      {episode.transcript && <><h2>Transcript</h2>{paragraphsOf(episode.transcript).map((p, i) => <p key={i}>{p}</p>)}</>}
+      {episode.related?.length > 0 && <><h2>More episodes</h2><ul>{episode.related.map(r => <li key={r.slug}><a href={episodePath(r.slug)}>{r.title}</a></li>)}</ul></>}
+      <p className="field-note"><a href="/podcast">All episodes</a> · New to the Kingdom? <a href="/">Explore Credabilia</a>, or <a href="/sell">sell your own memorabilia</a>.</p>
+    </article>
   </LegalShell>;
 }
 

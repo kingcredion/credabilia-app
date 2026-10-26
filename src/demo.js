@@ -16,6 +16,13 @@ const DEMO_PICKUP_STATIONS = [
   { id: 'demo-station-5', jurisdiction: 'Calgary Police Service', city: 'Calgary', state: 'Alberta', country: 'Canada', notes: 'Parking lots at all district offices' },
 ];
 
+const DEMO_PODCAST_EPISODES = [
+  { slug: 'davids-take-sample-morning-episode', title: 'David’s Take: A sample morning episode', summary: 'A made-up example of a morning episode, shown only in the practice preview.', body: 'This is sample text for the practice preview. The real text comes from the show’s feed.\n\nA second paragraph, to show spacing.',
+    published_at: '2026-10-26T17:27:00Z', updated_at: '2026-10-26T17:27:00Z', audio_url: null, spotify_url: null, image_url: null, duration_seconds: 339, kind: 'davids_take', sources: ['https://example.com/the-story'], transcript: null, index: true },
+  { slug: 'sample-ai-hosted-episode', title: 'Sample AI-hosted episode', summary: 'A made-up example of an AI-hosted episode, shown only in the practice preview.', body: 'Sample text for the practice preview.',
+    published_at: '2026-10-25T01:48:38Z', updated_at: '2026-10-25T01:48:38Z', audio_url: null, spotify_url: null, image_url: null, duration_seconds: 450, kind: 'ai_hosted', sources: [], transcript: null, index: false },
+];
+
 export function createDemoService(storage = window.localStorage) {
   const key = 'credabilia-next-demo-v2';
   let listeners = new Set();
@@ -599,6 +606,12 @@ const demoReview = r => { const purchase = state.purchases.find(p => p.id === r.
     async adminFoundingRequests() { requireUser(); return []; },
     async adminDecideFoundingRequest() { throw new Error('Reviewing requests requires the connected app. Not available in this practice preview.'); },
     async adminStartFounding() { throw new Error('Starting the campaign requires the connected app. Not available in this practice preview.'); },
+    // Practice preview only: two made-up episodes so the podcast pages can be seen. The real ones come from the show's feed.
+    async podcastEpisodes() { return DEMO_PODCAST_EPISODES.map(({ body, sources, related, audio_url, spotify_url, ...list }) => list); },
+    async podcastEpisode(slug) { const e = DEMO_PODCAST_EPISODES.find(x => x.slug === slug); return e ? { ...e, related: DEMO_PODCAST_EPISODES.filter(x => x !== e).map(({ slug: s, title, published_at, kind }) => ({ slug: s, title, published_at, kind })) } : null; },
+    async adminPodcastOverview() { requireUser(); return { episodes: [], last_sync: null, last_ok_sync: null }; },
+    async adminPodcastSetIndex() { throw new Error('Podcast pages require the connected app. Not available in this practice preview.'); },
+    async adminPodcastSetHidden() { throw new Error('Podcast pages require the connected app. Not available in this practice preview.'); },
     async adminResolveReport() { throw new Error('The admin dashboard requires the connected app. Not available in this practice preview.'); },
     async adminListSupportConversations() { requireUser(); return []; },
     async adminGetSupportThread() { requireUser(); return []; },

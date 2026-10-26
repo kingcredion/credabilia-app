@@ -24,6 +24,7 @@ const Storefront = React.lazy(() => import('./Storefront.jsx').then(module => ({
 const TermsPage = React.lazy(() => import('./Legal.jsx').then(module => ({ default: module.TermsPage })));
 const GiveawayRulesPage = React.lazy(() => import('./Legal.jsx').then(module => ({ default: module.GiveawayRulesPage })));
 const PodcastPage = React.lazy(() => import('./Legal.jsx').then(module => ({ default: module.PodcastPage })));
+const PodcastEpisodePage = React.lazy(() => import('./Legal.jsx').then(module => ({ default: module.PodcastEpisodePage })));
 const FoundingPage = React.lazy(() => import('./Legal.jsx').then(module => ({ default: module.FoundingPage })));
 const PrivacyPage = React.lazy(() => import('./Legal.jsx').then(module => ({ default: module.PrivacyPage })));
 const CertificateLookupPage = React.lazy(() => import('./CertificateLookup.jsx').then(module => ({ default: module.CertificateLookupPage })));
@@ -36,6 +37,7 @@ import { trackEvent } from './events.js';
 import { showFoundingBadge } from './founding.js';
 import { FoundingChip, FoundingHeroBadge, FoundingWelcome } from './FoundingBadge.jsx';
 import { AdminFounding } from './AdminFounding.jsx';
+import { AdminPodcast } from './AdminPodcast.jsx';
 import { SellPage } from './SellPage.jsx';
 import { LIST_INTENT_KEY, captureListIntent, hasFreshListIntent, isSellHost } from './listIntent.js';
 import { captureGiveawayParam, captureReferralParam, clearGiveawayIntent, clearReferral, hasFreshGiveawayIntent, readReferral, rememberGiveawayIntent } from './giveaway.js';
@@ -1986,6 +1988,7 @@ function AdminDashboard() {
       <button aria-pressed={tab === 'giveaway'} className={tab === 'giveaway' ? 'active' : ''} onClick={() => setTab('giveaway')}>Giveaway</button>
       <button aria-pressed={tab === 'seo'} className={tab === 'seo' ? 'active' : ''} onClick={() => setTab('seo')}>SEO</button>
       <button aria-pressed={tab === 'founding'} className={tab === 'founding' ? 'active' : ''} onClick={() => setTab('founding')}>Founding 100</button>
+      <button aria-pressed={tab === 'podcast'} className={tab === 'podcast' ? 'active' : ''} onClick={() => setTab('podcast')}>Podcast</button>
     </div>
     {tab === 'disputes' && <AdminDisputes/>}
     {tab === 'reports' && <AdminReports/>}
@@ -1999,6 +2002,7 @@ function AdminDashboard() {
     {tab === 'giveaway' && <GiveawayAdmin service={service}/>}
     {tab === 'seo' && <AdminSeo/>}
     {tab === 'founding' && <AdminFounding service={service}/>}
+    {tab === 'podcast' && <AdminPodcast service={service}/>}
   </div>;
 }
 
@@ -2303,7 +2307,7 @@ export default function App() {
   const storefrontSlug = (() => { const segments = window.location.pathname.split('/').filter(Boolean); return segments.length === 1 && segments[0] !== 'auth' ? segments[0] : null; })();
   // /terms, /privacy, and /help are standalone, no-login-required pages -- checked before
   // storefrontSlug so they can never be shadowed by a seller's store name (also reserved server-side).
-  const legalPage = window.location.pathname === '/terms' ? 'terms' : window.location.pathname === '/privacy' ? 'privacy' : window.location.pathname === '/help' ? 'help' : window.location.pathname === '/certificate' ? 'certificate' : window.location.pathname === '/giveaway-rules' ? 'giveaway-rules' : window.location.pathname === '/podcast' ? 'podcast' : window.location.pathname === '/founding' ? 'founding' : (window.location.pathname === '/sell' || (isSellHost(window.location.hostname) && window.location.pathname === '/')) ? 'sell' : null;
+  const legalPage = window.location.pathname === '/terms' ? 'terms' : window.location.pathname === '/privacy' ? 'privacy' : window.location.pathname === '/help' ? 'help' : window.location.pathname === '/certificate' ? 'certificate' : window.location.pathname === '/giveaway-rules' ? 'giveaway-rules' : window.location.pathname === '/podcast' ? 'podcast' : /^\/podcast\/[^/]+\/?$/.test(window.location.pathname) ? 'podcast-episode' : window.location.pathname === '/founding' ? 'founding' : (window.location.pathname === '/sell' || (isSellHost(window.location.hostname) && window.location.pathname === '/')) ? 'sell' : null;
   // /item/<id> gives each listing its own shareable, bookmarkable, back-button-friendly URL --
   // parsed once here (same pattern as storefrontSlug/legalPage above) and reconciled against the
   // loaded `items`/`buyRequests` once they're fetched, below.
@@ -2615,7 +2619,8 @@ export default function App() {
   if (legalPage === 'help') return <HelpPage/>;
   if (legalPage === 'certificate') return <CertificateLookupPage service={service}/>;
   if (legalPage === 'giveaway-rules') return <GiveawayRulesPage/>;
-  if (legalPage === 'podcast') return <PodcastPage/>;
+  if (legalPage === 'podcast') return <PodcastPage service={service}/>;
+  if (legalPage === 'podcast-episode') return <PodcastEpisodePage service={service} slug={window.location.pathname.slice('/podcast/'.length).replace(/\/+$/, '').toLowerCase()}/>;
   if (legalPage === 'founding') return <FoundingPage service={service} EmailLogin={EmailLogin}/>;
   if (legalPage === 'sell') return <SellPage/>;
   if (soldPreview) return <SoldItemPage item={soldPreview} onBack={() => { window.location.href = '/'; }}/>;

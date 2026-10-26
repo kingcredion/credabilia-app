@@ -3,7 +3,7 @@ import { CATEGORIES } from './src/domain.js';
 import { ISSUERS } from './src/certificates.js';
 import { DETAIL_FIELDS } from './src/listingDetails.js';
 import { categoryFromSlug, categoryPath } from './src/seoRoutes.js';
-import { PODCAST, PODCAST_LISTEN_LINKS, podcastJsonLd } from './src/podcast.js';
+import { PODCAST, PODCAST_LISTEN_LINKS, podcastJsonLd, episodePath, episodeJsonLd, VOICE_NOTES, KIND_LABELS, formatEpisodeDate, formatDuration, paragraphsOf } from './src/podcast.js';
 
 // Search and link-preview layer. The app is a single page that draws itself with JavaScript, so a crawler that does not run it would see the same empty page for every
 // address. For known crawler user agents (BOT_UA) this gives each public address its own title, description, canonical, social tags, structured data and a plain-HTML copy
@@ -20,7 +20,7 @@ export const isCrawler = userAgent => BOT_UA.test(userAgent || '');
 const SITEMAP_URL_LIMIT = 45000; // the protocol allows 50,000 per file; stay under it
 
 export const config = {
-  matcher: ['/', '/item/:id', '/category/:slug', '/:slug([^/.]+)', '/sitemap.xml', '/sitemaps/:file', '/products.xml'],
+  matcher: ['/', '/item/:id', '/category/:slug', '/podcast/:slug', '/:slug([^/.]+)', '/sitemap.xml', '/sitemaps/:file', '/products.xml'],
 };
 
 function escapeHtml(value) {
@@ -72,6 +72,9 @@ async function callRpc(name, body) {
   return (await callRpcChecked(name, body)).data;
 }
 const sitemapData = () => cached('sitemap_entries', () => callRpc('sitemap_entries', {}));
+// Episodes open to search engines (podcast_sitemap_entries). A failure here must never take the rest of the sitemap down, so callers fall back to an empty list.
+const podcastSitemapData = () => cached('podcast_sitemap_entries', () => callRpc('podcast_sitemap_entries', {}));
+const podcastEpisodes = () => cached('podcast_episodes_list', () => callRpc('podcast_episodes_list', {}));
 const listingIndex = (category = null, limit = 60, exclude = null) => cached(`index|${category}|${limit}|${exclude}`, () => callRpc('seo_listing_index', { p_category: category, p_limit: limit, p_exclude: exclude }));
 
 // Returned by buildMeta when the lookup worked and there is simply no such item, storefront or category.
@@ -225,6 +228,29 @@ async function homeBody() {
     (cats ? '<h2>Browse by category</h2><ul>' + cats + '</ul>' : '') + (items ? '<h2>Latest collectibles</h2><ul>' + items + '</ul>' : '') + (stores ? '<h2>Storefronts</h2><ul>' + stores + '</ul>' : '') + NAV_LINKS + '</main>';
 }
 
+// One podcast episode. A page the operator or the rules keep out of search engines still exists (listeners and shared links need it) but says "noindex"; an episode that is
+// hidden, or has no record, is a 404 for crawlers.
+async function podcastEpisodeMeta(slug) {
+  if (!/^[a-z0-9-]{1,80}$/.test(slug)) return NOT_FOUND;
+  const { ok, data: episode } = await callRpcChecked('podcast_episode', { p_slug: slug });
+  if (!ok) return null;
+  if (!episode) return NOT_FOUND;
+  const url = SITE_ORIGIN + episodePath(episode.slug);
+  const trail = [['Home', SITE_ORIGIN + '/'], [PODCAST.name, SITE_ORIGIN + '/podcast'], [episode.title, url]];
+  const facts = [KIND_LABELS[episode.kind], formatEpisodeDate(episode.published_at), formatDuration(episode.duration_seconds)].filter(Boolean).join(' · ');
+  return {
+    title: `${shorten(episode.title, 62)} | ${SITE_NAME}`, description: shorten(episode.summary, 155), image: episode.image_url || DEFAULT_IMAGE, ogType: 'article',
+    robots: episode.index ? null : 'noindex, follow',
+    body: '<main>' + breadcrumbHtml([['Home', '/'], [PODCAST.name, '/podcast'], [episode.title, null]]) + '<h1>' + escapeHtml(episode.title) + '</h1><p>' + escapeHtml(facts) + '</p><p>' + escapeHtml(VOICE_NOTES[episode.kind] || '') + '</p>' +
+      paragraphsOf(episode.body).map(p => '<p>' + escapeHtml(p) + '</p>').join('') +
+      (episode.sources?.length ? '<h2>Sources</h2><ul>' + episode.sources.map(s => '<li><a href="' + escapeHtml(s) + '" rel="noopener nofollow">' + escapeHtml(s) + '</a></li>').join('') + '</ul>' : '') +
+      (episode.transcript ? '<h2>Transcript</h2>' + paragraphsOf(episode.transcript).map(p => '<p>' + escapeHtml(p) + '</p>').join('') : '') +
+      '<p>' + (episode.spotify_url ? '<a href="' + escapeHtml(episode.spotify_url) + '">Listen on Spotify</a> · ' : '') + PODCAST_LISTEN_LINKS.map(([label, href]) => '<a href="' + escapeHtml(href) + '">' + escapeHtml(label) + '</a>').join(' · ') + '</p>' +
+      (episode.related?.length ? '<h2>More episodes</h2><ul>' + episode.related.map(r => '<li><a href="' + escapeHtml(episodePath(r.slug)) + '">' + escapeHtml(r.title) + '</a></li>').join('') + '</ul>' : '') + NAV_LINKS + '</main>',
+    jsonLd: [breadcrumbJsonLd(trail), episodeJsonLd(episode, SITE_ORIGIN)],
+  };
+}
+
 async function buildMeta(pathname) {
   const segments = pathname.split('/').filter(Boolean);
   if (segments.length === 2 && segments[0] === 'item') {
@@ -262,11 +288,14 @@ async function buildMeta(pathname) {
     };
   }
   if (segments.length === 0) return { title: 'Credabilia | The Memorabilia Kingdom', description: HOME_DESCRIPTION, image: DEFAULT_IMAGE, body: await homeBody() };
+  if (segments.length === 2 && segments[0] === 'podcast') return podcastEpisodeMeta(segments[1]);
   if (segments.length === 1 && segments[0] === 'podcast') {
+    const episodes = (await podcastEpisodes()) || [];
     return {
       title: `${PODCAST.name} | ${SITE_NAME}`, description: PODCAST.seoDescription, image: DEFAULT_IMAGE,
       body: '<main><h1>' + escapeHtml(PODCAST.name) + '</h1><p>' + escapeHtml(PODCAST.description) + '</p><p>' + escapeHtml(PODCAST.aiNote) + '</p><ul>' +
-        PODCAST_LISTEN_LINKS.map(([label, href]) => '<li><a href="' + escapeHtml(href) + '">Listen on ' + escapeHtml(label) + '</a></li>').join('') + '</ul>' + NAV_LINKS + '</main>',
+        PODCAST_LISTEN_LINKS.map(([label, href]) => '<li><a href="' + escapeHtml(href) + '">Listen on ' + escapeHtml(label) + '</a></li>').join('') + '</ul>' +
+        (episodes.length ? '<h2>Episodes</h2><ul>' + episodes.map(e => '<li><a href="' + escapeHtml(episodePath(e.slug)) + '">' + escapeHtml(e.title) + '</a> · ' + escapeHtml(formatEpisodeDate(e.published_at)) + '</li>').join('') + '</ul>' : '') + NAV_LINKS + '</main>',
       jsonLd: [breadcrumbJsonLd([['Home', SITE_ORIGIN + '/'], [PODCAST.name, SITE_ORIGIN + '/podcast']]), podcastJsonLd(SITE_ORIGIN)],
     };
   }
@@ -304,6 +333,7 @@ export function sitemapUrls(data, origin = SITE_ORIGIN) {
   for (const item of data?.listings || []) urls.push({ loc: `${origin}/item/${item.id}`, lastmod: day(item.updated_at || item.created_at) });
   const stores = data?.storefront_entries?.length ? data.storefront_entries : (data?.storefronts || []).map(slug => ({ slug }));
   for (const s of stores) urls.push({ loc: `${origin}/${s.slug}`, lastmod: day(s.lastmod) });
+  for (const e of data?.podcast_episodes || []) urls.push({ loc: `${origin}${episodePath(e.slug)}`, lastmod: day(e.lastmod) });
   return urls;
 }
 const urlsetXml = urls => `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n` +
@@ -374,7 +404,7 @@ export default async function middleware(request) {
   if (url.pathname === '/sitemap.xml' || url.pathname.startsWith('/sitemaps/')) {
     const data = await sitemapData();
     if (!data) return new Response('Sitemap temporarily unavailable', { status: 503, headers: { 'retry-after': '300', 'cache-control': 'no-store' } });
-    const built = buildSitemapFiles(data, SITE_ORIGIN);
+    const built = buildSitemapFiles({ ...data, podcast_episodes: (await podcastSitemapData()) || [] }, SITE_ORIGIN);
     if (url.pathname === '/sitemap.xml') return xmlResponse(built.index || built.files.main);
     const name = url.pathname.slice('/sitemaps/'.length);
     return built.files[name] ? xmlResponse(built.files[name]) : new Response('Not found', { status: 404 });
