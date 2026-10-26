@@ -31,7 +31,7 @@ test('the show facts are the published ones, the AI disclosure is on the page, a
   assert.equal(PODCAST.spotifyShow, 'https://open.spotify.com/show/3OYqLNzUSeG6XOyyitwLWN');
   assert.equal(PODCAST.spotifyEmbed, 'https://open.spotify.com/embed/show/3OYqLNzUSeG6XOyyitwLWN');
   assert.equal(PODCAST.apple, 'https://podcasts.apple.com/us/podcast/the-memorabilia-kingdom-podcast/id6826494805');
-  assert.deepEqual(PODCAST_LISTEN_LINKS.map(([label]) => label), ['Spotify', 'Apple Podcasts', 'iHeart']);
+  assert.deepEqual(PODCAST_LISTEN_LINKS.map(([label]) => label), ['Spotify', 'Apple Podcasts', 'iHeart', 'Pocket Casts', 'YouTube']);
   for (const [, href] of PODCAST_LISTEN_LINKS) assert.match(href, /^https:\/\//);
   assert.match(PODCAST.aiNote, /^King Credion is an AI character\. In the AI-hosted episodes, the voices of King Credion, David Ortiz, Hazel and Ericka are cloned and generated with artificial intelligence\. In David’s Take, David appears as himself, in his real voice and on video\.$/);
   const words = [PODCAST.description, PODCAST.seoDescription, PODCAST.aiNote].join(' ');
@@ -43,7 +43,7 @@ test('structured data describes the show and where to hear it', () => {
   assert.equal(json['@type'], 'PodcastSeries');
   assert.equal(json.url, 'https://credabilia.com/podcast');
   assert.equal(json.webFeed, PODCAST.rss);
-  assert.deepEqual(json.sameAs, [PODCAST.spotifyShow, PODCAST.apple, PODCAST.iheart]);
+  assert.deepEqual(json.sameAs, [PODCAST.spotifyShow, PODCAST.apple, PODCAST.iheart, PODCAST.pocketCasts, PODCAST.youtube]);
 });
 
 test('a crawler gets the podcast page with its own title, canonical, listen links, the AI note and show data, not a store lookup', async () => {

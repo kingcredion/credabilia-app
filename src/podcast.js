@@ -5,7 +5,9 @@ export const PODCAST = {
   spotifyShow: 'https://open.spotify.com/show/3OYqLNzUSeG6XOyyitwLWN',
   spotifyEmbed: 'https://open.spotify.com/embed/show/3OYqLNzUSeG6XOyyitwLWN',
   apple: 'https://podcasts.apple.com/us/podcast/the-memorabilia-kingdom-podcast/id6826494805',
-  iheart: 'https://iheart.com/podcast/348343895/',
+  iheart: 'https://www.iheart.com/podcast/269-the-memorabilia-kingdom-po-348343895/',
+  pocketCasts: 'https://pocketcasts.com/podcast/the-memorabilia-kingdom-podcast/b39417d0-b208-013f-bb96-02fff6700f3f',
+  youtube: 'https://www.youtube.com/@KingCredion',
   rss: 'https://anchor.fm/s/1190cdc34/podcast/rss',
   description: 'King Credion, Credabilia founder David Ortiz and his sister Hazel talk about the news in sports memorabilia and collectibles: record sales, rare cards, trivia, giveaways and the stories behind the gear.',
   // Same statement the show carries on Spotify, Apple Podcasts and iHeart, so the site and the show never disagree.
@@ -17,6 +19,8 @@ export const PODCAST_LISTEN_LINKS = [
   ['Spotify', PODCAST.spotifyShow],
   ['Apple Podcasts', PODCAST.apple],
   ['iHeart', PODCAST.iheart],
+  ['Pocket Casts', PODCAST.pocketCasts],
+  ['YouTube', PODCAST.youtube],
 ];
 
 // ---- Episode pages (/podcast/<slug>) ----------------------------------------------------------------------------------------------------------------------------------
@@ -63,6 +67,6 @@ export function podcastJsonLd(origin = 'https://credabilia.com') {
   return {
     '@context': 'https://schema.org', '@type': 'PodcastSeries', name: PODCAST.name, url: origin + '/podcast', description: PODCAST.description,
     webFeed: PODCAST.rss, publisher: { '@type': 'Organization', name: 'Credabilia', url: origin },
-    sameAs: [PODCAST.spotifyShow, PODCAST.apple, PODCAST.iheart],
+    sameAs: PODCAST_LISTEN_LINKS.map(([, href]) => href),
   };
 }
