@@ -33,7 +33,7 @@ test('the show facts are the published ones, the AI disclosure is on the page, a
   assert.equal(PODCAST.apple, 'https://podcasts.apple.com/us/podcast/the-memorabilia-kingdom-podcast/id6826494805');
   assert.deepEqual(PODCAST_LISTEN_LINKS.map(([label]) => label), ['Spotify', 'Apple Podcasts', 'iHeart']);
   for (const [, href] of PODCAST_LISTEN_LINKS) assert.match(href, /^https:\/\//);
-  assert.match(PODCAST.aiNote, /^King Credion is an AI character, and his voice, along with the voices of David Ortiz and Hazel, is generated with artificial intelligence\.$/);
+  assert.match(PODCAST.aiNote, /^King Credion is an AI character\. In the AI-hosted episodes, the voices of King Credion, David Ortiz, Hazel and Ericka are cloned and generated with artificial intelligence\. In David’s Take, David appears as himself, in his real voice and on video\.$/);
   const words = [PODCAST.description, PODCAST.seoDescription, PODCAST.aiNote].join(' ');
   assert.doesNotMatch(words, /every night|every day|daily|weekly|fact-checked|guarantee|\bfree\b/i, 'no schedule, no fact-check claim, no promises');
 });

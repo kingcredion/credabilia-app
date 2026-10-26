@@ -9,7 +9,7 @@ export const PODCAST = {
   rss: 'https://anchor.fm/s/1190cdc34/podcast/rss',
   description: 'King Credion, Credabilia founder David Ortiz and his sister Hazel talk about the news in sports memorabilia and collectibles: record sales, rare cards, trivia, giveaways and the stories behind the gear.',
   // Same statement the show carries on Spotify, Apple Podcasts and iHeart, so the site and the show never disagree.
-  aiNote: 'King Credion is an AI character, and his voice, along with the voices of David Ortiz and Hazel, is generated with artificial intelligence.',
+  aiNote: 'King Credion is an AI character. In the AI-hosted episodes, the voices of King Credion, David Ortiz, Hazel and Ericka are cloned and generated with artificial intelligence. In David’s Take, David appears as himself, in his real voice and on video.',
   seoDescription: 'The Memorabilia Kingdom Podcast: King Credion, founder David Ortiz and Hazel on sports memorabilia and collectibles news, rare cards, trivia and giveaways. Listen on Spotify, Apple Podcasts and iHeart.',
 };
 
