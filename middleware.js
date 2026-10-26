@@ -34,7 +34,7 @@ export function shorten(text, max) {
   const clean = String(text || '').replace(/\s+/g, ' ').trim();
   if (clean.length <= max) return clean;
   const cut = clean.slice(0, max);
-  return cut.slice(0, Math.max(cut.lastIndexOf(' '), 40)).replace(/[\s,.;:-]+$/, '') + '…';
+  return cut.slice(0, Math.max(cut.lastIndexOf(' '), 40)).replace(/[\s,.;:–—-]+$/, '') + '…';
 }
 
 // One address, one canonical: tracking and share parameters (utm_*, ref, fbclid, gclid, list, giveaway) and fragments never create a second page, and a trailing slash is dropped.

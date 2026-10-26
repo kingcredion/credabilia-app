@@ -144,6 +144,13 @@ test('the podcast landing page lists the episodes for crawlers with links to eac
   } finally { f.restore(); }
 });
 
+test('a long page title is cut at a word and never ends on a dash', async () => {
+  const {shorten} = await import('../middleware.js');
+  const cut = shorten('David’s Take: $2.16M for a Card That Doesn’t Exist Yet — Cooper Flagg 1/1 Motif Logoman', 62);
+  assert.ok(cut.endsWith('Yet…'), cut);
+  assert.equal(shorten('Short title', 62), 'Short title');
+});
+
 test('wording and formatting helpers', () => {
   assert.equal(formatDuration(339), '6 min');
   assert.equal(formatDuration(45), '1 min');
