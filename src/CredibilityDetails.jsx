@@ -29,6 +29,7 @@ function IssuerProfile({ issuer }) {
   return <div className="issuer-profile" role="group" aria-label={'About ' + issuer.name}>
     <h4>About the issuer: {issuer.name}</h4>
     <p className="field-note">{profile.summary}</p>
+    {profile.reviewed && <p className="field-note">Reviewed {new Date(profile.reviewed + 'T12:00:00Z').toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric', timeZone: 'UTC' })}.</p>}
     <h5>What we looked at</h5>
     <ul className="field-note">{profile.looked.map(line => <li key={line}>{line}</li>)}</ul>
     <h5>What we could not check</h5>
@@ -63,7 +64,7 @@ export default function CredibilityDetails({ item, session, own, auditedLabel, o
       ? <p className="field-note"><Check size={14}/> You audited this — {auditedLabel}</p>
       : <button type="button" className="primary compact" onClick={onAudit}><ClipboardCheck size={16}/>Audit this item<ArrowRight size={16}/></button>)}
     <details><summary>How this score works</summary>
-      <p>Credabilia combines the listed certificate issuer's rating with community assessments. Company ratings are Credabilia's product settings. A seller-entered certificate number counts at 75% of the issuer's rating until a Credabilia operator confirms it with the issuer, after which it counts in full and the item is marked "Checked with the issuer". An issuer with no public lookup, such as Frameworth Sports Marketing, has nothing to confirm a number against, so its rating (65) is already set a little lower and its numbers count in full.</p>
+      <p>Credabilia combines the listed certificate issuer's rating with community assessments. Company ratings are Credabilia's product settings. A seller-entered certificate number counts at 75% of the issuer's rating until a Credabilia operator confirms it with the issuer, after which it counts in full and the item is marked "Checked with the issuer". An issuer with no public lookup, such as Frameworth Sports Marketing, MeiGray or Resolution Photomatching, has nothing to confirm a number against, so its rating is already set lower than the issuers we can check and its numbers count in full.</p>
       <p>Community assessments start with five neutral baseline votes so one opinion has limited influence. Each assessment currently has equal weight. “Looks consistent” contributes 100, “Need more evidence” 50, and “I see concerns” 0.</p>
       <p>Certificate/community weighting is 80/20 for fewer than 10 audits, 65/35 for 10–24, 50/50 for 25–99, and 35/65 for 100 or more. Some issuers, such as Fiterman Sports, do not use certificate numbers; a listing that names one is scored lower because there is no record to check, which says nothing about whether the item is authentic. A missing certificate scores 25 out of 100 on the certificate side — a real reflection of no evidence provided, not a neutral placeholder.</p>
       <p>When King Credion gives an opinion on a signature close-up, it adjusts the certificate side by a small, capped amount — +5 if the opinion is "consistent," −15 if it flags "concerns," no change if "inconclusive" or not submitted. This is a plain-language opinion, not a forensic or certain authentication, and it gets smarter as Credabilia's own library of verified signatures grows over time.</p>

@@ -8,11 +8,11 @@ export function CertificateFields({value,onChange,disabled=false}) {
   return <fieldset className="form-stack" disabled={disabled}><legend>Certificate details · optional</legend>
     <label>Issuing company<select name="certificate_issuer" value={issuer} onChange={event=>onChange({certificate_issuer:event.target.value,certificate_number:'',certificate_company:''})}><option value="">No certificate</option>{ISSUERS.map(company=><option key={company.id} value={company.id}>{company.name}</option>)}</select></label>
     {issuer==='fiterman' && <p className="field-note">Fiterman Sports does not use certificate numbers, so there is no number to enter. Buyers are told this, and the score reflects that there is no certificate record to check.</p>}
-    {issuer==='frameworth' && <p className="field-note">Frameworth has no public lookup, so buyers cannot check the number with the company, and its certificates are rated 65 out of 100 for that reason. The item page tells buyers about the company and links to its website.</p>}
+    {resolveIssuer(issuer)?.noLookup && <p className="field-note">{resolveIssuer(issuer).name} has no public lookup, so buyers cannot check the number with the company, and its certificates are rated {resolveIssuer(issuer).rating} out of 100 for that reason. The item page tells buyers about the company and links to its website.</p>}
     {issuer && issuer!=='fiterman' && <>
       {issuer==='other' && <label>Company name<input name="certificate_company" value={value.certificate_company || ''} onChange={event=>update('certificate_company',event.target.value)} required minLength={2} maxLength={100}/></label>}
       <label>Certificate number<input name="certificate_number" value={value.certificate_number || ''} onChange={event=>update('certificate_number',event.target.value)} required maxLength={80} autoComplete="off" placeholder="Exactly as printed on the certificate"/></label>
-      {issuer!=='frameworth' && <p className="field-note">Buyers can use these details to check the issuer's records. Confirm the company and number before publishing.</p>}
+      {!resolveIssuer(issuer)?.noLookup && <p className="field-note">Buyers can use these details to check the issuer's records. Confirm the company and number before publishing.</p>}
       {resolveIssuer(issuer)?.outage && <p className="field-note">{OUTAGE_NOTE}</p>}
     </>}
   </fieldset>;
@@ -41,8 +41,9 @@ export default function CertificateDetails({item}) {
       <a className="text-button" href={issuer.website} target="_blank" rel="noopener noreferrer">{issuer.name} website ↗</a>
     </div>
     {message && <p role="status">{message}</p>}
-    <p className="field-note">Frameworth has no public lookup, so Credabilia cannot check this number against its records. Who they are and why we rate them as we do is explained under Item credibility, on this page.</p>
-    <p className="field-note"><a href={issuer.authenticityPage} target="_blank" rel="noopener noreferrer">How Frameworth describes its authentication ↗</a></p>
+    {issuer.howToCheck && <p className="field-note"><strong>How to check:</strong> {issuer.howToCheck}</p>}
+    <p className="field-note">{issuer.name} has no public lookup that Credabilia can use, so Credabilia cannot check this number against its records. Who they are and why we rate them as we do is explained under Item credibility, on this page.</p>
+    {issuer.authenticityPage && <p className="field-note"><a href={issuer.authenticityPage} target="_blank" rel="noopener noreferrer">{issuer.id==='frameworth' ? 'How Frameworth describes its authentication' : 'More from ' + issuer.name} ↗</a></p>}
   </section>;
   return <section className="evidence-box" aria-label="Certificate details">
     <h3><Award size={18}/>Certificate details</h3><p><strong>{issuer.id==='other'?item.certificate_company:issuer.name}</strong></p>

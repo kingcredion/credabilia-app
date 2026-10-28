@@ -151,6 +151,99 @@ export const ISSUERS = [
       ],
       why: "MLB Authenticated is rated 89 out of 100, in line with other long-established issuers whose numbers can be looked up (84 to 95). A seller-entered number counts at 75% of that until a Credabilia operator checks it with MLB.",
     } },
+  // Issuers added after the 2026-10-28 industry review (research/memorabilia-authentication-research-2026-10-28.md). None has a public lookup we could confirm, so each is
+  // handled like Frameworth: a flat rating that already reflects "we cannot check this one", counted in full and never cut to 75%. `kind` says what sort of evidence it is
+  // (game_used: proof an item was used in a game; card_grade: a condition grade), and `howToCheck` is what a buyer can actually do. Every figure and statement in a
+  // profile is from the sources named in that research file; the company's own claims are marked as such. Ratings are Credabilia's own product settings.
+  { id:'tag', name:'TAG Grading', rating:75, aliases:['TAG','Technical Authentication & Grading','Technical Authentication and Grading'], lookup:null, noLookup:true, kind:'card_grade', website:'https://taggrading.com',
+    howToCheck:"Scan the QR code on the slab: it opens TAG's digital grading report with images and the defect list.",
+    profile: {
+      reviewed:'2026-10-28',
+      summary: 'A trading card grading company. By its own account it has used patented grading technology since 2015. It scores cards on a 1,000-point scale from high-resolution images, and each slab carries a QR code that opens a digital report.',
+      looked: [
+        "Its website: the 1,000-point scoring method, the digital image and grading report, and the QR code on every slab. These are the company's own statements.",
+        'Industry volume figures: GemRate reported roughly 440,000 cards graded by TAG in 2025, compared with about 19 million at PSA, so it is a much smaller grader.',
+        'Hobby guides and reviews: they describe a real, operating company with a documented method that is still building acceptance in the resale market, where its slabs generally sell for less than PSA or Beckett.',
+      ],
+      couldnt: [
+        'We found no certificate-number search page, so Credabilia cannot check a number against TAG\'s records. The QR code on the slab is the way to check.',
+        'We could not confirm who owns or runs the company.',
+        'We could not confirm how widely auction houses accept its slabs.',
+      ],
+      why: 'TAG Grading is rated 75 out of 100. That is well above an issuer we know nothing about (50), because it is an operating company with a published method and a report anyone can open from the slab. It is below the issuers whose numbers we can check (84 to 95) because we cannot check a number against its records, and its market acceptance is still developing. The rating is not a verdict on any single card.',
+    } },
+  { id:'sia', name:'Sports Investors Authentication (SIA)', rating:70, aliases:['SIA','SIA Photo Match','Sports Investors Authentication','Sports Investors'], lookup:null, noLookup:true, kind:'game_used', website:'https://www.siaphotomatch.com/',
+    howToCheck:"Read what the letter says it covers (a photo-match to a specific game is different from a finding that an item is consistent with team-issued gear), then ask SIA to confirm the letter.",
+    profile: {
+      reviewed:'2026-10-28',
+      summary: 'A company that authenticates game-used sports memorabilia and photo-matches items to game photos. Its website is SIA Photo Match. By its own description it covers baseball, hockey, football and basketball items.',
+      looked: [
+        'Its website, siaphotomatch.com (the older sportsinv.com address redirects to it), which presents the company as a photo-match authentication service for memorabilia (the company\'s own description).',
+        'Auction listings and news coverage that name SIA: a reported photo-match on a 1998 Michael Jordan NBA Finals jersey that sold privately for $14 million in October 2026, and SIA letters listed with PSA/DNA on a pair of ring-worn Hulk Hogan boots.',
+        'Hobby coverage that lists SIA with MeiGray and Resolution Photomatching as one of the leading photo-match firms.',
+      ],
+      couldnt: [
+        'We found no public lookup, so Credabilia cannot check a letter against SIA\'s records.',
+        'We could not confirm who runs the company, when it started, or how it words its findings. Its website would not load fully for our review.',
+        'Letters can cover different levels of service. A letter saying an item is consistent with team-issued gear is not the same as a photo-match to a named game, so what the letter actually says matters.',
+        'There is no independent second opinion on a given letter.',
+      ],
+      why: 'SIA is rated 70 out of 100. That is above an issuer we know nothing about (50) and above Frameworth (65), because it is an independent company whose work is named on major auction lots. It is below the issuers whose numbers we can check (84 to 95), because we cannot check a letter against any record and could not confirm who runs it. The rating is not a verdict on any single item.',
+    } },
+  { id:'meigray', name:'MeiGray Group', rating:70, aliases:['MeiGray','MeiGray Authenticated','MeiGray Authentication','Mei Gray'], lookup:null, noLookup:true, kind:'game_used', website:'https://www.meigray.com', authenticityPage:'https://www.meigray.com/viewuserdefinedpage.aspx?pn=authentication',
+    howToCheck:"Read the letter for the game or games it names and the photos it relies on, then ask MeiGray to confirm the letter.",
+    profile: {
+      reviewed:'2026-10-28',
+      summary: 'A company founded in 1997 by Barry Meisel and Bob Gray that authenticates game-worn jerseys and other items. It is best known for photo-matching an item to photographs and video of the game.',
+      looked: [
+        'Press coverage: it photo-matched the Babe Ruth "called shot" jersey that sold for $24.12 million in 2024, and it is named on other high-value sales. Photo-match firms do not always agree: for that jersey, another firm had reviewed it earlier and did not issue a match.',
+        'By its own announcement with JSA in April 2026, one MeiGray submission can request both MeiGray photo-matching and JSA autograph authentication.',
+        'A 2023 case reported by Action Network: MeiGray withdrew a letter it had issued for a Michael Jordan jersey after the reporting showed the photographs it relied on had been altered. The company said it had been given counterfeit documentation and doctored images that it failed to recognize, and that it was exploring legal options and reaching out to law enforcement.',
+      ],
+      couldnt: [
+        'We found no public lookup, so Credabilia cannot check a letter or hologram number against MeiGray\'s records.',
+        'We could not read what MeiGray itself says about its process.',
+        'A photo-match is only as reliable as the photographs it rests on, and a buyer cannot see those photographs from the letter alone.',
+        'There is no independent second opinion on a given letter.',
+      ],
+      why: 'MeiGray is rated 70 out of 100. That is above an issuer we know nothing about (50) and above Frameworth (65), because it is an established independent firm, in business since 1997, named on some of the largest sales in the hobby, and it withdrew a letter when it found the evidence was false. It is below the issuers whose numbers we can check (84 to 95), because we cannot check a letter against any record, and that episode shows a letter can be wrong. The rating is not a verdict on any single item.',
+    } },
+  { id:'mears', name:'MEARS', rating:72, aliases:['MEARS Authentication','MEARS Authentications','MEARS Online','Memorabilia Evaluation and Research Services','Memorabilia Evaluation & Research Services'], lookup:null, noLookup:true, kind:'game_used', website:'https://mearsonline.com', authenticityPage:'https://mearsonline.com/evaluation-services/evaluation-grading-criteria/mears-exclusive-jersey-grading-and-authentication-criteria/',
+    howToCheck:"Read the letter's grade and what it says about the item's use, then ask MEARS to confirm the letter.",
+    profile: {
+      reviewed:'2026-10-28',
+      summary: 'Memorabilia Evaluation and Research Services, started in 2004 by Troy Kinunen, who is its president and CEO. It evaluates game-used bats and game-worn jerseys. Its website also links to a separate auction business, MEARS Auctions.',
+      looked: [
+        'Its website: named leadership, a 2004 start, and published grading criteria for bats and jerseys.',
+        "What it says about its process (the company's own statements): evaluations use a 40-step worksheet, a research database and image analysis. Its criteria pages describe grading on a 1 to 10 scale, with points for factory and player characteristics and deductions for after-market additions or damage, and an item can be declined as unable to authenticate.",
+        "Its own claims of reputation: that it has authenticated more than $200 million of memorabilia, and that its president was hired by the New York Giants as an expert on game-used authentication. We did not confirm either independently.",
+        'Submitters are asked for the item\'s history, and later information can change a grade.',
+      ],
+      couldnt: [
+        'We found no public lookup, so Credabilia cannot check a letter against MEARS\'s records.',
+        'Its website does not explain how the evaluation business and the auction business are kept separate.',
+        'A grade describes the item. Naming the specific game an item was used in depends on photos and provenance, so the letter\'s wording matters.',
+        'There is no independent second opinion on a given letter.',
+      ],
+      why: 'MEARS is rated 72 out of 100. That is above an issuer we know nothing about (50) and above Frameworth (65), because it is an independent company with named leadership, published grading criteria and a long record, since 2004. It is below the issuers whose numbers we can check (84 to 95), because we cannot check a letter against any record. The rating is not a verdict on any single item.',
+    } },
+  { id:'resolution', name:'Resolution Photomatching', rating:72, aliases:['Resolution','Resolution Photo Matching','ResMatch','Res Match'], lookup:null, noLookup:true, kind:'game_used', website:'https://www.resolutionphotomatching.com', authenticityPage:'https://www.resolutionphotomatching.com/resmatch-process',
+    howToCheck:"Ask Resolution Photomatching to confirm the ResMatch by its Match ID: its website says it looks these up on request by email.",
+    profile: {
+      reviewed:'2026-10-28',
+      summary: 'A company that compares game-used items with photographs of the player to find a match. Press coverage says it was started in 2016 by John Robinson. Owners send photos by email, and the item does not have to be shipped.',
+      looked: [
+        "Its website: a published three-round process with more than 20 protocol steps in each round, drawing on over 30 outside image databases and an internal library of nearly one million images, usually taking about two weeks. These are the company's own statements.",
+        "What a match produces, in its own words: a ResMatch certification with a Match ID and side-by-side photo graphics. Part of the fee is refunded if no match is made.",
+        'Press coverage: it examined the Babe Ruth "called shot" jersey three times, in 2019, 2021 and 2022, without issuing a match, which shows it declines when the evidence falls short.',
+      ],
+      couldnt: [
+        'There is no public online lookup. Its website says a match can be looked up by Match ID on request by email, so Credabilia cannot check one itself, but a buyer can ask.',
+        'Its website does not name who runs the company.',
+        'There is no independent second opinion on a given match.',
+      ],
+      why: 'Resolution Photomatching is rated 72 out of 100. That is above an issuer we know nothing about (50) and above Frameworth (65), because it is an independent company with a published process, a Match ID that can be confirmed with the company, and a record of declining a match when the evidence did not support one. It is below the issuers whose numbers we can check (84 to 95), because we cannot check a Match ID against any record ourselves. The rating is not a verdict on any single item.',
+    } },
   // Fiterman Sports does not put certificate numbers on its items, so there is no record a buyer can look up. It is scored lower for that
   // reason; the score says nothing about whether the item is authentic.
   { id:'fiterman', name:'Fiterman Sports', rating:55, aliases:['Fiterman','Fiterman Sports Collectibles'], lookup:null, noNumber:true, website:'https://www.fitermansports.com',
