@@ -1,6 +1,11 @@
 {
   "redirects": [
     {
+      "source": "/marketplace",
+      "destination": "/",
+      "permanent": false
+    },
+    {
       "source": "/(.*)",
       "has": [
         {

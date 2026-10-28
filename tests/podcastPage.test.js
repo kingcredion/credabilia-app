@@ -101,7 +101,7 @@ test('no member can claim "podcast" as a store name, and the reserved list is pa
   const sql = squash(await read('supabase/migrations/202610240164_reserve_podcast_slug.sql'));
   assert.match(sql, /'giveaway-rules'',''podcast'/);
   const middlewareSource = squash(await read('middleware.js'));
-  assert.match(middlewareSource, /'giveaway-rules', 'category', 'podcast'\]\)/);
+  assert.match(middlewareSource, /'giveaway-rules', 'category', 'podcast', 'marketplace'\]\)/);
 
   const migrations = (await readdir(new URL('../supabase/migrations/', import.meta.url))).filter(f => f.endsWith('.sql')).sort();
   const db = new PGlite({extensions: {vector}});

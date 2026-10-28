@@ -13,7 +13,7 @@ const SUPABASE_URL = process.env.VITE_SUPABASE_URL;
 const SUPABASE_KEY = process.env.VITE_SUPABASE_PUBLISHABLE_KEY;
 const SITE_ORIGIN = 'https://credabilia.com';
 const DEFAULT_IMAGE = SITE_ORIGIN + '/brand/app-icons/crown-c/web/icon-512.png';
-const RESERVED_SLUGS = new Set(['terms', 'privacy', 'help', 'auth', 'item', 'sell', 'certificate', 'giveaway-rules', 'category', 'podcast']);
+const RESERVED_SLUGS = new Set(['terms', 'privacy', 'help', 'auth', 'item', 'sell', 'certificate', 'giveaway-rules', 'category', 'podcast', 'marketplace']);
 // Includes Google's other fetchers (Search Console's live URL test is "Google-InspectionTool", which does not say "bot"), speed-test tools, and spiders that call themselves spider or crawler.
 const BOT_UA = /bot|spider|crawl|google-|googleother|lighthouse|pagespeed|facebookexternalhit|facebookcatalog|twitterbot|slackbot|discordbot|linkedinbot|whatsapp|telegrambot|applebot|pinterest|redditbot|vkshare|skypeuripreview|embedly|quora|outbrain|iframely|w3c_validator/i;
 export const isCrawler = userAgent => BOT_UA.test(userAgent || '');
