@@ -3,7 +3,7 @@ import { CATEGORIES } from './src/domain.js';
 import { DETAIL_FIELDS } from './src/listingDetails.js';
 import { categoryFromSlug, categoryPath } from './src/seoRoutes.js';
 import { shorten, listingSeo, issuerName, SITE_NAME, HOME_DESCRIPTION, STATIC_PAGES, CATEGORY_INTRO, categoryDescription } from './src/seoText.js';
-import { retiredStatus, GONE_PAGE } from './src/retiredUrls.js';
+import { retiredStatus, redirectTarget, GONE_PAGE } from './src/retiredUrls.js';
 import { PODCAST, PODCAST_LISTEN_LINKS, podcastJsonLd, episodePath, episodeJsonLd, VOICE_NOTES, KIND_LABELS, formatEpisodeDate, formatDuration, paragraphsOf } from './src/podcast.js';
 
 // Search and link-preview layer. The app is a single page that draws itself with JavaScript, so a crawler that does not run it would see the same empty page for every
@@ -366,6 +366,8 @@ export default async function middleware(request) {
     return xmlResponse(xml);
   }
   // Pages the old Credabilia app had and this one does not: a real 410 for everyone (people and crawlers), instead of the app's "Store not found" screen with a 200.
+  const moved = redirectTarget(url.pathname);
+  if (moved) return new Response(null, { status: 308, headers: { location: new URL(moved, url).toString(), 'cache-control': 'public, max-age=0, s-maxage=3600' } });
   if (retiredStatus(url.pathname)) return new Response(GONE_PAGE, { status: 410, headers: { 'content-type': 'text/html; charset=utf-8', 'x-robots-tag': 'noindex', 'cache-control': 'public, max-age=0, s-maxage=3600' } });
   if (!isCrawler(request.headers.get('user-agent'))) return next();
 

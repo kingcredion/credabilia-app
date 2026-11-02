@@ -24,7 +24,7 @@ const request = (path, ua) => new Request('https://credabilia.com' + path, {head
 test('a crawler asking for a storefront or item that does not exist is told 404 and noindex', async () => {
   const restore = withFetch({});
   try {
-    for (const path of ['/triviachallenge', '/AuditorRewards', '/item/00000000-0000-0000-0000-000000000000']) {
+    for (const path of ['/mystery-page', '/AuditorRewards', '/item/00000000-0000-0000-0000-000000000000']) {
       const response = await middleware(request(path, GOOGLEBOT));
       assert.equal(response.status, 404, path);
       assert.equal(response.headers.get('x-robots-tag'), 'noindex', path);

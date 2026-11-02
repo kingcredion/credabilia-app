@@ -129,3 +129,26 @@ test('"Back to Credabilia" never points at another information page, so Podcast 
   assert.match(legal, /saved && !isInfoPage\(saved\.split\('\?'\)\[0\]\) \? saved : '\/'/, 'an old saved value that is itself an information page is ignored');
   void isInfoPage;
 });
+
+test('every old-app address Search Console reported is a 410 or a permanent redirect for everyone, live pages are untouched, and capitalised spellings of real pages redirect', async () => {
+  const f = withFetch();
+  try {
+    for (const path of ['/itemdetails', '/ResetPassword', '/FrameShopDashboard', '/rewardcenter', '/influencer-profile', '/trivia-challenge', '/TriviaChallenge', '/frame-shop-dashboard', '/admintickets', '/reset-password', '/MyVets', '/AdminOnboardingPreview', '/AdminKickstarterInvestors', '/MyAudits']) {
+      for (const ua of [GOOGLEBOT, BROWSER]) assert.equal((await middleware(request(path, ua))).status, 410, path);
+    }
+    const expectRedirect = async (path, to) => {
+      const response = await middleware(request(path, BROWSER));
+      assert.equal(response.status, 308, path);
+      assert.equal(response.headers.get('location'), 'https://credabilia.com' + to, path);
+    };
+    await expectRedirect('/home', '/');
+    await expectRedirect('/RefundPolicy', '/terms');
+    await expectRedirect('/Terms', '/terms');
+    await expectRedirect('/Certificate', '/certificate');
+    for (const path of ['/terms', '/privacy', '/help', '/certificate', '/sell', '/podcast', '/']) {
+      const response = await middleware(request(path, GOOGLEBOT));
+      assert.ok([200].includes(response.status), path + ' stays a normal page');
+    }
+    assert.equal(f.requested.some(url => /get_storefront/.test(url)), false, 'none of these is looked up as a store name');
+  } finally { f.restore(); }
+});
