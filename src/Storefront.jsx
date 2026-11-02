@@ -6,6 +6,7 @@ import { ItemArt, money, RatingStars } from './ItemArt.jsx';
 import { ReviewList } from './Reviews.jsx';
 import { EmptyStoreCarousel } from './Giveaway.jsx';
 import { rememberReferral } from './giveaway.js';
+import { setPageHead, markNoIndex } from './pageHead.js';
 
 export function Storefront({ slug, service, onBack }) {
   const [store, setStore] = useState(undefined);
@@ -20,7 +21,8 @@ export function Storefront({ slug, service, onBack }) {
   // Share-link previews (crawlers) get real per-page meta from the Vercel routing middleware --
   // this just keeps the browser tab title honest for an actual visitor, who never sees that HTML.
   useEffect(() => {
-    if (store) document.title = `${store.display_name} | Credabilia Storefront`;
+    if (store === null) return markNoIndex(); // "Store not found" must not look like a real page to search engines
+    if (store) setPageHead({ title: `${store.display_name} | Credabilia Storefront`, description: `Browse ${store.display_name}'s collection on Credabilia${store.sales_count ? ` — ${store.sales_count} sale${store.sales_count === 1 ? '' : 's'}` : ''}.`, pathname: '/' + (store.slug || slug) });
     return () => { document.title = 'Credabilia | The Memorabilia Kingdom'; };
   }, [store]);
   return <div className="app">

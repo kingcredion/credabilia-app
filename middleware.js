@@ -1,8 +1,9 @@
 import { next } from '@vercel/functions';
 import { CATEGORIES } from './src/domain.js';
-import { ISSUERS } from './src/certificates.js';
 import { DETAIL_FIELDS } from './src/listingDetails.js';
 import { categoryFromSlug, categoryPath } from './src/seoRoutes.js';
+import { shorten, listingSeo, issuerName, SITE_NAME, HOME_DESCRIPTION, STATIC_PAGES, CATEGORY_INTRO, categoryDescription } from './src/seoText.js';
+import { retiredStatus, GONE_PAGE } from './src/retiredUrls.js';
 import { PODCAST, PODCAST_LISTEN_LINKS, podcastJsonLd, episodePath, episodeJsonLd, VOICE_NOTES, KIND_LABELS, formatEpisodeDate, formatDuration, paragraphsOf } from './src/podcast.js';
 
 // Search and link-preview layer. The app is a single page that draws itself with JavaScript, so a crawler that does not run it would see the same empty page for every
@@ -13,7 +14,7 @@ const SUPABASE_URL = process.env.VITE_SUPABASE_URL;
 const SUPABASE_KEY = process.env.VITE_SUPABASE_PUBLISHABLE_KEY;
 const SITE_ORIGIN = 'https://credabilia.com';
 const DEFAULT_IMAGE = SITE_ORIGIN + '/brand/app-icons/crown-c/web/icon-512.png';
-const RESERVED_SLUGS = new Set(['terms', 'privacy', 'help', 'auth', 'item', 'sell', 'certificate', 'giveaway-rules', 'category', 'podcast', 'marketplace']);
+const RESERVED_SLUGS = new Set(['terms', 'privacy', 'help', 'auth', 'item', 'sell', 'certificate', 'giveaway-rules', 'category', 'podcast', 'marketplace', 'founding']);
 // Includes Google's other fetchers (Search Console's live URL test is "Google-InspectionTool", which does not say "bot"), speed-test tools, and spiders that call themselves spider or crawler.
 const BOT_UA = /bot|spider|crawl|google-|googleother|lighthouse|pagespeed|facebookexternalhit|facebookcatalog|twitterbot|slackbot|discordbot|linkedinbot|whatsapp|telegrambot|applebot|pinterest|redditbot|vkshare|skypeuripreview|embedly|quora|outbrain|iframely|w3c_validator/i;
 export const isCrawler = userAgent => BOT_UA.test(userAgent || '');
@@ -29,14 +30,6 @@ function escapeHtml(value) {
 function money(cents) {
   return typeof cents === 'number' ? '$' + (cents / 100).toFixed(2) : '';
 }
-// Cut at a word boundary so a description never ends mid-word.
-export function shorten(text, max) {
-  const clean = String(text || '').replace(/\s+/g, ' ').trim();
-  if (clean.length <= max) return clean;
-  const cut = clean.slice(0, max);
-  return cut.slice(0, Math.max(cut.lastIndexOf(' '), 40)).replace(/[\s,.;:–—-]+$/, '') + '…';
-}
-
 // One address, one canonical: tracking and share parameters (utm_*, ref, fbclid, gclid, list, giveaway) and fragments never create a second page, and a trailing slash is dropped.
 export function canonicalUrl(url) {
   const u = url instanceof URL ? url : new URL(url);
@@ -96,60 +89,19 @@ async function signedImageUrl(path, expiresIn = 604800) {
   } catch { return null; }
 }
 
-const SITE_NAME = 'Credabilia';
-const HOME_DESCRIPTION = 'Credabilia is The Memorabilia Kingdom: buy and sell collectibles, explore certificate details, and collect with confidence.';
-const STATIC_PAGES = {
-  help: { title: 'Help Center | Credabilia', description: 'Answers about buying, selling, shipping, payment protection, certificates and community audits on Credabilia.', heading: 'Credabilia Help Center', text: 'Answers about buying, selling, shipping, how your payment is held until delivery, certificates of authenticity and community audits.' },
-  terms: { title: 'Terms of Service | Credabilia', description: 'The terms for buying and selling on Credabilia, including payment holds, refunds, shipping and certificates.', heading: 'Credabilia Terms of Service', text: 'The terms for buying and selling on Credabilia, including how payments are held until delivery, refunds, shipping and certificates.' },
-  privacy: { title: 'Privacy Policy | Credabilia', description: 'How Credabilia collects, uses and protects your information.', heading: 'Credabilia Privacy Policy', text: 'How Credabilia collects, uses and protects your information.' },
-  certificate: { title: 'Certificate lookup | Credabilia', description: 'Search a certificate number from PSA/DNA, JSA, Beckett (BAS) and other issuers to see whether it appears on a Credabilia listing.', heading: 'Certificate lookup', text: 'Search a certificate number from PSA/DNA, JSA, Beckett (BAS) and other issuers to see whether it appears on a Credabilia listing.' },
-  'giveaway-rules': { title: 'Giveaway Official Rules | Credabilia', description: 'Official rules for the Credabilia giveaway: no purchase necessary, how to enter, how tickets and odds work, eligibility and how the winner is chosen.', heading: 'Credabilia Giveaway Official Rules', text: 'Official rules for the Credabilia giveaway. No purchase necessary. Includes how to enter, free email entry, how tickets and odds work, eligibility, the prize and how the winner is chosen.' },
-  sell: { title: 'Sell your memorabilia | Credabilia', description: 'List signed memorabilia and collectibles on Credabilia. Get paid through Stripe after delivery, with item credibility scores that help buyers trust your listing.', heading: 'Sell your memorabilia on Credabilia', text: 'List signed memorabilia and collectibles. You are paid through Stripe after delivery, and item credibility scores help buyers trust your listing.' },
-};
+export { shorten, listingSeo };
+
 
 // Category pages use the marketplace's real categories (src/domain.js). Each has its own wording; nothing here claims anything about the items themselves.
-const CATEGORY_INTRO = {
-  Sports: 'Signed jerseys, balls, helmets, gloves, trading cards and other sports memorabilia, listed by collectors and sellers.',
-  Comics: 'Comic books, graded issues, signed covers and related collectibles, listed by collectors and sellers.',
-  Art: 'Original and signed artwork, prints and framed pieces, listed by collectors and sellers.',
-  Entertainment: 'Movie, television and music memorabilia, props and signed pieces, listed by collectors and sellers.',
-  History: 'Historical documents, artifacts and signed pieces, listed by collectors and sellers.',
-};
 export { categoryFromSlug };
 
 const NAV_LINKS = '<nav><a href="/">Credabilia</a> · <a href="/help">Help</a> · <a href="/terms">Terms</a> · <a href="/privacy">Privacy</a> · <a href="/certificate">Certificate lookup</a> · <a href="/sell">Sell</a> · <a href="/giveaway-rules">Giveaway rules</a> · <a href="/podcast">Podcast</a></nav>';
 const CATEGORY_LINKS = '<nav aria-label="Categories">' + CATEGORIES.map(c => '<a href="' + categoryPath(c) + '">' + escapeHtml(c) + '</a>').join(' · ') + '</nav>';
 
-const issuerName = item => {
-  if (!item.certificate_issuer) return null;
-  if (item.certificate_issuer === 'other') return item.certificate_company || null;
-  return ISSUERS.find(i => i.id === item.certificate_issuer)?.name || null;
-};
-
 // What a listing's own fields say, in the order a buyer reads them: only fields the seller filled in, with the labels the listing form uses.
 function detailPairs(item) {
   const attrs = item.attributes && typeof item.attributes === 'object' ? item.attributes : {};
   return Object.entries(DETAIL_FIELDS).filter(([key]) => typeof attrs[key] === 'string' && attrs[key].trim()).map(([key, label]) => [label, attrs[key].trim()]);
-}
-
-// Title, description and image text derived from real listing data. Nothing is invented: a missing field is simply left out, authentication is never claimed (a certificate is
-// described as "listed" with its issuer), and the giveaway prize says plainly that it is not for sale.
-export function listingSeo(item) {
-  const attrs = item.attributes || {};
-  const subject = typeof attrs.subject === 'string' ? attrs.subject.trim() : '';
-  const base = subject && !item.title.toLowerCase().includes(subject.toLowerCase()) ? `${item.title} – ${subject}` : item.title;
-  const title = `${shorten(base, 62)} | ${SITE_NAME}`;
-  const cert = issuerName(item);
-  let description;
-  if (item.giveaway_prize) {
-    description = shorten(`${item.title} is the prize in the Credabilia giveaway. Not for sale. See the official rules and how to enter free.`, 155);
-  } else {
-    const facts = [attrs.sport, attrs.team, attrs.year].filter(v => typeof v === 'string' && v.trim()).map(v => v.trim()).join(' · ');
-    const parts = [`Explore ${item.title} on ${SITE_NAME}.`, money(item.price_cents) && `${item.listing_type === 'auction' ? 'Current price' : 'Price'} ${money(item.price_cents)}.`, facts && facts + '.', cert && item.certificate_has_number ? `${cert} certificate number listed.` : '', item.description];
-    description = shorten(parts.filter(Boolean).join(' '), 155);
-  }
-  const alt = [item.title, subject && !item.title.toLowerCase().includes(subject.toLowerCase()) ? subject : '', item.category ? `${item.category} memorabilia` : ''].filter(Boolean).join(' – ');
-  return { title, description, alt };
 }
 
 // schema.org Product for one listing, so Google can show price and availability. Only facts the listing already states publicly; a giveaway prize has no offer because it is not for sale.
@@ -278,7 +230,7 @@ async function buildMeta(pathname) {
     const others = CATEGORIES.filter(c => c !== name).map(c => '<a href="' + categoryPath(c) + '">' + escapeHtml(c) + '</a>').join(' · ');
     return {
       title: `${name} Memorabilia and Collectibles | ${SITE_NAME}`,
-      description: count ? `Browse ${count} ${name.toLowerCase()} memorabilia and collectible listing${count === 1 ? '' : 's'} on ${SITE_NAME}, with photos, prices and seller storefronts.` : `${name} memorabilia and collectibles on ${SITE_NAME}. ${intro}`,
+      description: categoryDescription(name, count),
       image: DEFAULT_IMAGE,
       robots: count ? null : 'noindex, follow',
       body: '<main>' + breadcrumbHtml(trail) + '<h1>' + escapeHtml(name) + ' memorabilia and collectibles</h1><p>' + escapeHtml(intro) + '</p>' +
@@ -301,7 +253,7 @@ async function buildMeta(pathname) {
   }
   if (segments.length === 1 && STATIC_PAGES[segments[0]]) {
     const page = STATIC_PAGES[segments[0]];
-    return { title: page.title, description: page.description, image: DEFAULT_IMAGE, body: '<main><h1>' + escapeHtml(page.heading) + '</h1><p>' + escapeHtml(page.text) + '</p>' + NAV_LINKS + '</main>' };
+    return { title: page.title, description: page.description, image: DEFAULT_IMAGE, robots: page.robots, body: '<main><h1>' + escapeHtml(page.heading) + '</h1><p>' + escapeHtml(page.text) + '</p>' + NAV_LINKS + '</main>' };
   }
   if (segments.length === 1 && !RESERVED_SLUGS.has(segments[0])) {
     const { ok, data: store } = await callRpcChecked('get_storefront', { p_slug: segments[0] });
@@ -413,6 +365,8 @@ export default async function middleware(request) {
     const xml = await buildMerchantFeed(url.origin);
     return xmlResponse(xml);
   }
+  // Pages the old Credabilia app had and this one does not: a real 410 for everyone (people and crawlers), instead of the app's "Store not found" screen with a 200.
+  if (retiredStatus(url.pathname)) return new Response(GONE_PAGE, { status: 410, headers: { 'content-type': 'text/html; charset=utf-8', 'x-robots-tag': 'noindex', 'cache-control': 'public, max-age=0, s-maxage=3600' } });
   if (!isCrawler(request.headers.get('user-agent'))) return next();
 
   const meta = await buildMeta(url.pathname);

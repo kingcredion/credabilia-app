@@ -32,10 +32,10 @@ export function KingsCollectionCarousel({ items, onSelect }) {
       </div>
     </div>
     <div className="royal-carousel-track" id="royal-carousel-track" ref={track}>
-      {items.map((item) => <button type="button" className="royal-product" key={item.id} onClick={() => onSelect(item.id)} aria-label={'View ' + item.title + ', ' + money(item.price_cents)}>
+      {items.map((item) => <a href={'/item/' + item.id} className="royal-product" key={item.id} onClick={event => { if (event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return; event.preventDefault(); onSelect(item.id); }} aria-label={'View ' + item.title + ', ' + money(item.price_cents)}>
         <div className="royal-product-stage"><ItemArt kind={item.artwork} category={item.category} photo={item.media?.find(asset => asset.kind === 'item')?.url} thumbId={!item.sample ? item.id : undefined}/></div>
         <div className="royal-product-copy"><span className="royal-product-category">{item.category}{item.listing_type === 'auction' ? ' · Auction' : ''}</span><h3>{item.title}</h3><div><strong>{money(item.price_cents)}</strong><span>View item <ArrowRight size={16}/></span></div></div>
-      </button>)}
+      </a>)}
     </div>
   </section>;
 }

@@ -8,11 +8,16 @@ import { FoundingRequestForm } from './FoundingRequest.jsx';
 import { PODCAST, PODCAST_LISTEN_LINKS, episodePath, VOICE_NOTES, KIND_LABELS, formatDuration, formatEpisodeDate, paragraphsOf } from './podcast.js';
 import './podcast.css';
 import { isNativeApp } from './nativeAuth.js';
+import { setPageHead, markNoIndex } from './pageHead.js';
+import { shorten } from './seoText.js';
 
 const LAST_UPDATED = 'October 26, 2026';
 const TERMS_UPDATED = 'October 22, 2026';
 
-const LEGAL_PATHS = ['/terms', '/privacy', '/help'];
+// The information pages that carry the "Back to Credabilia" bar. None of them is somewhere to go "back" to: remembering one as the return target made two of them point at each
+// other (Podcast <-> Certificates) so the button never reached the app.
+const LEGAL_PATHS = ['/terms', '/privacy', '/help', '/certificate', '/podcast', '/giveaway-rules', '/founding'];
+export const isInfoPage = pathname => { const path = String(pathname || '').replace(/\/+$/, ''); return LEGAL_PATHS.includes(path) || path.startsWith('/podcast/'); };
 const RETURN_KEY = 'credabilia-legal-return';
 
 // Where "Back to Credabilia" goes: the page the visitor was on before they opened Terms, Privacy or Help (remembered for the visit, so it
@@ -20,10 +25,11 @@ const RETURN_KEY = 'credabilia-legal-return';
 function returnTarget() {
   try {
     const referrer = document.referrer ? new URL(document.referrer) : null;
-    if (referrer && referrer.origin === window.location.origin && !LEGAL_PATHS.includes(referrer.pathname)) {
+    if (referrer && referrer.origin === window.location.origin && !isInfoPage(referrer.pathname)) {
       sessionStorage.setItem(RETURN_KEY, referrer.pathname + referrer.search);
     }
-    return sessionStorage.getItem(RETURN_KEY) || '/';
+    const saved = sessionStorage.getItem(RETURN_KEY);
+    return saved && !isInfoPage(saved.split('?')[0]) ? saved : '/'; // a value saved by an older visit may be an information page itself
   } catch { return '/'; }
 }
 
@@ -288,7 +294,7 @@ export function PodcastPage({ service }) {
   const [player, setPlayer] = useState(false);
   const [episodes, setEpisodes] = useState(null);
   useEffect(() => {
-    const before = document.title; document.title = `${PODCAST.name} | Credabilia`;
+    const before = document.title; setPageHead({ title: `${PODCAST.name} | Credabilia`, description: PODCAST.seoDescription, pathname: '/podcast' });
     return () => { document.title = before; };
   }, []);
   useEffect(() => {
@@ -331,9 +337,12 @@ export function PodcastEpisodePage({ service, slug }) {
     return () => { alive = false; };
   }, [service, slug]);
   useEffect(() => {
+    if (episode === null) return markNoIndex(); // no such episode: keep the address out of search
     if (!episode) return undefined;
-    const before = document.title; document.title = `${episode.title} | Credabilia`;
-    return () => { document.title = before; };
+    const before = document.title; setPageHead({ title: `${episode.title} | Credabilia`, description: shorten(episode.summary, 155), pathname: episodePath(episode.slug) });
+    // Same rule the crawler layer applies: an episode kept out of search says so in the page too.
+    const undo = episode.index === false ? markNoIndex() : null;
+    return () => { document.title = before; undo?.(); };
   }, [episode]);
   if (failed) return <LegalShell title="Podcast episode" updated={false} current="podcast"><p role="alert">We could not load this episode right now. Please try again in a moment, or <a href="/podcast">see all episodes</a>.</p></LegalShell>;
   if (episode === undefined) return <LegalShell title="Podcast episode" updated={false} current="podcast"><p role="status">Loading…</p></LegalShell>;

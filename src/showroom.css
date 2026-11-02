@@ -56,14 +56,14 @@
 }
 .app .listings-section .item-card-content { padding: 22px; }
 .app .search { background: var(--surface); border-radius: 12px; }
-.app .categories button { border-radius: 999px; }
+.app .categories button, .app .categories a { border-radius: 999px; }
 .app .community-note {
   border-radius: 18px;
   background: linear-gradient(115deg, var(--surface), var(--selected-bg));
 }
 @media (hover: hover) and (prefers-reduced-motion: no-preference) {
-  .app .listings-section button.item-card { transition: transform .2s ease, box-shadow .2s ease; }
-  .app .listings-section button.item-card:hover { transform: translateY(-4px); box-shadow: 0 14px 30px var(--showroom-shadow); }
+  .app .listings-section :is(button, a).item-card { transition: transform .2s ease, box-shadow .2s ease; }
+  .app .listings-section :is(button, a).item-card:hover { transform: translateY(-4px); box-shadow: 0 14px 30px var(--showroom-shadow); }
 }
 :root[data-theme="dark"] {
   --showroom-glass: #142824ed;
