@@ -6,7 +6,7 @@ import { listingInput, auditInput } from './domain.js';
 import { pushSupported, currentPushSubscription, enablePush, disablePush } from './push.js';
 import { handleNativeBack } from './nativeBack.js';
 import { trackEvent } from './events.js';
-import { NATIVE_REDIRECT, isNativeApp, parseAuthRedirect, cleanEmailCode, EMAIL_CODE_MIN, EMAIL_CODE_MAX, externalLinkUrl, APP_REVIEW_EMAIL } from './nativeAuth.js';
+import { NATIVE_REDIRECT, isNativeApp, parseAuthRedirect, cleanEmailCode, EMAIL_CODE_MIN, EMAIL_CODE_MAX, externalLinkUrl, APP_REVIEW_EMAIL, usesNativeAppleSignIn, randomNonce, isAppleSignInCancelled } from './nativeAuth.js';
 
 // Opens an outside page (Stripe's payout setup). On the website it is an ordinary redirect. In the phone app it opens in the in-app browser so the member can
 // never get stuck outside the app, and onClosed runs when they tap Done.
@@ -95,7 +95,20 @@ export function makeService() {
     async signIn() { await oauthSignIn(client, 'google'); },
     // Sign in with Apple (App Store rule 4.8: required in the iPhone app because Google sign-in is offered). Same route as Google; it only works once the
     // Apple provider is switched on in Supabase, which is why the button is hidden until VITE_APPLE_SIGNIN_ENABLED is set.
-    async signInWithApple() { await oauthSignIn(client, 'apple'); },
+    // In the iPhone and iPad app the system's own Sign in with Apple sheet is used (no browser, nothing to come back from); elsewhere it is the web route above.
+    async signInWithApple() {
+      if (!usesNativeAppleSignIn()) { await oauthSignIn(client, 'apple'); return; }
+      const { registerPlugin } = await import('@capacitor/core');
+      const nonce = randomNonce();
+      let apple;
+      try { apple = (await registerPlugin('AppleSignIn').authorize({ nonce })); }
+      catch (err) { if (isAppleSignInCancelled(err)) return; throw new Error('Apple sign-in did not finish. Please try again, or use another sign-in option.'); }
+      if (!apple?.identityToken) throw new Error('Apple did not return a sign-in. Please try again.');
+      unwrap(await client.auth.signInWithIdToken({ provider: 'apple', token: apple.identityToken, nonce }));
+      // Apple only shares the name the first time, and only with the app: keep it so the member is not left as "Royal Member".
+      const name = [apple.givenName, apple.familyName].filter(Boolean).join(' ').trim();
+      if (name) { try { await client.auth.updateUser({ data: { full_name: name, name } }); await client.rpc('update_profile', { p_display_name: name }); } catch { /* the name is a nicety, never a reason to fail the sign-in */ } }
+    },
     // The email carries both a link and a 6-digit code. The code works everywhere, including the apps, where a link opens the browser instead.
     async signInWithEmail(email) {
       // App Review's test account: while the review switch is on, this address signs straight in. When it is off (or for anyone else) this falls through to the normal emailed code.

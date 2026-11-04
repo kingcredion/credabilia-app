@@ -6,6 +6,23 @@ export function isNativeApp() {
   try { return !!globalThis.Capacitor?.isNativePlatform?.(); } catch { return false; }
 }
 
+// Sign in with Apple inside the iPhone and iPad app is done by the system itself (the native sheet, AppleSignIn in ios/App/App/SceneDelegate.swift), not by a web page in a
+// browser that has to find its way back to the app: that round trip is what ended on a blank screen for App Review (build 7, iPad). The Apple sign-in sheet hands back a
+// signed token that Supabase checks directly. Only on iOS; the website and Android keep the browser route.
+export function usesNativeAppleSignIn() {
+  try { return globalThis.Capacitor?.getPlatform?.() === 'ios' && !!globalThis.Capacitor?.isPluginAvailable?.('AppleSignIn'); } catch { return false; }
+}
+
+// A random one-time value tying the Apple token to this attempt. Apple receives its SHA-256 (the Swift side hashes it); Supabase receives it as it is and checks them.
+export function randomNonce() {
+  const bytes = new Uint8Array(32);
+  globalThis.crypto.getRandomValues(bytes);
+  return Array.from(bytes, b => b.toString(16).padStart(2, '0')).join('');
+}
+
+// Closing the Apple sheet without choosing is not an error the member needs to read about.
+export const isAppleSignInCancelled = err => /cancel/i.test(String(err?.code || '') + ' ' + String(err?.message || ''));
+
 // Reads the link the system browser (or an emailed sign-in link) opened the app with. Returns null for any other link.
 export function parseAuthRedirect(link) {
   if (typeof link !== 'string' || !link.startsWith(NATIVE_REDIRECT)) return null;
