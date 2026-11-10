@@ -311,7 +311,7 @@ body::before{content:"";position:fixed;top:0;left:0;right:0;height:var(--safe-to
 .conversation-row .conversation-clear{top:50%;right:6px;transform:translateY(-50%);box-shadow:none;background:transparent;width:30px;height:30px}
 .conversation-row .action-badge{top:6px;left:auto;right:40px;padding:2px 8px;font-size:10px}
 /* On a phone the Messages banner is just a heading, so the conversations are on the first screen. */
-@media(max-width:600px){.messages-hero{min-height:0}.messages-hero .hero-mascot{display:none}.messages-hero .hero-copy{padding:20px 22px}.messages-hero .hero h1,.messages-hero h1{font-size:30px;margin-bottom:8px}.messages-hero .hero-copy>p:not(.eyebrow){margin-bottom:0}}
+@media(max-width:600px){.messages-hero{min-height:0}.messages-hero .hero-copy{padding:20px 22px 8px}.messages-hero .hero h1,.messages-hero h1{font-size:30px;margin-bottom:8px}.messages-hero .hero-copy>p:not(.eyebrow){margin-bottom:0}}
 .messages-hero{margin-bottom:18px}
 /* Full-screen photo viewer (opens inside the app instead of sending the member to a browser). */
 .gallery-open{display:block;width:100%;padding:0;background:none;border:0;cursor:zoom-in}

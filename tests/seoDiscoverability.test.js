@@ -152,3 +152,9 @@ test('every old-app address Search Console reported is a 410 or a permanent redi
     assert.equal(f.requested.some(url => /get_storefront/.test(url)), false, 'none of these is looked up as a store name');
   } finally { f.restore(); }
 });
+
+test('the Messages hero picture is shown on phones (a compact one), not hidden, so the phone apps and the mobile website have it', async () => {
+  const styles = await read('src/styles.css'), branding = await read('src/branding.css');
+  assert.doesNotMatch(styles, /\.messages-hero \.hero-mascot\s*\{\s*display:\s*none/, 'nothing hides the picture at phone width');
+  assert.match(branding, /@media \(max-width: 600px\) \{ \.messages-hero \.hero-mascot img \{ height: 170px; \} \}/, 'phones get the compact size');
+});
