@@ -165,3 +165,39 @@
   pointer-events: none;
   z-index: -1;
 }
+/* Certificate engraving behind the character, clipped to the artwork column. */
+.hero-mascot { position: relative; isolation: isolate; }
+.hero-mascot::before {
+  content: ""; position: absolute; inset: 0; z-index: -1; pointer-events: none;
+  background:
+    repeating-radial-gradient(ellipse at 38% 51%, transparent 0 8px, var(--brand-teal) 8.5px 9px, transparent 9.5px 14px),
+    repeating-radial-gradient(ellipse at 63% 55%, transparent 0 9px, var(--brand-teal) 9.5px 10px, transparent 10.5px 15px);
+  opacity: .16;
+  mask-image: radial-gradient(ellipse at center, black 12%, transparent 72%);
+}
+.marketplace-photo-trim {
+  --marketplace-photo-bg: var(--photo-mat);
+  box-shadow: inset 0 1px 0 color-mix(in srgb, white 18%, transparent);
+}
+.photo-gallery[data-kind="signature"] {
+  --etch: color-mix(in srgb, var(--brand-teal) 55%, transparent);
+  padding: 8px;
+  background: linear-gradient(var(--etch),var(--etch)) left top / 14px 1px,
+    linear-gradient(var(--etch),var(--etch)) left top / 1px 14px,
+    linear-gradient(var(--etch),var(--etch)) right bottom / 14px 1px,
+    linear-gradient(var(--etch),var(--etch)) right bottom / 1px 14px;
+  background-repeat: no-repeat;
+}
+.evidence-box code, input[name="certificate_number"] { font-variant-numeric: tabular-nums; }
+.king-badge, .founding-store-chip { box-shadow: inset 0 1px 0 #fff2b6a6; }
+.scan-status { position: relative; padding-bottom: 5px; }
+.scan-status::after { content: ""; display: block; height: 2px; background: var(--ai-accent); }
+.draft-ready::before { content: ""; display: inline-block; width: 7px; height: 7px; margin-right: 6px; border-radius: 50%; background: var(--ai-accent); }
+@media (prefers-reduced-motion: no-preference) {
+  .scan-status::after { animation: archive-read 1s ease-out both; transform-origin: left; }
+}
+@keyframes archive-read { from { transform: scaleX(0); } to { transform: scaleX(1); } }
+
+.google-play-download { display: inline-flex; align-items: center; }
+.google-play-download img { display: block; width: 160px; height: auto; }
+.iphone-availability { align-self: center; color: var(--text-muted); font-size: 13px; }

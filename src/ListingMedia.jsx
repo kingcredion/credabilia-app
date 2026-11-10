@@ -89,7 +89,7 @@ export function PhotoGallery({media=[],kind='item',title,service}) {
   const photos=media.filter(x=>x.kind===kind);
   if(!photos.length) return null;
   const current=photos[Math.min(index,photos.length-1)];
-  return <section className="photo-gallery" aria-label={KIND_LABELS[kind] || 'Item photos'}>
+  return <section className="photo-gallery" data-kind={kind} aria-label={KIND_LABELS[kind] || 'Item photos'}>
     {kind!=='item' && <h3>{KIND_LABELS[kind]}</h3>}
     <GalleryPhoto key={current.path+current.url} asset={current} service={service} title={title} kind={kind} index={Math.min(index,photos.length-1)} onOpen={()=>setViewing(true)}/>
     <div className="photo-thumbnails">{photos.map((asset,i)=><button key={asset.path} type="button" onClick={()=>setIndex(i)} aria-pressed={i===index} aria-label={`Show ${kind} photo ${i+1}`}>{asset.url && <img src={asset.url} loading="lazy" decoding="async" alt=""/>}</button>)}</div>

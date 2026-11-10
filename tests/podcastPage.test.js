@@ -92,7 +92,7 @@ test('the home page hero has a podcast button next to the store buttons, on the 
   const app = squash(await read('src/App.jsx'));
   assert.match(app, /workspace === 'collector' && !isNativeApp\(\) && <div className="store-links">/, 'website Discover only: the phone apps carry their own bundle and /podcast is a website page');
   const storeRow = app.split('<div className="store-links">')[1].split('</div>}')[0];
-  assert.match(storeRow, /Google Play[\s\S]*Coming soon[\s\S]*<a className="store-link store-link-live store-link-podcast" href="\/podcast"><img src="\/brand\/podcast-microphone-96\.webp"[\s\S]*Listen to the[\s\S]*Podcast/, 'after the two app buttons');
+  assert.match(storeRow, /Get it on Google Play[\s\S]*iPhone app coming soon[\s\S]*<a className="store-link store-link-live store-link-podcast" href="\/podcast"><img src="\/brand\/podcast-microphone-96\.webp"[\s\S]*Listen to the[\s\S]*Podcast/, 'after the store badge and iPhone availability note');
   assert.doesNotMatch(storeRow, /spotify/i, 'the player stays on /podcast and loads only when a visitor asks');
   assert.doesNotMatch(app, /PodcastBar|podcast-bar/, 'the separate bar is gone: the hero button replaced it');
 });

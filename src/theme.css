@@ -12,9 +12,9 @@
   --text-muted:#596e78;
   --border:#dce5e7;--border-soft:#dce3d3;--border-faint:#e5e9df;
 
-  --green:#205d78;--green-hover:#16475e;--on-brand:#fff;--saved:#0f7a52;--on-saved:#fff;
-  --brand-teal:#17695f;--brand-gold:#bd8b32;
-  --focus-ring:#205d78;--focus-ring-input:#17695f;
+  --green:#096653;--green-hover:#075643;--on-brand:#fff;--saved:#0f7a52;--on-saved:#fff;
+  --ai-accent:#08745c;--photo-mat:#e8e9e7;--brand-teal:#17695f;--brand-gold:#956b24;
+  --focus-ring:#096653;--focus-ring-input:#17695f;
 
   --selected-bg:#e5f0ef;--selected-text:#185c54;
   --hover-bg:#edf3f5;
@@ -34,21 +34,21 @@
 }
 @media(prefers-color-scheme:dark){:root:not([data-theme="light"]){
   color-scheme:dark;
-  --bg:#12181b;--text:#e7edf0;
-  --surface:#1c262b;--surface-2:#1f2b26;--surface-2-border:#33443b;--surface-3:#232d2a;
+  --bg:#101a18;--text:#e7edf0;
+  --surface:#1b2926;--surface-2:#1f2b26;--surface-2-border:#33443b;--surface-3:#232d2a;
   --text-muted:#9db0b8;
   --border:#2c3a40;--border-soft:#33434a;--border-faint:#26333a;
 
-  --green:#5aa3c9;--green-hover:#7fb9d8;--on-brand:#06171d;--saved:#34b983;--on-saved:#04140d;
-  --brand-teal:#4fb3a0;--brand-gold:#e0ae57;
-  --focus-ring:#5aa3c9;--focus-ring-input:#4fb3a0;
+  --green:#79d9b8;--green-hover:#96e4ca;--on-brand:#10261f;--saved:#34b983;--on-saved:#04140d;
+  --ai-accent:#65f0b4;--photo-mat:#292d2e;--brand-teal:#4fb3a0;--brand-gold:#e5c477;
+  --focus-ring:#79d9b8;--focus-ring-input:#4fb3a0;
 
   --selected-bg:#1f3a3a;--selected-text:#7fd8c7;
   --hover-bg:#223034;
 
   --banner-bg:#1c333d;--banner-text:#a9cfe0;
 
-  --learning-bg:#2b2416;--learning-border:#4a3c22;--learning-icon:#e0ae57;--learning-text:#c9b98f;
+  --learning-bg:#2b2416;--learning-border:#4a3c22;--learning-icon:#e5c477;--learning-text:#c9b98f;
 
   --hero-bg-start:#16232a;--hero-bg-end:#16241f;--hero-border:#24373d;
   --hero-heading:#bfe0ee;--hero-eyebrow:#8fb0bd;--hero-ring-border:#2a3f45;
@@ -61,21 +61,21 @@
 }}
 :root[data-theme="dark"]{
   color-scheme:dark;
-  --bg:#12181b;--text:#e7edf0;
-  --surface:#1c262b;--surface-2:#1f2b26;--surface-2-border:#33443b;--surface-3:#232d2a;
+  --bg:#101a18;--text:#e7edf0;
+  --surface:#1b2926;--surface-2:#1f2b26;--surface-2-border:#33443b;--surface-3:#232d2a;
   --text-muted:#9db0b8;
   --border:#2c3a40;--border-soft:#33434a;--border-faint:#26333a;
 
-  --green:#5aa3c9;--green-hover:#7fb9d8;--on-brand:#06171d;--saved:#34b983;--on-saved:#04140d;
-  --brand-teal:#4fb3a0;--brand-gold:#e0ae57;
-  --focus-ring:#5aa3c9;--focus-ring-input:#4fb3a0;
+  --green:#79d9b8;--green-hover:#96e4ca;--on-brand:#10261f;--saved:#34b983;--on-saved:#04140d;
+  --ai-accent:#65f0b4;--photo-mat:#292d2e;--brand-teal:#4fb3a0;--brand-gold:#e5c477;
+  --focus-ring:#79d9b8;--focus-ring-input:#4fb3a0;
 
   --selected-bg:#1f3a3a;--selected-text:#7fd8c7;
   --hover-bg:#223034;
 
   --banner-bg:#1c333d;--banner-text:#a9cfe0;
 
-  --learning-bg:#2b2416;--learning-border:#4a3c22;--learning-icon:#e0ae57;--learning-text:#c9b98f;
+  --learning-bg:#2b2416;--learning-border:#4a3c22;--learning-icon:#e5c477;--learning-text:#c9b98f;
 
   --hero-bg-start:#16232a;--hero-bg-end:#16241f;--hero-border:#24373d;
   --hero-heading:#bfe0ee;--hero-eyebrow:#8fb0bd;--hero-ring-border:#2a3f45;
