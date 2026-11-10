@@ -35,7 +35,7 @@ function ListingPhoto({ kind, category, large, photo, thumbId }) {
 
 export function ItemArt({ kind = 'generic', category, large = false, photo, thumbId }) {
   if(photo || thumbId) return <ListingPhoto kind={kind} category={category} large={large} photo={photo} thumbId={thumbId}/>;
-  if (!['baseball', 'comic', 'art'].includes(kind)) return <div className={`item-art no-photo ${large ? 'large' : ''}`} role="img" aria-label={`${category || 'Item'}: no photo yet`}><img src="/brand/no-photo-landscape-v1.webp" alt="" width="960" height="720" loading={large ? 'eager' : 'lazy'} decoding="async"/></div>;
+  if (!['baseball', 'comic', 'art'].includes(kind)) return <div className={`item-art no-photo ${large ? 'large' : ''}`} role="img" aria-label={`${category || 'Item'}: no photo yet`}><img src="/brand/king-placeholder-v4-800.webp" alt="" width="960" height="720" loading={large ? 'eager' : 'lazy'} decoding="async"/></div>;
   return <div className={`item-art ${kind} ${large ? 'large' : ''}`} aria-label={`${category} illustration`} role="img">
     {kind === 'baseball' ? <div className="baseball-ball"><span className="seam one"/><span className="seam two"/><i>Heritage</i></div>
       : kind === 'comic' ? <div className="comic-book"><small>ORBIT PRESS · 001</small><strong>ASTRAL<br/>EXPLORER</strong><div className="planet"/><span>INTO THE UNKNOWN</span></div>

@@ -45,8 +45,8 @@ export function SellPage() {
 
     <section className="sell-hero">
       <picture>
-        <source media="(max-width: 720px)" srcSet="/brand/sell-hero-mobile.webp" width="880" height="923"/>
-        <img className="sell-hero-img" src="/brand/sell-hero-desktop.webp" width="1536" height="1024" fetchPriority="high"
+        <source media="(max-width: 720px)" srcSet="/brand/king-landing-v4-880.webp" width="880" height="923"/>
+        <img className="sell-hero-img" src="/brand/king-landing-v4-1536.webp" width="1536" height="1024" fetchPriority="high"
           alt="King Credion welcoming sellers beside signed memorabilia, a shipping box and a phone showing a listing"/>
       </picture>
       <div className="sell-hero-copy">

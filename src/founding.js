@@ -1,8 +1,8 @@
 // Founding 100: the wording and the small decisions the pages share. The program itself (who qualifies, the 90-day window, the 100-spot cap, the fee
 // exemption) lives in the database; nothing here decides anything about money. The hero badge is only a picture of a status the server already holds.
 export const FOUNDING_BADGE = {
-  src: '/brand/founding-100-badge-v2.webp',
-  srcSet: '/brand/founding-100-badge-v2-460.webp 460w, /brand/founding-100-badge-v2.webp 920w',
+  src: '/brand/king-founding-v4-920.webp',
+  srcSet: '/brand/king-founding-v4-460.webp 460w, /brand/king-founding-v4-920.webp 920w',
   width: 920,
   height: 307,
   alt: 'Founding 100: lifetime privileges',

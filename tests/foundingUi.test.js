@@ -35,7 +35,7 @@ test('the badge artwork keeps its proportions and transparency in both web sizes
   const original = await sharp(new URL('../public/brand/founding-100-badge-v2.png', import.meta.url).pathname.replace(/^\/([A-Za-z]:)/, '$1')).metadata();
   assert.equal(original.hasAlpha, true);
   const ratio = original.width / original.height;
-  for (const [file, width] of [['founding-100-badge-v2.webp', 920], ['founding-100-badge-v2-460.webp', 460]]) {
+  for (const [file, width] of [['king-founding-v4-920.webp', 920], ['king-founding-v4-460.webp', 460]]) {
     const meta = await sharp(new URL('../public/brand/' + file, import.meta.url).pathname.replace(/^\/([A-Za-z]:)/, '$1')).metadata();
     assert.equal(meta.width, width, file);
     assert.ok(Math.abs(meta.width / meta.height - ratio) < 0.01, file + ' keeps the original proportions');
@@ -47,7 +47,7 @@ test('the badge artwork keeps its proportions and transparency in both web sizes
 
 test('the hero swaps the badge for a qualified member only, and keeps the old badge file for everyone else', async () => {
   const app = squash(await read('src/App.jsx'));
-  assert.match(app, /showFoundingBadge\(session, founding\) \? <FoundingHeroBadge\/> : <img className="ai-marketplace-badge" src="\/brand\/ai-powered-marketplace-badge-v3\.webp"/);
+  assert.match(app, /showFoundingBadge\(session, founding\) \? <FoundingHeroBadge\/> : <img className="ai-marketplace-badge" src="\/brand\/ai-assisted-marketplace-badge-v2\.webp"/);
   assert.match(app, /service\.foundingStatus\(\)\.then\(value => \{ if \(alive\) setFounding\(value\); \}\)/, 'status comes from the server');
 });
 

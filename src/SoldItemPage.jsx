@@ -24,7 +24,7 @@ export function SoldItemPage({ item, onBack }) {
         <section className="sold-page">
           <div className="sold-photo">
             <ItemArt category={item.category} photo={item.media?.[0]?.url}/>
-            <img className="sold-stamp" src="/brand/item-sold-stamp-v1.webp" width="640" height="628" alt="Item sold"/>
+            <img className="sold-stamp" src="/brand/king-sold-v4-384.webp" width="640" height="628" alt="Item sold"/>
           </div>
           <div className="sold-copy">
             <p className="eyebrow">{item.category}</p>

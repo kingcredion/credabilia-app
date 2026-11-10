@@ -8,7 +8,7 @@ import './firstListing.css';
 // Shown at the top of Discover to a signed-in member who has never listed. One clear step; payouts come later.
 export function FirstListingCard({ onStart, onDismiss, payoutsReady }) {
   return <section className="first-listing-card" aria-labelledby="first-listing-title">
-    <img src="/brand/king-credion-photographing-jersey-360.webp" srcSet="/brand/king-credion-photographing-jersey-360.webp 360w, /brand/king-credion-photographing-jersey-540.webp 540w" sizes="(max-width: 640px) 130px, 176px" width="176" height="178" alt="King Credion photographing a signed jersey on a gold display stand" decoding="async"/>
+    <img src="/brand/king-credion-sell-v4-560.webp" srcSet="/brand/king-credion-sell-v4-560.webp 560w, /brand/king-credion-sell-v4-960.webp 960w" sizes="(max-width: 640px) 130px, 176px" width="176" height="178" alt="King Credion photographing a signed jersey on a gold display stand" decoding="async"/>
     <div className="first-listing-copy">
       <p className="eyebrow"><span className="small-line"/>YOUR FIRST LISTING</p>
       <h2 id="first-listing-title">Turn one piece into your first sale</h2>
@@ -41,7 +41,7 @@ export function FirstListingCelebration({ service, slug, itemId, giveawayActive,
   return <div className="celebrate">
     <div className="celebrate-stage">
       <Sparks/>
-      <img src="/brand/king-credion-first-listing-celebration-440.webp" srcSet="/brand/king-credion-first-listing-celebration-440.webp 440w, /brand/king-credion-first-listing-celebration-660.webp 660w" sizes="(max-width: 640px) 170px, 220px" width="220" height="251" alt="King Credion celebrating with a check mark and a payout card"/>
+      <img src="/brand/king-celebration-v4-440.webp" srcSet="/brand/king-celebration-v4-440.webp 440w, /brand/king-celebration-v4-660.webp 660w" sizes="(max-width: 640px) 170px, 220px" width="220" height="251" alt="King Credion celebrating a published listing with a raised fist and a checked listing card"/>
     </div>
     <h3>Congratulations, you're a seller!</h3>
     <p>Buyers can see your listing now. One step left before they can buy it: connect payouts with Stripe so you get paid when it sells.</p>
@@ -70,7 +70,7 @@ export function PayoutIntro({ onContinue, onLater }) {
   return <div className="form-stack payout-intro">
     <div className="celebrate-stage payout-intro-stage">
       <Sparks/>
-      <img src="/brand/king-credion-stripe-payout-setup-360.webp" srcSet="/brand/king-credion-stripe-payout-setup-360.webp 360w, /brand/king-credion-stripe-payout-setup-540.webp 540w" sizes="(max-width: 640px) 190px, 230px" width="230" height="210" alt="King Credion holding a gold coin beside the Stripe payout card and a crowned padlock"/>
+      <img src="/brand/king-payout-v4-360.webp" srcSet="/brand/king-payout-v4-360.webp 360w, /brand/king-payout-v4-540.webp 540w" sizes="(max-width: 640px) 190px, 230px" width="230" height="210" alt="King Credion showing a seller a violet payout card with a bank and lock"/>
     </div>
     <p><ShieldCheck size={16} aria-hidden="true"/> Getting paid takes one step with Stripe.</p>
     <ul className="payout-intro-list">{PAYOUT_INTRO_POINTS.map(point => <li key={point}>{point}</li>)}</ul>

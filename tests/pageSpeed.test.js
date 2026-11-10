@@ -22,12 +22,12 @@ test('every other page still starts fetching the app code up front, and the land
 
 test('the hero photo is requested early and fonts are linked from the page head, not a CSS @import', () => {
   const html = read('../index.html');
-  assert.ok(html.includes("'/brand/sell-hero-mobile.webp'") && html.includes("'/brand/sell-hero-desktop.webp'") && html.includes("l.rel = 'preload'"));
+  assert.ok(html.includes("'/brand/king-landing-v4-880.webp'") && html.includes("'/brand/king-landing-v4-1536.webp'") && html.includes("l.rel = 'preload'"));
   assert.ok(html.includes('rel="preconnect" href="https://fonts.googleapis.com"') && html.includes('rel="preconnect" href="https://fonts.gstatic.com" crossorigin') && html.includes('fonts.googleapis.com/css2?family=DM+Sans'));
   assert.ok(!/@import url\(/.test(read('../src/styles.css')), 'no render-blocking font @import');
 });
 
 test('the home hero offers a smaller photo to phones', () => {
   const app = read('../src/App.jsx');
-  assert.ok(app.includes("mobile-launch-hero-v3-560.webp 560w, /brand/mobile-launch-hero-v3-720.webp 720w, /brand/mobile-launch-hero-v3.webp 960w") && app.includes('sizes="(max-width: 720px) 360px, 460px"'));
+  assert.ok(app.includes("king-credion-discover-v4-560.webp 560w, /brand/king-credion-discover-v4-960.webp 960w") && app.includes('sizes="(max-width: 720px) 360px, 460px"'));
 });

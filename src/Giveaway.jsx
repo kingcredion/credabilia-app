@@ -34,9 +34,13 @@ function EnterButton({ giveaway, onEnter, busy, isAdmin }) {
 
 // The pinned card at the top of Discover.
 export function GiveawayCard({ giveaway, item, onOpen, onEnter, busy, isAdmin }) {
+  const [expanded, setExpanded] = useState(false);
   return <article className="giveaway-card" aria-label="Current giveaway">
-    <Sparks/>
-    <GiveawayRibbon/>
+    <button type="button" className="giveaway-toggle" aria-expanded={expanded} aria-label={expanded ? 'Close giveaway details' : 'Open giveaway details'} onClick={() => setExpanded(open => !open)}>
+      <GiveawayRibbon/>
+      <span>{expanded ? 'Close' : 'Open'}</span>
+    </button>
+    {expanded && <>
     <button type="button" className="giveaway-photo" onClick={onOpen} aria-label={`View the giveaway prize: ${giveaway.title}`}>
       <ItemArt kind={item?.artwork} category={item?.category} photo={item?.media?.[0]?.url} thumbId={item?.id}/>
     </button>
@@ -50,6 +54,7 @@ export function GiveawayCard({ giveaway, item, onOpen, onEnter, busy, isAdmin })
       <p className="giveaway-fine">{oddsLine(giveaway)} No account? Enter free by email: {MAILIN_EMAIL}. {statesNote(giveaway.excluded_states)}</p>
       <button type="button" className="text-button giveaway-details" onClick={onOpen}>Details and rules</button>
     </div>
+    </>}
   </article>;
 }
 

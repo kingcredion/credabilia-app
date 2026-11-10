@@ -24,7 +24,7 @@ export function KingsCollectionCarousel({ items, onSelect }) {
   };
   return <section className="royal-carousel" aria-labelledby="royal-carousel-title" aria-roledescription="carousel">
     <div className="royal-carousel-heading">
-      <img src="/brand/king-credion-collection-presenter-v1.webp" width="100" height="100" alt="" loading="lazy"/>
+      <img src="/brand/king-presenter-v4-560.webp" width="100" height="100" alt="" loading="lazy"/>
       <div><p><Crown size={16}/> FROM THE KING'S COLLECTION</p><h2 id="royal-carousel-title">A royal selection.</h2><span>Explore memorabilia offered by King Credion.</span></div>
       <div className="royal-carousel-controls">
         <button type="button" aria-label="Previous King's Collection item" aria-controls="royal-carousel-track" disabled={edges.start} onClick={() => move(-1)}><ArrowLeft size={20}/></button>
