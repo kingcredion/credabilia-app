@@ -50,3 +50,8 @@ create table if not exists public.kingdom_search_runs (
 );
 alter table public.kingdom_search_runs enable row level security;
 revoke all on public.kingdom_search_runs from public, anon, authenticated;
+
+-- The daily check runs as the service role.
+grant select on public.kingdom_articles to service_role;
+grant select, insert, update, delete on public.kingdom_search_status to service_role;
+grant select, insert on public.kingdom_search_runs to service_role;
