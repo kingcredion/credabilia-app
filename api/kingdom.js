@@ -18,8 +18,8 @@ export function archivePage(stories) {
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>The Memorabilia Kingdom | Credabilia</title><meta name="description" content="Explore Credabilia’s stories about memorabilia, provenance and the evidence behind notable sales.">
 <link rel="canonical" href="${SITE}/kingdom">
-<style>${STYLE}</style>
-</head><body><header><div><a href="/">Credabilia</a><h1>The Memorabilia Kingdom</h1></div></header><main aria-label="Published stories">${cards}</main></body></html>\n`;
+<link rel="stylesheet" href="/kingdom-navigation.css"><style>${STYLE}</style>
+</head><body><header><div><a class="kingdom-back" href="/"><span aria-hidden="true">&larr;</span> Back to marketplace</a><h1>The Memorabilia Kingdom</h1></div></header><main aria-label="Published stories">${cards}</main></body></html>\n`;
 }
 
 export function storyPage(story) {
@@ -38,14 +38,14 @@ export function storyPage(story) {
 <meta property="og:type" content="article"><meta property="og:title" content="${escapeHtml(story.title)}"><meta property="og:description" content="${escapeHtml(story.description)}"><meta property="og:url" content="${url}">
 <meta property="article:published_time" content="${escapeHtml(story.published_on)}">
 <script type="application/ld+json">${jsonLd}</script>
-<style>${STORY_STYLE}</style></head><body><header><a href="/">Credabilia</a></header><main><article><small><a href="/kingdom">The Memorabilia Kingdom</a> · <time datetime="${escapeHtml(story.published_on)}">${displayDate(story.published_on)}</time></small>
+<link rel="stylesheet" href="/kingdom-navigation.css"><style>${STORY_STYLE}</style></head><body><header><a class="kingdom-back" href="/kingdom"><span aria-hidden="true">&larr;</span> Back to stories</a></header><main><article><small><a href="/kingdom">The Memorabilia Kingdom</a> · <time datetime="${escapeHtml(story.published_on)}">${displayDate(story.published_on)}</time></small>
 <h1>${escapeHtml(story.title)}</h1>
 ${sections}
-<p class="note">Each paragraph links to the page it was automatically checked against before publishing.</p>
+<p class="note">Source links appear alongside each paragraph.</p>
 </article></main></body></html>\n`;
 }
 
-const NOT_FOUND = `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Story not found | Credabilia</title><meta name="robots" content="noindex"><style>${STORY_STYLE}</style></head><body><header><a href="/">Credabilia</a></header><main><h1>Story not found</h1><p><a href="/kingdom">Back to The Memorabilia Kingdom</a></p></main></body></html>`;
+const NOT_FOUND = `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Story not found | Credabilia</title><meta name="robots" content="noindex"><link rel="stylesheet" href="/kingdom-navigation.css"><style>${STORY_STYLE}</style></head><body><header><a class="kingdom-back" href="/kingdom"><span aria-hidden="true">&larr;</span> Back to stories</a></header><main><h1>Story not found</h1><p><a href="/kingdom">Back to The Memorabilia Kingdom</a></p></main></body></html>`;
 
 export function createHandler({ env, fetcher = fetch }) {
   const supabaseUrl = env('VITE_SUPABASE_URL'), key = env('VITE_SUPABASE_PUBLISHABLE_KEY');
