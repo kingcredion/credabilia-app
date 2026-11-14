@@ -353,6 +353,7 @@ export default async function middleware(request) {
   if (!SUPABASE_URL || !SUPABASE_KEY) return next();
 
   const url = new URL(request.url);
+  if (url.pathname === '/kingdom') return next();
   if (url.pathname === '/sitemap.xml' || url.pathname.startsWith('/sitemaps/')) {
     const data = await sitemapData();
     if (!data) return new Response('Sitemap temporarily unavailable', { status: 503, headers: { 'retry-after': '300', 'cache-control': 'no-store' } });

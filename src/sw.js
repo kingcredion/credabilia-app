@@ -6,7 +6,7 @@ import { registerRoute, NavigationRoute } from 'workbox-routing';
 // a cached response: this is a live marketplace, not content that's safe to serve stale.
 precacheAndRoute(self.__WB_MANIFEST);
 registerRoute(new NavigationRoute(createHandlerBoundToURL('/index.html'), {
-  denylist: [/^\/kingdom\//],
+  denylist: [/^\/kingdom(?:\/|\?|$)/],
 }));
 
 // registerType:'autoUpdate' (vite.config.js) only actually updates anyone if the new worker

@@ -19,8 +19,12 @@
   ],
   "rewrites": [
     {
-      "source": "/kingdom/john-lennon-guitar",
-      "destination": "/kingdom/john-lennon-guitar.html"
+      "source": "/kingdom",
+      "destination": "/kingdom.html"
+    },
+    {
+      "source": "/kingdom/:slug([a-z0-9-]+)",
+      "destination": "/kingdom/:slug.html"
     },
     {
       "source": "/img/item/:id",

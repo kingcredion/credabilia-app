@@ -2872,7 +2872,7 @@ export default function App() {
             </>}
           </section>{workspace === 'collector' && <section className="community-note"><div className="note-icon"><ShieldCheck size={25}/></div><div><h3>Confidence grows with evidence.</h3><p>A community opinion is a starting point. For valuable purchases, seek qualified authentication.</p></div></section>}
         </>}
-        <footer><span>© {new Date().getFullYear()} Credabilia LLC · 732 S 6th St, Ste 7531, Las Vegas, NV 89101</span><img className="footer-tagline" src="/brand/the-memorabilia-kingdom-gold-quill-v1-optimized.webp" alt="The Memorabilia Kingdom" width="2172" height="724"/><span className="footer-legal"><a href="tel:+18667500255">1 (866) 750-0255</a><a href="/podcast">Podcast</a><a href="/kingdom/john-lennon-guitar">The Lennon guitar auction</a><a href="/help">Help</a><a href="/terms">Terms</a><a href="/privacy">Privacy</a></span></footer>
+        <footer><span>© {new Date().getFullYear()} Credabilia LLC · 732 S 6th St, Ste 7531, Las Vegas, NV 89101</span><img className="footer-tagline" src="/brand/the-memorabilia-kingdom-gold-quill-v1-optimized.webp" alt="The Memorabilia Kingdom" width="2172" height="724"/><span className="footer-legal"><a href="tel:+18667500255">1 (866) 750-0255</a><a href="/podcast">Podcast</a><a href="/kingdom">The Memorabilia Kingdom</a><a href="/help">Help</a><a href="/terms">Terms</a><a href="/privacy">Privacy</a></span></footer>
       </main>
     </div>
     <BottomNav sellGlow={sellGlow} messagesGlow={messagesGlow} session={session} workspace={workspace} onSwitchWorkspace={switchWorkspace} profile={profile} authReady={authReady} onProfile={() => setModal('profile')} onSignIn={() => setModal('login')}/>
