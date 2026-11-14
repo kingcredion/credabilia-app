@@ -44,3 +44,7 @@ verify_jwt = false
 [functions.kingdom-check-draft]
 # Authenticates the scheduled reviewer with the private dispatch credential.
 verify_jwt = false
+
+[functions.kingdom-receive-review]
+# The handler verifies a single-review bearer token.
+verify_jwt = false

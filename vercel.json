@@ -20,11 +20,15 @@
   "rewrites": [
     {
       "source": "/kingdom",
-      "destination": "/kingdom.html"
+      "destination": "/api/kingdom"
+    },
+    {
+      "source": "/kingdom/john-lennon-guitar",
+      "destination": "/kingdom/john-lennon-guitar.html"
     },
     {
       "source": "/kingdom/:slug([a-z0-9-]+)",
-      "destination": "/kingdom/:slug.html"
+      "destination": "/api/kingdom?slug=:slug"
     },
     {
       "source": "/img/item/:id",
