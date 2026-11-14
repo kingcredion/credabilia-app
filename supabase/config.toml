@@ -40,3 +40,7 @@ verify_jwt = false
 [functions.kingdom-request-draft]
 # Validates the private dispatch credential against Vault.
 verify_jwt = false
+
+[functions.kingdom-check-draft]
+# Authenticates the scheduled reviewer with the private dispatch credential.
+verify_jwt = false
