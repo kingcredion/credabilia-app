@@ -1,6 +1,11 @@
 {
   "redirects": [
     {
+      "source": "/kingdom.html",
+      "destination": "/kingdom",
+      "permanent": true
+    },
+    {
       "source": "/marketplace",
       "destination": "/",
       "permanent": false
@@ -18,6 +23,10 @@
     }
   ],
   "rewrites": [
+    {
+      "source": "/kingdom/",
+      "destination": "/api/kingdom"
+    },
     {
       "source": "/kingdom",
       "destination": "/api/kingdom"
