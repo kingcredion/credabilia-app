@@ -5,7 +5,9 @@ import { registerRoute, NavigationRoute } from 'workbox-routing';
 // Every Supabase call (listings, purchases, refunds, balances) must always hit the network, never
 // a cached response: this is a live marketplace, not content that's safe to serve stale.
 precacheAndRoute(self.__WB_MANIFEST);
-registerRoute(new NavigationRoute(createHandlerBoundToURL('/index.html')));
+registerRoute(new NavigationRoute(createHandlerBoundToURL('/index.html'), {
+  denylist: [/^\/kingdom\//],
+}));
 
 // registerType:'autoUpdate' (vite.config.js) only actually updates anyone if the new worker
 // activates promptly -- without these, a newly installed worker sits in "waiting" until every
