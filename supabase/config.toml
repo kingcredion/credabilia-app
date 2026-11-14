@@ -48,3 +48,6 @@ verify_jwt = false
 [functions.kingdom-receive-review]
 # The handler verifies a single-review bearer token.
 verify_jwt = false
+
+[functions.kingdom-search-check]
+verify_jwt = false

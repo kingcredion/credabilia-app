@@ -67,6 +67,16 @@ async function callRpc(name, body) {
 const sitemapData = () => cached('sitemap_entries', () => callRpc('sitemap_entries', {}));
 // Episodes open to search engines (podcast_sitemap_entries). A failure here must never take the rest of the sitemap down, so callers fall back to an empty list.
 const podcastSitemapData = () => cached('podcast_sitemap_entries', () => callRpc('podcast_sitemap_entries', {}));
+// Published Kingdom stories, read straight from kingdom_articles (the public read rule already hides withdrawn ones; drafts live elsewhere), so a story
+// is in the sitemap within a minute of publishing with no rebuild. Like the podcast list, a failure here falls back to an empty list.
+const kingdomSitemapData = () => cached('kingdom_sitemap_entries', async () => {
+  try {
+    const res = await fetch(`${SUPABASE_URL}/rest/v1/kingdom_articles?select=slug,published_on,updated_at&order=published_on.desc,created_at.desc`, {
+      headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${SUPABASE_KEY}` },
+    });
+    return res.ok ? await res.json() : null;
+  } catch { return null; }
+});
 const podcastEpisodes = () => cached('podcast_episodes_list', () => callRpc('podcast_episodes_list', {}));
 const listingIndex = (category = null, limit = 60, exclude = null) => cached(`index|${category}|${limit}|${exclude}`, () => callRpc('seo_listing_index', { p_category: category, p_limit: limit, p_exclude: exclude }));
 
@@ -286,7 +296,16 @@ export function sitemapUrls(data, origin = SITE_ORIGIN) {
   const stores = data?.storefront_entries?.length ? data.storefront_entries : (data?.storefronts || []).map(slug => ({ slug }));
   for (const s of stores) urls.push({ loc: `${origin}/${s.slug}`, lastmod: day(s.lastmod) });
   for (const e of data?.podcast_episodes || []) urls.push({ loc: `${origin}${episodePath(e.slug)}`, lastmod: day(e.lastmod) });
-  return urls;
+  // The Kingdom archive (dated by its newest change) and each published story, dated by its real last change.
+  if (Array.isArray(data?.kingdom_articles)) {
+    const stories = data.kingdom_articles.filter(k => typeof k?.slug === 'string' && /^[a-z0-9]+(-[a-z0-9]+)*$/.test(k.slug));
+    const dates = stories.map(k => day(k.updated_at || k.published_on)).filter(Boolean).sort();
+    urls.push({ loc: `${origin}/kingdom`, lastmod: dates[dates.length - 1] || '' });
+    for (const k of stories) urls.push({ loc: `${origin}/kingdom/${k.slug}`, lastmod: day(k.updated_at || k.published_on) });
+  }
+  // Every address exactly once, even if two sources ever name the same page.
+  const seen = new Set();
+  return urls.filter(u => !seen.has(u.loc) && seen.add(u.loc));
 }
 const urlsetXml = urls => `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n` +
   urls.map(u => `  <url>\n    <loc>${escapeHtml(u.loc)}</loc>${u.lastmod ? `\n    <lastmod>${escapeHtml(u.lastmod)}</lastmod>` : ''}\n  </url>`).join('\n') + '\n</urlset>\n';
@@ -357,7 +376,8 @@ export default async function middleware(request) {
   if (url.pathname === '/sitemap.xml' || url.pathname.startsWith('/sitemaps/')) {
     const data = await sitemapData();
     if (!data) return new Response('Sitemap temporarily unavailable', { status: 503, headers: { 'retry-after': '300', 'cache-control': 'no-store' } });
-    const built = buildSitemapFiles({ ...data, podcast_episodes: (await podcastSitemapData()) || [] }, SITE_ORIGIN);
+    const [episodes, stories] = await Promise.all([podcastSitemapData(), kingdomSitemapData()]);
+    const built = buildSitemapFiles({ ...data, podcast_episodes: episodes || [], kingdom_articles: stories || [] }, SITE_ORIGIN);
     if (url.pathname === '/sitemap.xml') return xmlResponse(built.index || built.files.main);
     const name = url.pathname.slice('/sitemaps/'.length);
     return built.files[name] ? xmlResponse(built.files[name]) : new Response('Not found', { status: 404 });
