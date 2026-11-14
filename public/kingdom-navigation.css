@@ -13,3 +13,8 @@
 }
 .kingdom-back:hover { background: #23483e; }
 .kingdom-back:focus-visible { outline: 3px solid white; outline-offset: 3px; }
+
+.kingdom-masthead nav { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: .75rem; }
+.kingdom-logo { display: block; width: clamp(7rem, 25vw, 11rem); height: auto; }
+.kingdom-masthead h1 { margin: 1rem 0 0; }
+.kingdom-tagline { display: block; width: min(100%, 38rem); height: auto; }

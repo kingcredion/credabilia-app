@@ -19,7 +19,7 @@ export function archivePage(stories) {
 <title>The Memorabilia Kingdom | Credabilia</title><meta name="description" content="Explore Credabilia’s stories about memorabilia, provenance and the evidence behind notable sales.">
 <link rel="canonical" href="${SITE}/kingdom">
 <link rel="stylesheet" href="/kingdom-navigation.css"><style>${STYLE}</style>
-</head><body><header><div><a class="kingdom-back" href="/"><span aria-hidden="true">&larr;</span> Back to marketplace</a><h1>The Memorabilia Kingdom</h1></div></header><main aria-label="Published stories">${cards}</main></body></html>\n`;
+</head><body><header class="kingdom-masthead"><div><nav aria-label="Marketplace navigation"><a href="/"><img class="kingdom-logo" src="/brand/credabilia-logo-crown-preview-v1-optimized.webp" alt="Credabilia home" width="600" height="300"></a><a class="kingdom-back" href="/"><span aria-hidden="true">&larr;</span> Back to marketplace</a></nav><h1><img class="kingdom-tagline" src="/brand/the-memorabilia-kingdom-gold-quill-v1.png" alt="The Memorabilia Kingdom" width="2172" height="724"></h1></div></header><main aria-label="Published stories">${cards}</main></body></html>\n`;
 }
 
 export function storyPage(story) {
