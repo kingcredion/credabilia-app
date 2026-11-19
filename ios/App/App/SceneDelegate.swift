@@ -29,6 +29,7 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
 class MainViewController: CAPBridgeViewController {
     override open func capacitorDidLoad() {
         bridge?.registerPluginInstance(AppleSignInPlugin())
+        bridge?.registerPluginInstance(WebAuthSessionPlugin())
     }
 }
 
@@ -104,5 +105,58 @@ public class AppleSignInPlugin: CAPPlugin, CAPBridgedPlugin, ASAuthorizationCont
     private static func sha256Hex(_ input: String) -> String {
         let digest = SHA256.hash(data: Data(input.utf8))
         return digest.map { String(format: "%02x", $0) }.joined()
+    }
+}
+
+// Web sign-in (Google) through Apple's own web-sign-in window. The earlier way (an in-app browser that had to be sent back to the app by a custom link) never returned on iPhone and ended
+// on a blank screen, so the app now opens the provider's page in ASWebAuthenticationSession, which hands the finished link (com.credabilia.app://auth/callback?code=...) straight back here
+// without any redirect that iOS can drop. src/service.js (oauthSignIn) passes the address and the link scheme, and finishes the sign-in with the code.
+@objc(WebAuthSessionPlugin)
+public class WebAuthSessionPlugin: CAPPlugin, CAPBridgedPlugin, ASWebAuthenticationPresentationContextProviding {
+    public let identifier = "WebAuthSessionPlugin"
+    public let jsName = "WebAuthSession"
+    public let pluginMethods: [CAPPluginMethod] = [
+        CAPPluginMethod(name: "start", returnType: CAPPluginReturnPromise)
+    ]
+
+    private var session: ASWebAuthenticationSession?
+
+    @objc func start(_ call: CAPPluginCall) {
+        guard let address = call.getString("url"), let url = URL(string: address),
+              let scheme = call.getString("callbackScheme"), !scheme.isEmpty else {
+            call.reject("A sign-in address and a return scheme are needed.", "bad_request")
+            return
+        }
+        DispatchQueue.main.async {
+            self.bridge?.saveCall(call)
+            let session = ASWebAuthenticationSession(url: url, callbackURLScheme: scheme) { callbackURL, error in
+                DispatchQueue.main.async {
+                    self.session = nil
+                    if let error = error {
+                        let code = (error as? ASWebAuthenticationSessionError)?.code == .canceledLogin ? "canceled" : "failed"
+                        call.reject(error.localizedDescription, code)
+                    } else if let callbackURL = callbackURL {
+                        call.resolve(["url": callbackURL.absoluteString])
+                    } else {
+                        call.reject("No sign-in result came back.", "no_result")
+                    }
+                    self.bridge?.releaseCall(call)
+                }
+            }
+            session.presentationContextProvider = self
+            session.prefersEphemeralWebBrowserSession = false
+            self.session = session
+            if !session.start() {
+                self.session = nil
+                call.reject("The sign-in window could not open.", "failed")
+                self.bridge?.releaseCall(call)
+            }
+        }
+    }
+
+    // Where the sign-in window appears. Without this it has nowhere to open on an iPad.
+    public func presentationAnchor(for session: ASWebAuthenticationSession) -> ASPresentationAnchor {
+        if let window = self.bridge?.viewController?.view.window { return window }
+        return ASPresentationAnchor()
     }
 }

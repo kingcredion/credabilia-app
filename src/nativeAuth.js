@@ -13,6 +13,13 @@ export function usesNativeAppleSignIn() {
   try { return globalThis.Capacitor?.getPlatform?.() === 'ios' && !!globalThis.Capacitor?.isPluginAvailable?.('AppleSignIn'); } catch { return false; }
 }
 
+// Google (and any other web sign-in) in the iPhone and iPad app runs in Apple's own web-sign-in window (ASWebAuthenticationSession, WebAuthSession in ios/App/App/SceneDelegate.swift),
+// which hands the finished sign-in straight back to the app. The older route (an in-app browser that has to be sent back by a custom link) never worked on iPhone: it ended on a blank
+// screen. Only iOS has the window; Android keeps the browser route.
+export function usesNativeWebAuthSession() {
+  try { return globalThis.Capacitor?.getPlatform?.() === 'ios' && !!globalThis.Capacitor?.isPluginAvailable?.('WebAuthSession'); } catch { return false; }
+}
+
 // A random one-time value tying the Apple token to this attempt. Apple receives its SHA-256 (the Swift side hashes it); Supabase receives it as it is and checks them.
 export function randomNonce() {
   const bytes = new Uint8Array(32);

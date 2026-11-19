@@ -6,7 +6,7 @@ import { listingInput, auditInput } from './domain.js';
 import { pushSupported, currentPushSubscription, enablePush, disablePush } from './push.js';
 import { handleNativeBack } from './nativeBack.js';
 import { trackEvent } from './events.js';
-import { NATIVE_REDIRECT, isNativeApp, parseAuthRedirect, cleanEmailCode, EMAIL_CODE_MIN, EMAIL_CODE_MAX, externalLinkUrl, APP_REVIEW_EMAIL, usesNativeAppleSignIn, randomNonce, isAppleSignInCancelled } from './nativeAuth.js';
+import { NATIVE_REDIRECT, isNativeApp, parseAuthRedirect, cleanEmailCode, EMAIL_CODE_MIN, EMAIL_CODE_MAX, externalLinkUrl, APP_REVIEW_EMAIL, usesNativeAppleSignIn, usesNativeWebAuthSession, randomNonce, isAppleSignInCancelled } from './nativeAuth.js';
 
 // Opens an outside page (Stripe's payout setup). On the website it is an ordinary redirect. In the phone app it opens in the in-app browser so the member can
 // never get stuck outside the app, and onClosed runs when they tap Done.
@@ -37,9 +37,28 @@ export function listenForExternalLinks() {
 // which listenForNativeSignIn() finishes; on the web it is an ordinary redirect.
 export async function oauthSignIn(client, provider) {
   if (!isNativeApp()) { unwrap(await client.auth.signInWithOAuth({ provider, options: { redirectTo: `${window.location.origin}/auth/callback` } })); return; }
-  const { Browser } = await import('@capacitor/browser');
   const data = unwrap(await client.auth.signInWithOAuth({ provider, options: { redirectTo: NATIVE_REDIRECT, skipBrowserRedirect: true } }));
+  // iPhone and iPad: Apple's own web-sign-in window returns the finished sign-in directly (see usesNativeWebAuthSession).
+  if (usesNativeWebAuthSession()) {
+    const { registerPlugin } = await import('@capacitor/core');
+    webAuthSession = webAuthSession || registerPlugin('WebAuthSession');
+    let result;
+    try { result = await webAuthSession.start({ url: data.url, callbackScheme: new URL(NATIVE_REDIRECT).protocol.replace(':', '') }); }
+    catch (err) { if (isAppleSignInCancelled(err)) return; throw new Error('Sign-in did not finish. Please try again, or sign in with the code we email you.'); }
+    await finishNativeSignIn(client, result?.url);
+    return;
+  }
+  const { Browser } = await import('@capacitor/browser');
   await Browser.open({ url: data.url });
+}
+let webAuthSession = null;
+
+// Completes a sign-in from the link the provider sent back (code or error). Shared by the browser route (appUrlOpen) and the iPhone window above.
+export async function finishNativeSignIn(client, link) {
+  const result = parseAuthRedirect(link);
+  if (!result) throw new Error('Sign-in did not come back to the app. Please try again.');
+  if (result.code) { const { error } = await client.auth.exchangeCodeForSession(result.code); if (error) throw error; }
+  else throw new Error(result.error || 'Sign-in did not finish. Please try again.');
 }
 
 
